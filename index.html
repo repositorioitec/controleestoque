@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoques - ITEC</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- TELA DE AUTENTICAÇÃO (LOGIN & REGISTRO) -->
+    <div id="auth-screen" class="auth-screen">
+        <div class="auth-card-wrapper">
+            <div class="auth-brand">
+                <div class="auth-logo">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+                <h2>Controle de Estoques - ITEC</h2>
+                <p>Sistema de Gestão Multiusuário e Unidades Operacionais</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-box" class="auth-box active">
+                <div class="auth-header">
+                    <h3>Acesse sua Conta</h3>
+                    <p>Entre com suas credenciais de usuário</p>
+                </div>
+                <form id="form-login" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="login-usuario"><i class="fa-solid fa-user"></i> Usuário</label>
+                        <input type="text" id="login-usuario" placeholder="Ex: admin" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-senha"><i class="fa-solid fa-lock"></i> Senha</label>
+                        <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
+                    </button>
+                </form>
+                <div class="auth-footer">
+                    <p>Não possui uma conta? <a href="#" onclick="toggleAuthMode('register')">Cadastre-se aqui</a></p>
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-box" class="auth-box">
+                <div class="auth-header">
+                    <h3>Criar Nova Conta</h3>
+                    <p>Preencha os dados abaixo. O acesso exige aprovação do Administrador.</p>
+                </div>
+                <form id="form-register" onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label for="reg-nome"><i class="fa-solid fa-id-card"></i> Nome Completo</label>
+                        <input type="text" id="reg-nome" placeholder="Ex: João da Silva" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-usuario"><i class="fa-solid fa-user"></i> Nome de Usuário (Login)</label>
+                        <input type="text" id="reg-usuario" placeholder="Ex: joaosilva" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-senha"><i class="fa-solid fa-lock"></i> Senha</label>
+                        <input type="password" id="reg-senha" placeholder="••••••••" required autocomplete="new-password">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block">
+                        <i class="fa-solid fa-user-plus"></i> Solicitar Cadastro
+                    </button>
+                </form>
+                <div class="auth-footer">
+                    <p>Já possui conta? <a href="#" onclick="toggleAuthMode('login')">Voltar para o Login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA PRINCIPAL DO SISTEMA (APÓS LOGIN) -->
+    <div id="main-app" class="app-layout hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+                <div class="brand-info">
+                    <h2>ITEC Estoque</h2>
+                    <span>Multiusuário & Unidades</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active" data-target="view-dashboard">
+                        <a href="#"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                    </li>
+                    <li data-target="view-produtos">
+                        <a href="#"><i class="fa-solid fa-box-archive"></i> <span>Produtos</span></a>
+                    </li>
+                    <li data-target="view-movimentacoes">
+                        <a href="#"><i class="fa-solid fa-right-left"></i> <span>Movimentações</span></a>
+                    </li>
+                    <li class="admin-only" data-target="view-cadastros">
+                        <a href="#"><i class="fa-solid fa-folder-tree"></i> <span>Categorias / Fornecedores / Unidades</span></a>
+                    </li>
+                    <li class="admin-only" data-target="view-usuarios">
+                        <a href="#"><i class="fa-solid fa-users-gear"></i> <span>Usuários e Aprovações</span></a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="user-avatar">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div class="user-info">
+                    <span id="user-display-name" class="user-name">Usuário</span>
+                    <span id="user-display-role" class="user-role">Nível</span>
+                    <small id="user-display-unit" class="text-muted"></small>
+                </div>
+                <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Bar Header -->
+            <header class="topbar">
+                <div class="topbar-title">
+                    <h1 id="page-title">Dashboard de Estoque</h1>
+                    <span class="badge-db"><i class="fa-solid fa-globe"></i> GitHub Pages (Online)</span>
+                </div>
+                <div class="topbar-unit-selector" id="unit-selector-wrapper" style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.6); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <label for="select-global-unidade" style="font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                        <i class="fa-solid fa-building text-primary"></i> Unidade:
+                    </label>
+                    <select id="select-global-unidade" style="background: transparent; border: none; color: #fff; font-size: 14px; outline: none; cursor: pointer;" onchange="trocarUnidadeAtiva(this.value)">
+                        <option value="">Todas as Unidades (Visão Global)</option>
+                    </select>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn btn-outline" onclick="abrirModalMovimentacao('ENTRADA')">
+                        <i class="fa-solid fa-circle-plus"></i> Nova Entrada
+                    </button>
+                    <button class="btn btn-warning" onclick="abrirModalMovimentacao('SAIDA')">
+                        <i class="fa-solid fa-circle-minus"></i> Nova Saída
+                    </button>
+                    <button class="btn btn-primary admin-only" onclick="abrirModalProduto()">
+                        <i class="fa-solid fa-plus"></i> Novo Produto
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-body">
+                <!-- VIEW 1: DASHBOARD -->
+                <section id="view-dashboard" class="app-view active">
+                    <!-- KPI Cards Grid -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card bg-gradient-blue">
+                            <div class="kpi-icon"><i class="fa-solid fa-boxes-packing"></i></div>
+                            <div class="kpi-data">
+                                <span class="kpi-label">Produtos Cadastrados</span>
+                                <h3 id="kpi-total-produtos">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card bg-gradient-teal">
+                            <div class="kpi-icon"><i class="fa-solid fa-layer-group"></i></div>
+                            <div class="kpi-data">
+                                <span class="kpi-label">Total de Itens em Estoque</span>
+                                <h3 id="kpi-total-itens">0</h3>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card bg-gradient-purple">
+                            <div class="kpi-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                            <div class="kpi-data">
+                                <span class="kpi-label">Valor Total (Custo)</span>
+                                <h3 id="kpi-valor-total">R$ 0,00</h3>
+                            </div>
+                        </div>
+
+                        <div class="kpi-card bg-gradient-orange">
+                            <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="kpi-data">
+                                <span class="kpi-label">Produtos em Nível Crítico</span>
+                                <h3 id="kpi-baixo-estoque">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Content Grid -->
+                    <div class="dash-grid">
+                        <!-- Alertas de Estoque Baixo -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-bell text-warning"></i> Alertas de Estocagem Crítica</h3>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Produto</th>
+                                            <th>Estoque Mínimo</th>
+                                            <th>Estoque Atual</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-baixo-estoque">
+                                        <tr><td colspan="4" class="text-center">Carregando dados...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Últimas Movimentações -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-clock-rotate-left text-info"></i> Últimas Movimentações</h3>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data/Hora</th>
+                                            <th>Produto</th>
+                                            <th>Tipo</th>
+                                            <th>Qtd</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-dash-movs">
+                                        <tr><td colspan="4" class="text-center">Carregando dados...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 2: PRODUTOS -->
+                <section id="view-produtos" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="search-filters-bar">
+                                <div class="search-box">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="filter-produto-busca" placeholder="Buscar por código de barras ou nome do produto..." onkeyup="carregarProdutos()">
+                                </div>
+                                <select id="filter-produto-categoria" onchange="carregarProdutos()">
+                                    <option value="">Todas as Categorias</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Cód. Barras</th>
+                                        <th>Nome do Produto</th>
+                                        <th>Categoria</th>
+                                        <th>Fornecedor</th>
+                                        <th>Unidade Origem</th>
+                                        <th>Estoque Mínimo</th>
+                                        <th>Preço Custo (R$)</th>
+                                        <th>Preço Venda (R$)</th>
+                                        <th>Saldo Atual</th>
+                                        <th>Status</th>
+                                        <th class="text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-produtos-body">
+                                    <tr><td colspan="11" class="text-center">Carregando catálogo de produtos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 3: MOVIMENTAÇÕES DE ESTOQUE -->
+                <section id="view-movimentacoes" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-list-check"></i> Histórico de Entradas e Saídas</h3>
+                            <div class="action-buttons">
+                                <button class="btn btn-outline" onclick="abrirModalMovimentacao('ENTRADA')">
+                                    <i class="fa-solid fa-circle-plus"></i> Registrar Entrada
+                                </button>
+                                <button class="btn btn-warning" onclick="abrirModalMovimentacao('SAIDA')">
+                                    <i class="fa-solid fa-circle-minus"></i> Registrar Saída
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Data/Hora</th>
+                                        <th>Unidade</th>
+                                        <th>Produto</th>
+                                        <th>Tipo</th>
+                                        <th>Quantidade</th>
+                                        <th>Valor Unitário (R$)</th>
+                                        <th>Total (R$)</th>
+                                        <th>Observação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-movimentacoes-body">
+                                    <tr><td colspan="9" class="text-center">Carregando movimentações...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 4: CATEGORIAS, FORNECEDORES E UNIDADES (SOMENTE ADMIN) -->
+                <section id="view-cadastros" class="app-view">
+                    <!-- Painel Unidades Operacionais -->
+                    <div class="panel" style="margin-bottom: 24px;">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-building-user"></i> Unidades Operacionais</h3>
+                            <button class="btn btn-sm btn-primary" onclick="abrirModalUnidade()">
+                                <i class="fa-solid fa-plus"></i> Nova Unidade
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome da Unidade</th>
+                                        <th>Endereço</th>
+                                        <th>CNPJ</th>
+                                        <th class="text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-unidades-body">
+                                    <tr><td colspan="5" class="text-center">Carregando unidades...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Grid Categorias e Fornecedores -->
+                    <div class="two-columns-grid">
+                        <!-- Categorias -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-tags"></i> Categorias</h3>
+                                <button class="btn btn-sm btn-primary" onclick="abrirModalCategoria()">
+                                    <i class="fa-solid fa-plus"></i> Nova Categoria
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Nome da Categoria</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-categorias-body">
+                                        <tr><td colspan="2" class="text-center">Carregando categorias...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Fornecedores -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-truck-field"></i> Fornecedores</h3>
+                                <button class="btn btn-sm btn-primary" onclick="abrirModalFornecedor()">
+                                    <i class="fa-solid fa-plus"></i> Novo Fornecedor
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nome / Razão Social</th>
+                                            <th>CNPJ/CPF</th>
+                                            <th>Telefone</th>
+                                            <th>E-mail</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-fornecedores-body">
+                                        <tr><td colspan="4" class="text-center">Carregando fornecedores...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 5: USUÁRIOS E APROVAÇÕES (SOMENTE ADMIN) -->
+                <section id="view-usuarios" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-user-check"></i> Gestão de Usuários e Aprovações</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome Completo</th>
+                                        <th>Usuário (Login)</th>
+                                        <th>Nível de Acesso</th>
+                                        <th>Unidade Operacional</th>
+                                        <th>Status Aprovação</th>
+                                        <th class="text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-usuarios-body">
+                                    <tr><td colspan="7" class="text-center">Carregando lista de usuários...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL UNIDADES OPERACIONAIS (SOMENTE ADMIN) -->
+    <div id="modal-unidade" class="modal-overlay hidden">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="modal-unidade-title">Cadastrar Unidade Operacional</h3>
+                <button class="modal-close" onclick="fecharModal('modal-unidade')">&times;</button>
+            </div>
+            <form id="form-unidade" onsubmit="salvarUnidade(event)">
+                <input type="hidden" id="unidade-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="unidade-nome">Nome da Unidade *</label>
+                        <input type="text" id="unidade-nome" placeholder="Ex: Filial Centro ou Unidade 2" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="unidade-endereco">Endereço</label>
+                        <input type="text" id="unidade-endereco" placeholder="Ex: Rua das Flores, 123">
+                    </div>
+                    <div class="form-group">
+                        <label for="unidade-cnpj">CNPJ</label>
+                        <input type="text" id="unidade-cnpj" placeholder="00.000.000/0000-00">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-unidade')">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Salvar Unidade</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL APROVAR / EDITAR USUÁRIO (SOMENTE ADMIN) -->
+    <div id="modal-aprovar-usuario" class="modal-overlay hidden">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="modal-user-title">Gestão de Usuário</h3>
+                <button class="modal-close" onclick="fecharModal('modal-aprovar-usuario')">&times;</button>
+            </div>
+            <form id="form-aprovar-usuario" onsubmit="salvarAprovacaoOuEdicaoUsuario(event)">
+                <input type="hidden" id="aprovar-user-id">
+                <input type="hidden" id="aprovar-user-modo" value="editar">
+                <div class="modal-body">
+                    <p style="margin-bottom: 1rem;">Usuário: <strong id="aprovar-user-nome"></strong></p>
+                    <div class="form-group">
+                        <label for="aprovar-unidade">Unidade Operacional *</label>
+                        <select id="aprovar-unidade" required>
+                            <option value="">Selecione a Unidade...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="aprovar-nivel">Nível de Acesso *</label>
+                        <select id="aprovar-nivel" required>
+                            <option value="Operador">Operador (Entradas/Saídas de sua Unidade)</option>
+                            <option value="Administrador">Administrador (Acesso Total a Todas as Unidades)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-aprovar-usuario')">Cancelar</button>
+                    <button type="submit" id="btn-salvar-user" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 1: PRODUTO (CRIAR / EDITAR) -->
+    <div id="modal-produto" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-produto-title">Cadastrar Novo Produto</h3>
+                <button class="modal-close" onclick="fecharModal('modal-produto')">&times;</button>
+            </div>
+            <form id="form-produto" onsubmit="salvarProduto(event)">
+                <input type="hidden" id="prod-id">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="prod-codigo">Código de Barras</label>
+                            <input type="text" id="prod-codigo" placeholder="7891234567890">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="prod-nome">Nome do Produto *</label>
+                            <input type="text" id="prod-nome" placeholder="Ex: Mouse Sem Fio USB" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-categoria">Categoria</label>
+                            <select id="prod-categoria">
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-fornecedor">Fornecedor Principal</label>
+                            <select id="prod-fornecedor">
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-unidade">Unidade Operacional (Padrão)</label>
+                            <select id="prod-unidade">
+                                <option value="">Todas / Padrão</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-minimo">Estoque Mínimo (Alerta)</label>
+                            <input type="number" id="prod-minimo" value="5" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-custo">Preço de Custo (R$)</label>
+                            <input type="number" step="0.01" id="prod-custo" value="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="prod-venda">Preço de Venda (R$)</label>
+                            <input type="number" step="0.01" id="prod-venda" value="0.00" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-produto')">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: MOVIMENTAÇÃO DE ESTOQUE (ENTRADA OU SAÍDA) -->
+    <div id="modal-movimentacao" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-movimentacao-title">Registrar Movimentação de Estoque</h3>
+                <button class="modal-close" onclick="fecharModal('modal-movimentacao')">&times;</button>
+            </div>
+            <form id="form-movimentacao" onsubmit="salvarMovimentacao(event)">
+                <input type="hidden" id="mov-tipo">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="mov-data">Data / Hora da Operação *</label>
+                        <input type="datetime-local" id="mov-data" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="mov-unidade">Unidade Operacional *</label>
+                        <select id="mov-unidade" onchange="atualizarProdutosPorUnidadeMovimentacao()" required>
+                            <option value="">Selecione a Unidade...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mov-produto">Selecione o Produto *</label>
+                        <select id="mov-produto" onchange="atualizarDadosProdutoMovimentacao()" required>
+                            <option value="">Carregando produtos...</option>
+                        </select>
+                    </div>
+                    <div id="mov-saldo-info" class="info-box hidden">
+                        <span>Saldo em estoque: <strong id="mov-saldo-qtd">0</strong> unidades</span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="mov-quantidade">Quantidade *</label>
+                            <input type="number" id="mov-quantidade" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="mov-valor">Valor Unitário (R$)</label>
+                            <input type="number" step="0.01" id="mov-valor" value="0.00" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="mov-obs">Observação / Nota Fiscal / Motivo</label>
+                        <textarea id="mov-obs" rows="2" placeholder="Ex: Compra NF 1234 ou Venda balcão"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-movimentacao')">Cancelar</button>
+                    <button type="submit" id="btn-submit-mov" class="btn btn-primary">Confirmar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: CATEGORIA -->
+    <div id="modal-categoria" class="modal-overlay hidden">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>Cadastrar Nova Categoria</h3>
+                <button class="modal-close" onclick="fecharModal('modal-categoria')">&times;</button>
+            </div>
+            <form id="form-categoria" onsubmit="salvarCategoria(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="cat-nome">Nome da Categoria *</label>
+                        <input type="text" id="cat-nome" placeholder="Ex: Periféricos" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-categoria')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Categoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: FORNECEDOR -->
+    <div id="modal-fornecedor" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cadastrar Novo Fornecedor</h3>
+                <button class="modal-close" onclick="fecharModal('modal-fornecedor')">&times;</button>
+            </div>
+            <form id="form-fornecedor" onsubmit="salvarFornecedor(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="forn-nome">Razão Social / Nome *</label>
+                        <input type="text" id="forn-nome" placeholder="Ex: Distribuidora Silva LTDA" required>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="forn-cnpj">CNPJ / CPF</label>
+                            <input type="text" id="forn-cnpj" placeholder="00.000.000/0001-00">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-tel">Telefone</label>
+                            <input type="text" id="forn-tel" placeholder="(11) 99999-8888">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="forn-email">E-mail</label>
+                        <input type="email" id="forn-email" placeholder="contato@fornecedor.com">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-fornecedor')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Fornecedor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JS Application Script -->
+    <script src="static/js/main.js"></script>
+</body>
+</html>
