@@ -53,19 +53,32 @@ app.post('/api/auth/register', async (req, res) => {
   const senha = (req.body.senha || '').trim();
   const nome_usuario = (req.body.nome_usuario || '').trim();
   const nivel_acesso = (req.body.nivel_acesso || 'Operador').trim();
+  const id_unidade = req.body.id_unidade ? parseInt(req.body.id_unidade) : null;
 
   if (!usuario || !senha || !nome_usuario) {
     return res.status(400).json({ success: false, message: 'Todos os campos obrigatórios devem ser preenchidos.' });
   }
 
   try {
-    await database.cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso, null, "Pendente");
+    await database.cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso, id_unidade, "Pendente");
     return res.json({ success: true, message: `Usuário "${usuario}" cadastrado! Aguarde a aprovação do administrador para acessar o sistema.` });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
   }
 });
 
+// Delete usuário (admin only)
+app.delete('/api/auth/users/:id_usuario', async (req, res) => {
+  const id_usuario = parseInt(req.params.id_usuario);
+  try {
+    await database.excluir_usuario(id_usuario);
+    return res.json({ success: true, message: 'Usuário excluído com sucesso.' });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+// Listar usuários (used by front‑end)
 app.get('/api/auth/users', async (req, res) => {
   try {
     const users = await database.listar_usuarios();
@@ -288,7 +301,7 @@ app.get('/api/movimentacoes', async (req, res) => {
 });
 
 app.post('/api/movimentacoes', async (req, res) => {
-  const { id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor } = req.body;
+  const { id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor, id_usuario } = req.body;
 
   if (!id_produto || !tipo_movimentacao || !quantidade) {
     return res.status(400).json({ success: false, message: 'Produto, tipo e quantidade são obrigatórios.' });
@@ -303,7 +316,8 @@ app.post('/api/movimentacoes', async (req, res) => {
       observacao,
       data_movimentacao,
       id_unidade,
-      id_fornecedor
+      id_fornecedor,
+      id_usuario
     );
     return res.json({ success: true, message: `Movimentação de ${tipo_movimentacao} registrada com sucesso!` });
   } catch (e) {
@@ -311,7 +325,7 @@ app.post('/api/movimentacoes', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("=========================================================");
   console.log("  INICIANDO CONTROLE DE ESTOQUES - ITEC (NODE.JS)");

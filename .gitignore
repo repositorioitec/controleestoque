@@ -1,0 +1,71 @@
+# ======================
+# Python
+# ======================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ======================
+# Ambientes Virtuais
+# ======================
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ======================
+# VariÃ¡veis de Ambiente (SEGREDOS - NUNCA COMMITAR!)
+# ======================
+.env
+.env.local
+.env.*.local
+
+# ======================
+# Banco de Dados Local
+# ======================
+*.db
+*.sqlite3
+*.accdb
+
+# ======================
+# IDEs e Editores
+# ======================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ======================
+# Sistemas Operacionais
+# ======================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
+
+# ======================
+# Uploads / Arquivos gerados
+# ======================
+instance/
+uploads/
+
+# Pasta de pacote Python (não é código do projeto)
+controleestoques/
+
+# Node.js
+node_modules/
+npm-debug.log
