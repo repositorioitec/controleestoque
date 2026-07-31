@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Modal de Movimentação</title>
+    <style>
+        /* Simple overlay modal styling consistent with existing UI */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal {
+            background: #fff;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .modal-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #0f172a;
+        }
+        .modal-body {
+            padding: 16px;
+        }
+        .modal-footer {
+            padding: 12px 16px;
+            border-top: 1px solid #e2e8f0;
+            text-align: right;
+        }
+        .modal-footer button {
+            margin-left: 8px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: #334155;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .badge-success { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+        .badge-warning { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+    </style>
+</head>
+<body>
+<div id="modal-movimentacao" class="modal-overlay hidden">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modal-movimentacao-title">Cadastrar Movimentação</h3>
+            <button type="button" onclick="fecharModalMovimentacao()" title="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="form-movimentacao" onsubmit="salvarMovimentacao(event)">
+            <div class="modal-body">
+                <input type="hidden" id="mov-id" name="id_movimentacao" />
+                <div class="form-group">
+                    <label for="mov-data">Data / Hora</label>
+                    <input type="datetime-local" id="mov-data" name="data_movimentacao" required />
+                </div>
+                <div class="form-group">
+                    <label for="mov-unidade">Unidade</label>
+                    <select id="mov-unidade" name="id_unidade" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="mov-produto">Produto</label>
+                    <select id="mov-produto" name="id_produto" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="mov-fornecedor">Fornecedor (opcional)</label>
+                    <select id="mov-fornecedor" name="id_fornecedor">
+                        <option value="">Sem Fornecedor</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Movimentação</label>
+                    <select id="mov-tipo" name="tipo_movimentacao" required>
+                        <option value="ENTRADA">Entrada</option>
+                        <option value="SAIDA">Saída</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="mov-quantidade">Quantidade</label>
+                    <input type="number" id="mov-quantidade" name="quantidade" min="1" required />
+                </div>
+                <div class="form-group">
+                    <label for="mov-valor">Valor Unitário (R$)</label>
+                    <input type="number" step="0.01" id="mov-valor" name="valor_unitario" min="0" required />
+                </div>
+                <div class="form-group">
+                    <label for="mov-observacao">Observação</label>
+                    <textarea id="mov-observacao" name="observacao" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="fecharModalMovimentacao()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Open modal – will be called from main.js
+function abrirModalMovimentacao(id = null) {
+    document.getElementById('form-movimentacao').reset();
+    document.getElementById('mov-id').value = '';
+    document.getElementById('modal-movimentacao-title').textContent = id ? 'Editar Movimentação' : 'Cadastrar Movimentação';
+    // Populate selects
+    preencherSelectsMov();
+    if (id) {
+        safeFetch(`/api/movimentacoes/${id}`).then(res => {
+            if (res.success) {
+                const m = res.movimentacao;
+                document.getElementById('mov-id').value = m.id_movimentacao;
+                document.getElementById('mov-data').value = m.data_movimentacao ? m.data_movimentacao.slice(0,16) : '';
+                document.getElementById('mov-unidade').value = m.id_unidade || '';
+                document.getElementById('mov-produto').value = m.id_produto || '';
+                document.getElementById('mov-fornecedor').value = m.id_fornecedor || '';
+                document.getElementById('mov-tipo').value = m.tipo_movimentacao;
+                document.getElementById('mov-quantidade').value = m.quantidade;
+                document.getElementById('mov-valor').value = m.valor_unitario;
+                document.getElementById('mov-observacao').value = m.observacao || '';
+            }
+        });
+    }
+    document.getElementById('modal-movimentacao').classList.remove('hidden');
+}
+
+function fecharModalMovimentacao() {
+    document.getElementById('modal-movimentacao').classList.add('hidden');
+}
+
+function salvarMovimentacao(event) {
+    event.preventDefault();
+    const payload = {
+        id_movimentacao: document.getElementById('mov-id').value || null,
+        data_movimentacao: document.getElementById('mov-data').value,
+        id_unidade: document.getElementById('mov-unidade').value || null,
+        id_produto: document.getElementById('mov-produto').value || null,
+        id_fornecedor: document.getElementById('mov-fornecedor').value || null,
+        tipo_movimentacao: document.getElementById('mov-tipo').value,
+        quantidade: document.getElementById('mov-quantidade').value,
+        valor_unitario: document.getElementById('mov-valor').value,
+        observacao: document.getElementById('mov-observacao').value
+    };
+    const method = payload.id_movimentacao ? 'POST' : 'POST'; // same endpoint for create/update
+    const url = payload.id_movimentacao ? `/api/movimentacoes/${payload.id_movimentacao}` : '/api/movimentacoes';
+    safeFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(res => {
+            if (res.success) {
+                showToast(res.message, 'success');
+                fecharModalMovimentacao();
+                carregarMovimentacoes();
+                carregarDashboard();
+            } else {
+                showToast(res.message, 'error');
+            }
+        });
+}
+
+async function preencherSelectsMov() {
+    // unidades
+    const uRes = await safeFetch('/api/unidades');
+    if (uRes.success) {
+        const selU = document.getElementById('mov-unidade');
+        selU.innerHTML = '<option value="">Selecionar Unidade</option>' + uRes.unidades.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
+    }
+    // produtos
+    const pRes = await safeFetch('/api/produtos');
+    if (pRes.success) {
+        const selP = document.getElementById('mov-produto');
+        selP.innerHTML = '<option value="">Selecionar Produto</option>' + pRes.produtos.map(p => `<option value="${p.id_produto}">${p.nome_produto}</option>`).join('');
+    }
+    // fornecedores
+    const fRes = await safeFetch('/api/fornecedores');
+    if (fRes.success) {
+        const selF = document.getElementById('mov-fornecedor');
+        selF.innerHTML = '<option value="">Sem Fornecedor</option>' + fRes.fornecedores.map(f => `<option value="${f.id_fornecedor}">${f.nome_fornecedor}</option>`).join('');
+    }
+}
+</script>
+</body>
+</html>
