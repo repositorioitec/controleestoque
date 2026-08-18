@@ -122,7 +122,6 @@ async function init_db() {
 
     await client.query(`
       ALTER TABLE tbl_produtos 
-      ADD COLUMN IF NOT EXISTS preco_custo NUMERIC(12, 2) DEFAULT 0.00,
       ADD COLUMN IF NOT EXISTS inativo BOOLEAN DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS id_usuario INT REFERENCES tbl_usuarios(id_usuario) ON DELETE SET NULL;
     `);
@@ -425,30 +424,23 @@ async function obter_ultimo_custo_produto(id_produto) {
     ORDER BY data_movimentacao DESC, id_movimentacao DESC
     LIMIT 1
   `, [id_produto]);
-  return (res.rows[0] && res.rows[0].valor_unitario) ? parseFloat(res.rows[0].valor_unitario) : 0.0;
-}
-
-async function atualizar_custo_produto_pela_ultima_entrada(id_produto) {
-  const res = await pool.query(`
-    SELECT valor_unitario
-    FROM tbl_movimentacoes
-    WHERE id_produto = $1 AND UPPER(tipo_movimentacao) = 'ENTRADA' AND valor_unitario > 0
-    ORDER BY data_movimentacao DESC, id_movimentacao DESC
-    LIMIT 1
-  `, [id_produto]);
-
-  if (res.rows[0]) {
-    await pool.query(
-      `UPDATE tbl_produtos SET preco_custo = $1 WHERE id_produto = $2`,
-      [parseFloat(res.rows[0].valor_unitario), id_produto]
-    );
+  if (res.rows[0] && res.rows[0].valor_unitario) {
+    return parseFloat(res.rows[0].valor_unitario);
   }
+
+  const prodRes = await pool.query(
+    'SELECT preco_custo FROM tbl_produtos WHERE id_produto = $1',
+    [id_produto]
+  );
+  return (prodRes.rows[0] && prodRes.rows[0].preco_custo)
+    ? parseFloat(prodRes.rows[0].preco_custo)
+    : 0.0;
 }
 
 async function listar_produtos(filtro_busca = "", id_categoria = null, id_unidade = null, incluir_inativos = false, id_usuario = null, nivel_acesso = null) {
   let sql = `
     SELECT p.id_produto, p.codigo_barras, p.nome_produto, p.id_categoria, c.nome_categoria,
-           p.estoque_minimo, p.preco_custo, p.preco_venda, p.data_cadastro, p.inativo,
+           p.estoque_minimo, p.preco_venda, p.data_cadastro, p.inativo,
            p.id_unidade, u.nome_unidade, p.id_usuario, us.nome_usuario AS nome_usuario_cadastro
     FROM tbl_produtos p
     LEFT JOIN tbl_categorias c ON p.id_categoria = c.id_categoria
@@ -499,7 +491,7 @@ async function listar_produtos(filtro_busca = "", id_categoria = null, id_unidad
   
   for (const r of res.rows) {
     const estoque_atual = await calcular_estoque_produto(r.id_produto, id_unidade);
-    const preco_custo = parseFloat(r.preco_custo) || 0.0;
+    const preco_custo = await obter_ultimo_custo_produto(r.id_produto);
     const estoque_min = r.estoque_minimo || 0;
     
     let status = "Normal";
@@ -530,7 +522,7 @@ async function listar_produtos(filtro_busca = "", id_categoria = null, id_unidad
 async function obter_produto_por_id(id_produto, id_unidade = null) {
   const res = await pool.query(`
     SELECT id_produto, codigo_barras, nome_produto, id_categoria,
-           estoque_minimo, preco_custo, preco_venda, id_unidade, inativo
+           estoque_minimo, preco_venda, id_unidade, inativo
     FROM tbl_produtos
     WHERE id_produto = $1
   `, [id_produto]);
@@ -539,6 +531,7 @@ async function obter_produto_por_id(id_produto, id_unidade = null) {
   if (!r) return null;
 
   const estoque_atual = await calcular_estoque_produto(id_produto, id_unidade);
+  const preco_custo = await obter_ultimo_custo_produto(id_produto);
 
   return {
     id_produto: r.id_produto,
@@ -546,7 +539,7 @@ async function obter_produto_por_id(id_produto, id_unidade = null) {
     nome_produto: r.nome_produto,
     id_categoria: r.id_categoria,
     estoque_minimo: r.estoque_minimo || 0,
-    preco_custo: parseFloat(r.preco_custo) || 0.0,
+    preco_custo: preco_custo,
     preco_venda: parseFloat(r.preco_venda) || 0.0,
     id_unidade: r.id_unidade,
     estoque_atual: estoque_atual,
@@ -561,7 +554,6 @@ async function salvar_produto(data) {
   const id_categoria = data.id_categoria ? parseInt(data.id_categoria) : null;
   const id_unidade = data.id_unidade ? parseInt(data.id_unidade) : null;
   const estoque_minimo = parseInt(data.estoque_minimo || 5);
-  const preco_custo = parseFloat(data.preco_custo || 0.0);
   const preco_venda = parseFloat(data.preco_venda || 0.0);
   const inativo = data.inativo === true || data.inativo === 'true';
   const id_usuario = data.id_usuario ? parseInt(data.id_usuario) : null;
@@ -570,14 +562,14 @@ async function salvar_produto(data) {
     await pool.query(`
       UPDATE tbl_produtos
       SET codigo_barras = $1, nome_produto = $2, id_categoria = $3,
-          estoque_minimo = $4, preco_custo = $5, preco_venda = $6, id_unidade = $7, inativo = $9, id_usuario = COALESCE(id_usuario, $10)
-      WHERE id_produto = $8
-    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, id_unidade, id_produto, inativo, id_usuario]);
+          estoque_minimo = $4, preco_venda = $5, id_unidade = $6, inativo = $8, id_usuario = COALESCE(id_usuario, $9)
+      WHERE id_produto = $7
+    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, id_unidade, id_produto, inativo, id_usuario]);
   } else {
     await pool.query(`
-      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, id_unidade, inativo, id_usuario)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, id_unidade, inativo, id_usuario]);
+      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, id_unidade, inativo, id_usuario)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, id_unidade, inativo, id_usuario]);
   }
   return true;
 }
@@ -588,7 +580,7 @@ async function excluir_produto(id_produto) {
   return true;
 }
 
-async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao = "", data_movimentacao = null, id_unidade = null, id_fornecedor = null, id_usuario = null, numero_nf = null, id_centro_custo = null, atualizar_custo = false) {
+async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao = "", data_movimentacao = null, id_unidade = null, id_fornecedor = null, id_usuario = null, numero_nf = null, id_centro_custo = null) {
   if (!id_produto) throw new Error("Selecione um produto para registrar a movimentação.");
   
   const tipo = tipo_movimentacao.toUpperCase();
@@ -613,14 +605,10 @@ async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade,
     INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_fornecedor, id_usuario, numero_nf, id_centro_custo)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
   `, [id_produto, tipo, qtd, valor, dataMov, observacao, id_unidade || null, id_fornecedor || null, id_usuario || null, numero_nf || null, id_centro_custo || null]);
-
-  if (tipo === "ENTRADA" && atualizar_custo) {
-    await atualizar_custo_produto_pela_ultima_entrada(id_produto);
-  }
   return true;
 }
 
-async function registrar_transferencia(id_produto, quantidade, id_unidade_origem, id_unidade_destino, id_usuario = null, observacao_extra = "") {
+async function registrar_transferencia(id_produto, quantidade, id_unidade_origem, id_unidade_destino, id_usuario = null) {
   if (!id_produto) throw new Error("Selecione um produto para transferir.");
   if (!id_unidade_origem || !id_unidade_destino) throw new Error("Unidades de origem e destino são obrigatórias.");
   if (parseInt(id_unidade_origem) === parseInt(id_unidade_destino)) throw new Error("A unidade de origem e destino não podem ser iguais.");
@@ -634,7 +622,6 @@ async function registrar_transferencia(id_produto, quantidade, id_unidade_origem
   }
 
   const dataMov = new Date().toISOString();
-  const id_transf = 'TRF-' + Date.now();
   
   const client = await pool.connect();
   try {
@@ -657,19 +644,17 @@ async function registrar_transferencia(id_produto, quantidade, id_unidade_origem
     const resUnidOrigem = await client.query('SELECT nome_unidade FROM tbl_unidades_operacionais WHERE id_unidade = $1', [id_unidade_origem]);
     const nomeOrigem = resUnidOrigem.rows[0] ? resUnidOrigem.rows[0].nome_unidade : 'Outra Unidade';
 
-    const baseObsSaida = `Transferência para: ${nomeDestino}`;
-    const obsSaida = observacao_extra ? `${baseObsSaida} - ${observacao_extra}` : baseObsSaida;
+    const obsSaida = `Transferência para: ${nomeDestino}`;
     await client.query(`
-      INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_usuario, numero_nf)
-      VALUES ($1, 'SAIDA', $2, $3, $4, $5, $6, $7, $8)
-    `, [id_produto, qtd, valor, dataMov, obsSaida, id_unidade_origem, id_usuario || null, id_transf]);
+      INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_usuario)
+      VALUES ($1, 'SAIDA', $2, $3, $4, $5, $6, $7)
+    `, [id_produto, qtd, valor, dataMov, obsSaida, id_unidade_origem, id_usuario || null]);
 
-    const baseObsEntrada = `Transferência de: ${nomeOrigem}`;
-    const obsEntrada = observacao_extra ? `${baseObsEntrada} - ${observacao_extra}` : baseObsEntrada;
+    const obsEntrada = `Transferência de: ${nomeOrigem}`;
     await client.query(`
-      INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_usuario, numero_nf)
-      VALUES ($1, 'ENTRADA', $2, $3, $4, $5, $6, $7, $8)
-    `, [id_produto, qtd, valor, dataMov, obsEntrada, id_unidade_destino, id_usuario || null, id_transf]);
+      INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_usuario)
+      VALUES ($1, 'ENTRADA', $2, $3, $4, $5, $6, $7)
+    `, [id_produto, qtd, valor, dataMov, obsEntrada, id_unidade_destino, id_usuario || null]);
 
     await client.query('COMMIT');
     return true;
@@ -695,13 +680,8 @@ async function listar_movimentacoes(limit = 1000, id_unidade = null, data_inicio
     params.push(id_produto);
   }
   if (tipo_movimentacao) {
-    const tipo_upper = tipo_movimentacao.toUpperCase();
-    if (tipo_upper === 'TRANSFERENCIA' || tipo_upper === 'TRANSFERENCIAS') {
-      where_conditions.push(`(m.observacao ILIKE '%Transferência%' OR m.observacao ILIKE '%Transferencia%')`);
-    } else {
-      where_conditions.push(`UPPER(m.tipo_movimentacao) = $${p++}`);
-      params.push(tipo_upper);
-    }
+    where_conditions.push(`UPPER(m.tipo_movimentacao) = $${p++}`);
+    params.push(tipo_movimentacao.toUpperCase());
   }
   if (data_inicio) {
     let d = data_inicio.trim();
@@ -886,6 +866,11 @@ async function gerar_relatorio_sugestao_compras(id_unidade = null, id_categoria 
     params.push(id_categoria);
   }
 
+  if (id_unidade) {
+    where_conditions.push(`(p.id_unidade = $${p++} OR p.id_unidade IS NULL)`);
+    params.push(id_unidade);
+  }
+
   // Filtro por categorias permitidas ao usuário
   if (id_usuario && nivel_acesso && nivel_acesso !== 'Administrador') {
     const permRes = await pool.query(
@@ -915,9 +900,11 @@ async function gerar_relatorio_sugestao_compras(id_unidade = null, id_categoria 
   }
 
   const sql = `
-    SELECT p.id_produto, p.nome_produto, p.estoque_minimo, p.preco_custo, c.nome_categoria
+    SELECT p.id_produto, p.nome_produto, p.estoque_minimo, p.preco_custo, c.nome_categoria,
+           u.nome_unidade as nome_unidade_produto
     FROM tbl_produtos p
     LEFT JOIN tbl_categorias c ON p.id_categoria = c.id_categoria
+    LEFT JOIN tbl_unidades_operacionais u ON p.id_unidade = u.id_unidade
     ${where_clause}
     ORDER BY p.nome_produto ASC
   `;
@@ -966,7 +953,7 @@ async function gerar_relatorio_sugestao_compras(id_unidade = null, id_categoria 
     relatorio.push({
       id_produto: r.id_produto,
       nome_produto: r.nome_produto,
-      nome_unidade: nome_unidade_relatorio,
+      nome_unidade: r.nome_unidade_produto || "Global",
       nome_categoria: r.nome_categoria || "Sem Categoria",
       estoque_real,
       estoque_minimo,
@@ -996,38 +983,17 @@ async function excluir_usuario(id_usuario) {
 }
 
 async function excluir_movimentacao(id_movimentacao) {
-  const movimento = await pool.query(
-    `SELECT id_produto, numero_nf FROM tbl_movimentacoes WHERE id_movimentacao = $1`,
-    [id_movimentacao]
-  );
-  
-  if (movimento.rows[0]) {
-    const num_nf = movimento.rows[0].numero_nf;
-    if (num_nf && num_nf.startsWith('TRF-')) {
-      await pool.query(`DELETE FROM tbl_movimentacoes WHERE numero_nf = $1`, [num_nf]);
-    } else {
-      await pool.query(`DELETE FROM tbl_movimentacoes WHERE id_movimentacao = $1`, [id_movimentacao]);
-    }
-    await atualizar_custo_produto_pela_ultima_entrada(movimento.rows[0].id_produto);
-  }
+  await pool.query(`DELETE FROM tbl_movimentacoes WHERE id_movimentacao = $1`, [id_movimentacao]);
   return true;
 }
 
 async function atualizar_movimentacao(id_movimentacao, id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor, numero_nf = null, id_centro_custo = null) {
-  const movimentoAnterior = await pool.query(
-    `SELECT id_produto FROM tbl_movimentacoes WHERE id_movimentacao = $1`,
-    [id_movimentacao]
-  );
   let query = `
     UPDATE tbl_movimentacoes 
     SET id_produto = $1, tipo_movimentacao = $2, quantidade = $3, valor_unitario = $4, observacao = $5, data_movimentacao = $6, id_unidade = $7, id_fornecedor = $8, numero_nf = $9, id_centro_custo = $10
     WHERE id_movimentacao = $11
   `;
   await pool.query(query, [id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor, numero_nf || null, id_centro_custo || null, id_movimentacao]);
-  await atualizar_custo_produto_pela_ultima_entrada(id_produto);
-  if (movimentoAnterior.rows[0] && movimentoAnterior.rows[0].id_produto !== id_produto) {
-    await atualizar_custo_produto_pela_ultima_entrada(movimentoAnterior.rows[0].id_produto);
-  }
   return true;
 }
 

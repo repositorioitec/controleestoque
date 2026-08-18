@@ -453,16 +453,6 @@ const LocalDB = {
             });
 
             this.set('movimentacoes', movs);
-            
-            if (body.tipo_movimentacao === 'ENTRADA' && body.atualizar_custo) {
-                const movsEntrada = movs.filter(m => m.id_produto == body.id_produto && m.tipo_movimentacao === 'ENTRADA' && parseFloat(m.valor_unitario) > 0);
-                if (movsEntrada.length > 0) {
-                    movsEntrada.sort((a, b) => new Date(b.data_movimentacao) - new Date(a.data_movimentacao));
-                    prod.preco_custo = parseFloat(movsEntrada[0].valor_unitario);
-                    this.set('produtos', prods);
-                }
-            }
-
             return { success: true, message: 'Movimentação registrada com sucesso!' };
         }
 
@@ -496,8 +486,6 @@ const LocalDB = {
             }
 
             const dt = new Date().toISOString();
-            const id_transf = 'TRF-' + Date.now();
-            const obsExtra = body.observacao ? ` - ${body.observacao}` : '';
 
             movs.push({
                 id_movimentacao: Date.now(),
@@ -507,12 +495,11 @@ const LocalDB = {
                 quantidade: qtd,
                 valor_unitario: precoCusto,
                 data_movimentacao: dt,
-                observacao: `Transferência para: ${unitDestino ? unitDestino.nome_unidade : 'Outra Unidade'}${obsExtra}`,
+                observacao: `Transferência para: ${unitDestino ? unitDestino.nome_unidade : 'Outra Unidade'}`,
                 id_unidade: parseInt(body.id_unidade_origem),
                 nome_unidade: unitOrigem ? unitOrigem.nome_unidade : 'Sem Unidade',
                 id_fornecedor: null,
-                nome_fornecedor: 'Sem Fornecedor',
-                numero_nf: id_transf
+                nome_fornecedor: 'Sem Fornecedor'
             });
 
             movs.push({
@@ -523,12 +510,11 @@ const LocalDB = {
                 quantidade: qtd,
                 valor_unitario: precoCusto,
                 data_movimentacao: dt,
-                observacao: `Transferência de: ${unitOrigem ? unitOrigem.nome_unidade : 'Outra Unidade'}${obsExtra}`,
+                observacao: `Transferência de: ${unitOrigem ? unitOrigem.nome_unidade : 'Outra Unidade'}`,
                 id_unidade: parseInt(body.id_unidade_destino),
                 nome_unidade: unitDestino ? unitDestino.nome_unidade : 'Sem Unidade',
                 id_fornecedor: null,
-                nome_fornecedor: 'Sem Fornecedor',
-                numero_nf: id_transf
+                nome_fornecedor: 'Sem Fornecedor'
             });
 
             this.set('movimentacoes', movs);
@@ -578,17 +564,9 @@ const LocalDB = {
         // MOVIMENTAÇÕES DELETE
         if (path.match(/\/api\/movimentacoes\/\d+$/) && method === 'DELETE') {
             let movs = this.get('movimentacoes');
-            const id_mov = parseInt(path.split('/')[3]);
-            const mov = movs.find(x => x.id_movimentacao === id_mov);
-            
-            if (!mov) return { success: false, message: 'Movimentação não encontrada.' };
-            
-            if (mov.numero_nf && mov.numero_nf.startsWith('TRF-')) {
-                movs = movs.filter(x => x.numero_nf !== mov.numero_nf);
-            } else {
-                movs = movs.filter(x => x.id_movimentacao !== id_mov);
-            }
-            
+            const idx = movs.findIndex(x => x.id_movimentacao == path.split('/')[3]);
+            if (idx === -1) return { success: false, message: 'Movimentação não encontrada.' };
+            movs.splice(idx, 1);
             this.set('movimentacoes', movs);
             return { success: true, message: 'Movimentação excluída com sucesso!' };
         }
@@ -765,27 +743,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- AUTENTICAÇÃO E SESSÃO ---
 
+const SESSION_KEY = 'stock_user';
+
+function getSessionUser() {
+    try {
+        const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        const user = JSON.parse(raw);
+        if (!user || !user.id_usuario) return null;
+        return user;
+    } catch {
+        return null;
+    }
+}
+
+function setSessionUser(user) {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+}
+
+function clearSessionUser() {
+    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
+}
+
 function checarSessaoUsuario() {
+    // Não remover localStorage aqui — login.html salva lá
+
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('action') === 'login' || urlParams.get('logout') === 'true') {
-        localStorage.removeItem('stock_user');
+        clearSessionUser();
         currentUser = null;
-        exibirTelaAuth();
+        window.location.replace('/login');
         return;
     }
 
-    const savedUser = localStorage.getItem('stock_user');
-    if (savedUser) {
-        try {
-            currentUser = JSON.parse(savedUser);
-            iniciarAplicacao();
-        } catch (e) {
-            localStorage.removeItem('stock_user');
-            exibirTelaAuth();
-        }
-    } else {
-        exibirTelaAuth();
+    const user = getSessionUser();
+    if (!user) {
+        window.location.replace('/login');
+        return;
     }
+
+    currentUser = user;
+    iniciarAplicacao();
 }
 
 async function carregarUnidadesRegistroIndex() {
@@ -851,7 +850,7 @@ async function handleLogin(event) {
 
     if (data.success) {
         currentUser = data.user;
-        localStorage.setItem('stock_user', JSON.stringify(currentUser));
+        setSessionUser(currentUser);
         showToast(data.message, 'success');
         iniciarAplicacao();
     } else {
@@ -885,11 +884,9 @@ let inatividadeTimer;
 const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutes
 function handleLogout() {
     clearTimeout(inatividadeTimer);
-    localStorage.removeItem('stock_user');
+    clearSessionUser();
     currentUser = null;
-    document.getElementById('main-app').classList.add('hidden');
-    document.getElementById('auth-screen').classList.remove('hidden');
-    showToast('Você saiu do sistema.', 'info');
+    window.location.replace('/login');
 }
 
 function resetInatividadeTimer() {
@@ -1017,7 +1014,10 @@ function navegarParaView(viewId) {
             'view-dashboard': 'Dashboard de Estoque',
             'view-produtos': 'Cadastro e Gestão de Produtos',
             'view-movimentacoes': 'Movimentação de Entradas e Saídas',
-            'view-cadastros': 'Gestão de Categorias, Fornecedores e Unidades',
+            'view-cadastros-centros': 'Cadastro de Centros de Custo',
+            'view-cadastros-unidades': 'Cadastro de Unidades Operacionais',
+            'view-cadastros-categorias': 'Cadastro de Categorias',
+            'view-cadastros-fornecedores': 'Cadastro de Fornecedores',
             'view-usuarios': 'Usuários e Aprovações',
             'view-relatorios-estoque': 'Relatório de Estoque Atual',
             'view-relatorios-sugestao-compras': 'Sugestão de Compras',
@@ -1033,7 +1033,6 @@ function navegarParaView(viewId) {
         }
         if (viewId === 'view-transferencias') {
             preencherOpcoesTransferencia();
-            carregarRelatorioTransferencias();
         }
         if (viewId === 'view-relatorios-estoque') {
             preencherOpcoesFiltrosRelatorioEstoque();
@@ -1043,7 +1042,7 @@ function navegarParaView(viewId) {
             preencherOpcoesFiltrosRelatorioSugestaoCompras();
             carregarRelatorioSugestaoCompras();
         }
-        if (viewId === 'view-cadastros') carregarCadastrosGerais();
+        if (viewId.startsWith('view-cadastros-')) carregarCadastrosGerais();
         if (viewId === 'view-usuarios') carregarUsuarios();
     }
 }
@@ -1353,7 +1352,7 @@ async function abrirModalProduto(id_produto = null) {
             document.getElementById('prod-categoria').value = p.id_categoria || '';
             document.getElementById('prod-unidade').value = p.id_unidade || '';
             document.getElementById('prod-minimo').value = p.estoque_minimo;
-            document.getElementById('prod-custo').value = p.preco_custo;
+            document.getElementById('prod-custo').value = p.preco_custo ?? 0;
             document.getElementById('prod-venda').value = p.preco_venda;
             
             if (inativoEl) {
@@ -1381,7 +1380,6 @@ async function salvarProduto(event) {
         id_categoria: document.getElementById('prod-categoria').value || null,
         id_unidade: document.getElementById('prod-unidade').value || null,
         estoque_minimo: document.getElementById('prod-minimo').value,
-        preco_custo: document.getElementById('prod-custo').value,
         preco_venda: document.getElementById('prod-venda').value,
         inativo: document.getElementById('prod-inativo') ? document.getElementById('prod-inativo').checked : false,
         id_usuario: currentUser ? currentUser.id_usuario : null
@@ -1417,18 +1415,14 @@ async function excluirProduto(id_produto) {
     }
 }
 
-function excluirMovimentacao(id_movimentacao, skipConfirm = false) {
-    if (!skipConfirm && !confirm('Tem certeza que deseja excluir esta movimentação?')) return;
-    
+function excluirMovimentacao(id_movimentacao) {
+    if (!confirm('Tem certeza que deseja excluir esta movimentação?')) return;
     safeFetch(`/api/movimentacoes/${id_movimentacao}`, { method: 'DELETE' })
         .then(res => {
             if (res.success) {
                 showToast(res.message, 'success');
                 carregarMovimentacoes();
                 carregarDashboard();
-                if (document.getElementById('view-transferencias') && document.getElementById('view-transferencias').classList.contains('active')) {
-                    carregarRelatorioTransferencias();
-                }
             } else {
                 showToast(res.message, 'error');
             }
@@ -1487,8 +1481,6 @@ async function preencherOpcoesFiltrosMovimentacoes() {
 async function preencherOpcoesTransferencia() {
     const selectP = document.getElementById('transf-produto');
     const selectU = document.getElementById('transf-destino');
-    const selectFiltroP = document.getElementById('filtro-transf-produto');
-    const selectFiltroU = document.getElementById('filtro-transf-unidade');
     
     if (selectP) {
         const dataP = await safeFetch(`/api/produtos${selectedUnitId ? '?id_unidade=' + selectedUnitId : ''}`);
@@ -1496,10 +1488,6 @@ async function preencherOpcoesTransferencia() {
             const produtosComEstoque = dataP.produtos.filter(p => p.estoque_atual > 0);
             selectP.innerHTML = '<option value="">Selecione o produto...</option>' +
                 produtosComEstoque.map(p => `<option value="${p.id_produto}">${p.nome_produto} (Saldo: ${p.estoque_atual})</option>`).join('');
-            if (selectFiltroP) {
-                selectFiltroP.innerHTML = '<option value="">Todos</option>' + 
-                    dataP.produtos.map(p => `<option value="${p.id_produto}">${p.nome_produto}</option>`).join('');
-            }
         }
     }
     
@@ -1510,10 +1498,6 @@ async function preencherOpcoesTransferencia() {
                 dataU.unidades
                     .filter(u => !selectedUnitId || u.id_unidade != selectedUnitId)
                     .map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
-            if (selectFiltroU) {
-                selectFiltroU.innerHTML = '<option value="">Todas</option>' + 
-                    dataU.unidades.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
-            }
         }
     }
 }
@@ -1542,8 +1526,7 @@ async function submitTransferencia(event) {
             quantidade: quantidade,
             id_unidade_origem: selectedUnitId,
             id_unidade_destino: id_unidade_destino,
-            id_usuario: currentUser ? currentUser.id_usuario : null,
-            observacao: document.getElementById('transf-observacao') ? document.getElementById('transf-observacao').value.trim() : ''
+            id_usuario: currentUser ? currentUser.id_usuario : null
         })
     });
     
@@ -1551,55 +1534,8 @@ async function submitTransferencia(event) {
         showToast(data.message, 'success');
         document.getElementById('form-transferencia').reset();
         preencherOpcoesTransferencia();
-        carregarRelatorioTransferencias();
     } else {
         showToast(data.message, 'error');
-    }
-}
-
-function filtrarRelatorioTransferencias(event) {
-    event.preventDefault();
-    carregarRelatorioTransferencias();
-}
-
-async function carregarRelatorioTransferencias() {
-    const dtInicio = document.getElementById('filtro-transf-inicio') ? document.getElementById('filtro-transf-inicio').value : '';
-    const dtFim = document.getElementById('filtro-transf-fim') ? document.getElementById('filtro-transf-fim').value : '';
-    const filterProd = document.getElementById('filtro-transf-produto') ? document.getElementById('filtro-transf-produto').value : '';
-    const filterUnid = document.getElementById('filtro-transf-unidade') ? document.getElementById('filtro-transf-unidade').value : '';
-
-    let url = '/api/movimentacoes?tipo_movimentacao=TRANSFERENCIA';
-    const activeUnit = filterUnid || selectedUnitId;
-    if (activeUnit) url += `&id_unidade=${activeUnit}`;
-    if (dtInicio) url += `&data_inicio=${dtInicio}`;
-    if (dtFim) url += `&data_fim=${dtFim}`;
-    if (filterProd) url += `&id_produto=${filterProd}`;
-
-    const tbody = document.getElementById('table-relatorio-transferencias-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center">Carregando transferências...</td></tr>';
-
-    const data = await safeFetch(url);
-    if (data.success && data.movimentacoes) {
-        if (data.movimentacoes.length === 0) {
-            if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhuma transferência encontrada para os filtros selecionados.</td></tr>';
-            return;
-        }
-
-        const linhas = data.movimentacoes.map(m => `
-            <tr>
-                <td>${formatarData(m.data_movimentacao)}</td>
-                <td>${m.nome_produto}</td>
-                <td><span class="badge ${m.tipo_movimentacao === 'ENTRADA' ? 'badge-success' : 'badge-danger'}">${m.tipo_movimentacao}</span></td>
-                <td>${m.quantidade}</td>
-                <td>${m.nome_unidade || '-'}</td>
-                <td>${m.observacao || '-'}</td>
-                <td>${m.nome_usuario_movimentacao || '-'}</td>
-            </tr>
-        `).join('');
-
-        if (tbody) tbody.innerHTML = linhas;
-    } else {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Erro ao carregar transferências: ${data.message || 'Erro desconhecido'}</td></tr>`;
     }
 }
 
@@ -1679,7 +1615,7 @@ async function carregarMovimentacoes() {
                     <td>${m.nome_usuario_movimentacao || 'Sistema'}</td>
                     <td><small class="text-muted">${m.observacao || '-'}</small></td>
                     <td class="text-right">
-                        ${isSupervisor() ? `<button class="btn btn-sm btn-outline" onclick="abrirModalMovimentacao(${m.id_movimentacao})" title="Editar"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-sm btn-danger" onclick="excluirMovimentacao(${m.id_movimentacao}, ${(m.observacao && (m.observacao.includes('Transferência para') || m.observacao.includes('Transferência de'))) ? 'true' : 'false'})" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        ${isSupervisor() ? `<button class="btn btn-sm btn-outline" onclick="abrirModalMovimentacao(${m.id_movimentacao})" title="Editar"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-sm btn-danger" onclick="excluirMovimentacao(${m.id_movimentacao})" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
                     </td>
                 </tr>
             `;
@@ -1877,20 +1813,17 @@ async function abrirModalMovimentacao(param) {
     const groupForn = document.getElementById('group-mov-fornecedor');
     const groupNF = document.getElementById('group-mov-nf');
     const groupCC = document.getElementById('group-mov-centro-custo');
-    const groupAtualizarCusto = document.getElementById('group-atualizar-custo');
     const valorLabel = document.getElementById('mov-valor-label');
 
     if (tipoAtual === 'ENTRADA') {
         if (groupForn) groupForn.style.display = '';
         if (groupNF) groupNF.style.display = '';
         if (groupCC) groupCC.style.display = 'none';
-        if (groupAtualizarCusto) groupAtualizarCusto.style.display = 'flex';
         if (valorLabel) valorLabel.textContent = 'Preço de Custo Unitário (R$)';
     } else {
         if (groupForn) groupForn.style.display = 'none';
         if (groupNF) groupNF.style.display = 'none';
         if (groupCC) groupCC.style.display = '';
-        if (groupAtualizarCusto) groupAtualizarCusto.style.display = 'none';
         if (valorLabel) valorLabel.textContent = 'Preço de Venda Unitário (R$)';
         // Carrega centros de custo e pré-seleciona o primeiro
         await carregarCentrosCustoNoModal();
@@ -2046,8 +1979,7 @@ async function salvarMovimentacao(event) {
         id_fornecedor: document.getElementById('mov-fornecedor') ? document.getElementById('mov-fornecedor').value || null : null,
         id_centro_custo: document.getElementById('mov-centro-custo') ? document.getElementById('mov-centro-custo').value || null : null,
         numero_nf: document.getElementById('mov-nf') ? document.getElementById('mov-nf').value.trim() || null : null,
-        id_usuario: currentUser ? currentUser.id_usuario : null,
-        atualizar_custo: document.getElementById('mov-atualizar-custo') ? document.getElementById('mov-atualizar-custo').checked : false
+        id_usuario: currentUser ? currentUser.id_usuario : null
     };
 
     let url = '/api/movimentacoes';
@@ -2458,7 +2390,7 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
             currentUser.nivel_acesso = nivel_acesso;
             const unitObj = unidadesCache.find(u => u.id_unidade == id_unidade);
             if (unitObj) currentUser.nome_unidade = unitObj.nome_unidade;
-            localStorage.setItem('stock_user', JSON.stringify(currentUser));
+            setSessionUser(currentUser);
             iniciarAplicacao();
         }
     } else {

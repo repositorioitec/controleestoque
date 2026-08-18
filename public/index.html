@@ -120,8 +120,20 @@
                     <li class="nav-item" id="li-mov-transferencia" data-target="view-transferencias" style="display: none;">
                         <a href="#"><i class="fa-solid fa-truck-fast"></i> <span>Transferências</span></a>
                     </li>
-                    <li class="nav-item supervisor-only" data-target="view-cadastros">
-                        <a href="#"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
+                    <li class="nav-item supervisor-only" style="margin-top: 15px; cursor: pointer;" onclick="['li-cad-centros','li-cad-unidades','li-cad-categorias','li-cad-fornecedores'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
+                        <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
+                    </li>
+                    <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-calculator"></i> <span>Centros de Custo</span></a>
+                    </li>
+                    <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-building-user"></i> <span>Unidades</span></a>
+                    </li>
+                    <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias</span></a>
+                    </li>
+                    <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" style="display: none;">
+                        <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
                     </li>
                     <li class="nav-item admin-only" data-target="view-usuarios">
                         <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários</span></a>
@@ -475,11 +487,7 @@
                                     <label for="transf-quantidade" style="font-size: 12px;"><i class="fa-solid fa-cubes"></i> Quantidade</label>
                                     <input type="number" id="transf-quantidade" class="form-control" min="1" required placeholder="Ex: 10">
                                 </div>
-                                <div class="form-group" style="margin:0; grid-column: 1 / -1;">
-                                    <label for="transf-observacao" style="font-size: 12px;"><i class="fa-solid fa-note-sticky"></i> Observações</label>
-                                    <input type="text" id="transf-observacao" class="form-control" placeholder="Motivo da transferência, responsável, etc.">
-                                </div>
-                                <div style="display: flex; gap: 8px; grid-column: 1 / -1;">
+                                <div style="display: flex; gap: 8px;">
                                     <button type="submit" class="btn btn-primary" style="flex: 1; padding: 10px;">
                                         <i class="fa-solid fa-paper-plane"></i> Transferir
                                     </button>
@@ -487,66 +495,11 @@
                             </form>
                         </div>
                     </div>
-
-                    <div class="panel" style="margin-top: 24px;">
-                        <div class="panel-header">
-                            <h3><i class="fa-solid fa-list-check"></i> Relatório de Movimentações (Transferências)</h3>
-                        </div>
-                        <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
-                            <form id="form-filtro-transferencias" onsubmit="filtrarRelatorioTransferencias(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; align-items: end;">
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filtro-transf-inicio" style="font-size: 12px;"><i class="fa-solid fa-calendar"></i> Data Inicial</label>
-                                    <input type="date" id="filtro-transf-inicio" class="form-control">
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filtro-transf-fim" style="font-size: 12px;"><i class="fa-solid fa-calendar"></i> Data Final</label>
-                                    <input type="date" id="filtro-transf-fim" class="form-control">
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filtro-transf-produto" style="font-size: 12px;"><i class="fa-solid fa-box"></i> Produto</label>
-                                    <select id="filtro-transf-produto" class="form-control">
-                                        <option value="">Todos</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filtro-transf-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> Unidade Operacional</label>
-                                    <select id="filtro-transf-unidade" class="form-control">
-                                        <option value="">Todas</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 10px;">
-                                        <i class="fa-solid fa-magnifying-glass"></i> Pesquisar
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                        
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Data/Hora</th>
-                                        <th>Produto</th>
-                                        <th>Tipo</th>
-                                        <th>Qtd.</th>
-                                        <th>Unidade</th>
-                                        <th>Observação</th>
-                                        <th>Usuário</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-relatorio-transferencias-body">
-                                    <tr><td colspan="7" class="text-center">Utilize os filtros para buscar transferências...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </section>
 
-                <!-- VIEW 4: CADASTROS (SOMENTE ADMIN/SUPERVISOR) -->
-                <section id="view-cadastros" class="app-view">
-                    <!-- Painel Centros de Custo -->
-                    <div class="panel" style="margin-bottom: 24px;">
+                <!-- VIEW 4.1: CADASTRO DE CENTROS DE CUSTO (SOMENTE ADMIN/SUPERVISOR) -->
+                <section id="view-cadastros-centros" class="app-view">
+                    <div class="panel">
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-calculator"></i> Centros de Custo</h3>
                             <button class="btn btn-sm btn-primary" onclick="abrirModalCentroCusto()">
@@ -569,9 +522,11 @@
                             </table>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Painel Unidades Operacionais -->
-                    <div class="panel" style="margin-bottom: 24px;">
+                <!-- VIEW 4.2: CADASTRO DE UNIDADES OPERACIONAIS -->
+                <section id="view-cadastros-unidades" class="app-view">
+                    <div class="panel">
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-building-user"></i> Unidades Operacionais</h3>
                             <button class="btn btn-sm btn-primary" onclick="abrirModalUnidade()">
@@ -595,55 +550,56 @@
                             </table>
                         </div>
                     </div>
+                </section>
 
-                    <!-- Grid Categorias e Fornecedores -->
-                    <div class="two-columns-grid">
-                        <!-- Categorias -->
-                        <div class="panel">
-                            <div class="panel-header">
-                                <h3><i class="fa-solid fa-tags"></i> Categorias</h3>
-                                <button class="btn btn-sm btn-primary" onclick="abrirModalCategoria()">
-                                    <i class="fa-solid fa-plus"></i> Nova Categoria
-                                </button>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Nome da Categoria</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="table-categorias-body">
-                                        <tr><td colspan="2" class="text-center">Carregando categorias...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                <!-- VIEW 4.3: CADASTRO DE CATEGORIAS -->
+                <section id="view-cadastros-categorias" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-tags"></i> Categorias</h3>
+                            <button class="btn btn-sm btn-primary" onclick="abrirModalCategoria()">
+                                <i class="fa-solid fa-plus"></i> Nova Categoria
+                            </button>
                         </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome da Categoria</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-categorias-body">
+                                    <tr><td colspan="2" class="text-center">Carregando categorias...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
 
-                        <!-- Fornecedores -->
-                        <div class="panel">
-                            <div class="panel-header">
-                                <h3><i class="fa-solid fa-truck"></i> Fornecedores</h3>
-                                <button class="btn btn-sm btn-primary" onclick="abrirModalFornecedor()">
-                                    <i class="fa-solid fa-plus"></i> Novo Fornecedor
-                                </button>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Razão Social</th>
-                                            <th>CNPJ/CPF</th>
-                                            <th>Telefone</th>
-                                            <th>E-mail</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="table-fornecedores-body">
-                                        <tr><td colspan="4" class="text-center">Carregando fornecedores...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                <!-- VIEW 4.4: CADASTRO DE FORNECEDORES -->
+                <section id="view-cadastros-fornecedores" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-truck"></i> Fornecedores</h3>
+                            <button class="btn btn-sm btn-primary" onclick="abrirModalFornecedor()">
+                                <i class="fa-solid fa-plus"></i> Novo Fornecedor
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Razão Social</th>
+                                        <th>CNPJ/CPF</th>
+                                        <th>Telefone</th>
+                                        <th>E-mail</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-fornecedores-body">
+                                    <tr><td colspan="4" class="text-center">Carregando fornecedores...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -959,12 +915,12 @@
                             <input type="number" id="prod-minimo" value="5" min="0" required>
                         </div>
                         <div class="form-group">
-                            <label for="prod-custo">Preço de Custo (R$)</label>
-                            <input type="number" step="0.01" min="0" id="prod-custo" value="0.00">
+                            <label for="prod-custo">Preço Custo (R$)</label>
+                            <input type="number" step="0.01" id="prod-custo" value="0.00" min="0">
                         </div>
                         <div class="form-group">
                             <label for="prod-venda">Preço Venda (R$)</label>
-                            <input type="number" step="0.01" min="0" id="prod-venda" value="0.00">
+                            <input type="number" step="0.01" id="prod-venda" value="0.00" min="0">
                         </div>
                         <div class="form-group span-2" style="display:flex; align-items:center; gap: 10px; margin-top: 10px;">
                             <input type="checkbox" id="prod-inativo" style="width: auto; height: 16px;">
@@ -1034,11 +990,6 @@
                         <div class="form-group">
                             <label for="mov-valor" id="mov-valor-label">Valor Unitário (R$)</label>
                             <input type="number" step="0.01" id="mov-valor" value="0.00" required>
-                            
-                            <div id="group-atualizar-custo" style="display: none; align-items: center; gap: 8px; margin-top: 8px;">
-                                <input type="checkbox" id="mov-atualizar-custo" checked style="width: auto; height: 16px; margin: 0;">
-                                <label for="mov-atualizar-custo" style="margin: 0; font-size: 11px; color: var(--accent-blue);">Atualizar Custo do Produto?</label>
-                            </div>
                         </div>
                     </div>
                     <div class="form-group">
