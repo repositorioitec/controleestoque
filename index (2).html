@@ -11,7 +11,7 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Main CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
@@ -37,8 +37,8 @@
                 </div>
                 <form id="form-login" onsubmit="handleLogin(event)">
                     <div class="form-group">
-                        <label for="login-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login)</label>
-                        <input type="email" id="login-usuario" placeholder="Ex: admin@itec.com" required autocomplete="username">
+                        <label for="login-usuario"><i class="fa-solid fa-user"></i> Usuário</label>
+                        <input type="text" id="login-usuario" placeholder="Ex: admin" required autocomplete="username">
                     </div>
                     <div class="form-group">
                         <label for="login-senha"><i class="fa-solid fa-key"></i> Senha</label>
@@ -65,21 +65,15 @@
                         <input type="text" id="reg-nome" placeholder="Ex: João da Silva" required>
                     </div>
                     <div class="form-group">
-                        <label for="reg-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login) *</label>
-                        <input type="email" id="reg-usuario" placeholder="Ex: joao@empresa.com" required autocomplete="username">
+                        <label for="reg-usuario"><i class="fa-solid fa-at"></i> Nome de Usuário (Login) *</label>
+                        <input type="text" id="reg-usuario" placeholder="Ex: joaosilva" required autocomplete="username">
                     </div>
                     <div class="form-group">
                         <label for="reg-senha"><i class="fa-solid fa-lock"></i> Senha *</label>
                         <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
                     </div>
-                    <div class="form-group">
-                        <label for="reg-unidade"><i class="fa-solid fa-building"></i> Unidade Operacional *</label>
-                        <select id="reg-unidade" required>
-                            <option value="">Carregando unidades...</option>
-                        </select>
-                    </div>
                     <div class="info-box" style="margin-bottom: 1rem; font-size: 0.85rem;">
-                        <i class="fa-solid fa-circle-info"></i> Seu cadastro ficará <strong>Pendente</strong> até ser aprovado pelo Administrador.
+                        <i class="fa-solid fa-circle-info"></i> Seu cadastro ficará <strong>Pendente</strong> até ser aprovado pelo Administrador, que irá atrelá-lo a uma Unidade Operacional.
                     </div>
                     <button type="submit" class="btn btn-success btn-block">
                         <i class="fa-solid fa-user-plus"></i> Finalizar Cadastro
@@ -111,41 +105,14 @@
                     <li class="nav-item supervisor-only" data-target="view-produtos">
                         <a href="#"><i class="fa-solid fa-box-open"></i> <span>Produtos</span></a>
                     </li>
-                    <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-mov-historico','li-mov-transferencia'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
-                        <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span>Movimentações</span></a>
+                    <li class="nav-item" data-target="view-movimentacoes">
+                        <a href="#"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span>Movimentações</span></a>
                     </li>
-                    <li class="nav-item" id="li-mov-historico" data-target="view-movimentacoes" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-list"></i> <span>Histórico</span></a>
-                    </li>
-                    <li class="nav-item" id="li-mov-transferencia" data-target="view-transferencias" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-truck-fast"></i> <span>Transferências</span></a>
-                    </li>
-                    <li class="nav-item supervisor-only" style="margin-top: 15px; cursor: pointer;" onclick="['li-cad-centros','li-cad-unidades','li-cad-categorias','li-cad-fornecedores'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
-                        <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-calculator"></i> <span>Centros de Custo</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-building-user"></i> <span>Unidades</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
+                    <li class="nav-item supervisor-only" data-target="view-cadastros">
+                        <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias / Fornecedores / Unidades</span></a>
                     </li>
                     <li class="nav-item admin-only" data-target="view-usuarios">
                         <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários</span></a>
-                    </li>
-                    <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-estoque','li-sugestao-compras'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
-                        <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-open"></i> <span>Relatórios</span></a>
-                    </li>
-                    <li class="nav-item" id="li-estoque" data-target="view-relatorios-estoque" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-file-invoice"></i> <span>Estoque Atual</span></a>
-                    </li>
-                    <li class="nav-item" id="li-sugestao-compras" data-target="view-relatorios-sugestao-compras" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-cart-shopping"></i> <span>Sugestão de Compras</span></a>
                     </li>
                 </ul>
             </nav>
@@ -161,14 +128,9 @@
                         <small id="user-display-unit" style="display:block; color: #a0aec0; font-size: 0.75rem;"></small>
                     </div>
                 </div>
-                <div style="display: flex; gap: 4px;">
-                    <button class="btn-logout" onclick="abrirModalTrocarSenha()" title="Trocar Senha">
-                        <i class="fa-solid fa-key"></i>
-                    </button>
-                    <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
-                        <i class="fa-solid fa-power-off"></i>
-                    </button>
-                </div>
+                <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
             </div>
         </aside>
 
@@ -176,10 +138,7 @@
         <main class="content-wrapper">
             <!-- Topbar Header -->
             <header class="topbar">
-                <div class="topbar-title" style="display: flex; align-items: center; gap: 10px;">
-                    <button class="btn btn-outline" style="padding: 6px 12px; border-color: transparent;" onclick="toggleSidebar()" title="Minimizar/Expandir Menu">
-                        <i class="fa-solid fa-bars"></i>
-                    </button>
+                <div class="topbar-title">
                     <span class="badge-db" id="db-status-badge" title="Status do Banco de Dados"><i class="fa-solid fa-database"></i></span>
                     <h1 id="page-title">Dashboard de Estoque</h1>
                 </div>
@@ -309,10 +268,6 @@
                                 <select id="filter-produto-categoria" onchange="carregarProdutos()">
                                     <option value="">Todas as Categorias</option>
                                 </select>
-                                <label for="filter-produto-inativos" style="display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 0; cursor: pointer; white-space: nowrap;">
-                                    <input type="checkbox" id="filter-produto-inativos" style="width: auto; height: 16px;" onchange="carregarProdutos()">
-                                    Exibir inativos
-                                </label>
                                 <button class="btn btn-primary supervisor-only" onclick="abrirModalProduto()">
                                     <i class="fa-solid fa-plus"></i> Novo Produto
                                 </button>
@@ -323,22 +278,20 @@
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
                                         <th>Cód. Barras</th>
-                                        <th>Produto</th>
+                                        <th>Nome do Produto</th>
                                         <th>Categoria</th>
                                         <th>Unidade</th>
                                         <th>Estoque Mín.</th>
-                                        <th>Custo</th>
-                                        <th>Venda</th>
+                                        <th>Preço Custo (Último)</th>
+                                        <th>Preço Venda</th>
                                         <th>Saldo Atual</th>
                                         <th>Status</th>
-                                        <th>Cadastrado por</th>
                                         <th class="text-right">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-produtos-body">
-                                    <tr><td colspan="12" class="text-center">Nenhum produto encontrado.</td></tr>
+                                    <tr><td colspan="10" class="text-center">Nenhum produto encontrado.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -401,12 +354,6 @@
                                         <option value="TRANSFERENCIA">Transferências para Outras Unidades</option>
                                     </select>
                                 </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filter-mov-centro-custo" style="font-size: 12px;"><i class="fa-solid fa-sitemap"></i> Centro de Custo</label>
-                                    <select id="filter-mov-centro-custo" class="form-control" onchange="aplicarFiltrosMovimentacoes(event)">
-                                        <option value="">Todos os Centros</option>
-                                    </select>
-                                </div>
                                 <div style="display: flex; gap: 8px;">
                                     <button type="button" class="btn btn-secondary" onclick="limparFiltrosMovimentacoes()" title="Limpar Filtros" style="flex: 1;">
                                         <i class="fa-solid fa-eraser"></i> Limpar
@@ -447,86 +394,21 @@
                                         <th>Quantidade</th>
                                         <th>Valor Unitário (R$)</th>
                                         <th>Total (R$)</th>
-                                        <th>Usuário</th>
                                         <th>Observação</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-movimentacoes-body">
-                                    <tr><td colspan="11" class="text-center">Carregando movimentações...</td></tr>
+                                    <tr><td colspan="10" class="text-center">Carregando movimentações...</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </section>
 
-                <!-- VIEW DE TRANSFERÊNCIAS -->
-                <section id="view-transferencias" class="app-view">
-                    <div class="panel">
-                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
-                            <div>
-                                <h3><i class="fa-solid fa-truck-fast text-primary"></i> Transferência entre Unidades</h3>
-                                <small style="color: var(--text-muted);">Transfira materiais do seu estoque para outras unidades operacionais</small>
-                            </div>
-                        </div>
-
-                        <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
-                            <form id="form-transferencia" onsubmit="submitTransferencia(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: end;">
-                                <div class="form-group" style="margin:0;">
-                                    <label for="transf-produto" style="font-size: 12px;"><i class="fa-solid fa-box"></i> Produto</label>
-                                    <select id="transf-produto" class="form-control" required>
-                                        <option value="">Selecione o produto...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="transf-destino" style="font-size: 12px;"><i class="fa-solid fa-building"></i> Unidade de Destino</label>
-                                    <select id="transf-destino" class="form-control" required>
-                                        <option value="">Selecione o destino...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="transf-quantidade" style="font-size: 12px;"><i class="fa-solid fa-cubes"></i> Quantidade</label>
-                                    <input type="number" id="transf-quantidade" class="form-control" min="1" required placeholder="Ex: 10">
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 10px;">
-                                        <i class="fa-solid fa-paper-plane"></i> Transferir
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 4.1: CADASTRO DE CENTROS DE CUSTO (SOMENTE ADMIN/SUPERVISOR) -->
-                <section id="view-cadastros-centros" class="app-view">
-                    <div class="panel">
-                        <div class="panel-header">
-                            <h3><i class="fa-solid fa-calculator"></i> Centros de Custo</h3>
-                            <button class="btn btn-sm btn-primary" onclick="abrirModalCentroCusto()">
-                                <i class="fa-solid fa-plus"></i> Novo Centro de Custo
-                            </button>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Código</th>
-                                        <th>Nome</th>
-                                        <th>Descrição</th>
-                                        <th class="text-right">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-centros-custo-body">
-                                    <tr><td colspan="4" class="text-center">Carregando centros de custo...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 4.2: CADASTRO DE UNIDADES OPERACIONAIS -->
-                <section id="view-cadastros-unidades" class="app-view">
-                    <div class="panel">
+                <!-- VIEW 4: CATEGORIAS, FORNECEDORES E UNIDADES (SOMENTE ADMIN) -->
+                <section id="view-cadastros" class="app-view">
+                    <!-- Painel Unidades Operacionais -->
+                    <div class="panel" style="margin-bottom: 24px;">
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-building-user"></i> Unidades Operacionais</h3>
                             <button class="btn btn-sm btn-primary" onclick="abrirModalUnidade()">
@@ -550,56 +432,55 @@
                             </table>
                         </div>
                     </div>
-                </section>
 
-                <!-- VIEW 4.3: CADASTRO DE CATEGORIAS -->
-                <section id="view-cadastros-categorias" class="app-view">
-                    <div class="panel">
-                        <div class="panel-header">
-                            <h3><i class="fa-solid fa-tags"></i> Categorias</h3>
-                            <button class="btn btn-sm btn-primary" onclick="abrirModalCategoria()">
-                                <i class="fa-solid fa-plus"></i> Nova Categoria
-                            </button>
+                    <!-- Grid Categorias e Fornecedores -->
+                    <div class="two-columns-grid">
+                        <!-- Categorias -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-tags"></i> Categorias</h3>
+                                <button class="btn btn-sm btn-primary" onclick="abrirModalCategoria()">
+                                    <i class="fa-solid fa-plus"></i> Nova Categoria
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Nome da Categoria</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-categorias-body">
+                                        <tr><td colspan="2" class="text-center">Carregando categorias...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Nome da Categoria</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-categorias-body">
-                                    <tr><td colspan="2" class="text-center">Carregando categorias...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
 
-                <!-- VIEW 4.4: CADASTRO DE FORNECEDORES -->
-                <section id="view-cadastros-fornecedores" class="app-view">
-                    <div class="panel">
-                        <div class="panel-header">
-                            <h3><i class="fa-solid fa-truck"></i> Fornecedores</h3>
-                            <button class="btn btn-sm btn-primary" onclick="abrirModalFornecedor()">
-                                <i class="fa-solid fa-plus"></i> Novo Fornecedor
-                            </button>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Razão Social</th>
-                                        <th>CNPJ/CPF</th>
-                                        <th>Telefone</th>
-                                        <th>E-mail</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-fornecedores-body">
-                                    <tr><td colspan="4" class="text-center">Carregando fornecedores...</td></tr>
-                                </tbody>
-                            </table>
+                        <!-- Fornecedores -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-truck"></i> Fornecedores</h3>
+                                <button class="btn btn-sm btn-primary" onclick="abrirModalFornecedor()">
+                                    <i class="fa-solid fa-plus"></i> Novo Fornecedor
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Razão Social</th>
+                                            <th>CNPJ/CPF</th>
+                                            <th>Telefone</th>
+                                            <th>E-mail</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-fornecedores-body">
+                                        <tr><td colspan="4" class="text-center">Carregando fornecedores...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -625,178 +506,6 @@
                                 </thead>
                                 <tbody id="table-usuarios-body">
                                     <tr><td colspan="7" class="text-center">Carregando usuários...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 6: RELATÓRIO DE ESTOQUES -->
-                <section id="view-relatorios-estoque" class="app-view">
-                    <div class="panel">
-                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
-                            <div>
-                                <h3><i class="fa-solid fa-file-invoice text-primary"></i> Relatório de Estoque Atual</h3>
-                                <small style="color: var(--text-muted);">Consulte o saldo de estoque atual por unidade e categoria</small>
-                            </div>
-                            <div class="action-buttons">
-                                <button class="btn btn-primary" onclick="imprimirRelatorioEstoque()">
-                                    <i class="fa-solid fa-print"></i> Imprimir Relatório
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Filtros do Relatório de Estoque -->
-                        <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
-                            <div style="font-weight: 600; margin-bottom: 12px; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-filter text-primary"></i> Filtros de Pesquisa
-                            </div>
-                            <form id="form-filter-relatorio-estoque" onsubmit="aplicarFiltrosRelatorioEstoque(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filter-rel-est-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> Unidade</label>
-                                    <select id="filter-rel-est-unidade" class="form-control" onchange="aplicarFiltrosRelatorioEstoque(event)">
-                                        <option value="">Todas as Unidades</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filter-rel-est-categoria" style="font-size: 12px;"><i class="fa-solid fa-tags"></i> Categoria</label>
-                                    <select id="filter-rel-est-categoria" class="form-control" onchange="aplicarFiltrosRelatorioEstoque(event)">
-                                        <option value="">Todas as Categorias</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin:0; display: flex; align-items: center; gap: 8px; padding-bottom: 4px;">
-                                    <input type="checkbox" id="filter-rel-est-zerados" style="width: auto; height: 16px;" onchange="aplicarFiltrosRelatorioEstoque(event)">
-                                    <label for="filter-rel-est-zerados" style="font-size: 12px; margin: 0; cursor: pointer;">
-                                        <i class="fa-solid fa-box-open"></i> Exibir produtos zerados
-                                    </label>
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button type="button" class="btn btn-secondary" onclick="limparFiltrosRelatorioEstoque()" title="Limpar Filtros" style="flex: 1;">
-                                        <i class="fa-solid fa-eraser"></i> Limpar
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <!-- Mini Resumo do Relatório de Estoque -->
-                        <div id="report-estoque-summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
-                            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px 16px; border-radius: 8px;">
-                                <small style="color: var(--accent-green); font-weight: 600; text-transform: uppercase; font-size: 11px;">Valor Total em Estoque</small>
-                                <h4 id="report-estoque-total-val" style="margin-top: 4px; font-size: 18px; color: #fff;">R$ 0,00</h4>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Produto</th>
-                                        <th>Categoria</th>
-                                        <th>Unidade</th>
-                                        <th style="color: var(--accent-blue);">Saldo Atual</th>
-                                        <th style="color: var(--accent-warning);">Preço Unit. (Últ. Entrada)</th>
-                                        <th style="color: var(--accent-green);">Valor Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-relatorios-estoque-body">
-                                    <tr><td colspan="7" class="text-center">Carregando relatório...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 7: RELATÓRIO DE SUGESTÃO DE COMPRAS -->
-                <section id="view-relatorios-sugestao-compras" class="app-view">
-                    <div class="panel">
-                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
-                            <div>
-                                <h3><i class="fa-solid fa-cart-shopping text-primary"></i> Sugestão de Compras</h3>
-                                <small style="color: var(--text-muted);">Sugestão de pedido baseada na média de consumo do período selecionado</small>
-                            </div>
-                            <div class="action-buttons">
-                                <button class="btn btn-primary" onclick="imprimirRelatorioSugestaoCompras()">
-                                    <i class="fa-solid fa-print"></i> Imprimir Relatório
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
-                            <div style="font-weight: 600; margin-bottom: 12px; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-filter text-primary"></i> Filtros de Pesquisa
-                            </div>
-                            <form id="form-filter-relatorio-sugestao" onsubmit="aplicarFiltrosRelatorioSugestaoCompras(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filter-rel-sug-inicio" style="font-size: 12px;"><i class="fa-solid fa-calendar"></i> Data Inicial</label>
-                                    <input type="date" id="filter-rel-sug-inicio" class="form-control" onchange="aplicarFiltrosRelatorioSugestaoCompras(event)">
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filter-rel-sug-fim" style="font-size: 12px;"><i class="fa-solid fa-calendar"></i> Data Final</label>
-                                    <input type="date" id="filter-rel-sug-fim" class="form-control" onchange="aplicarFiltrosRelatorioSugestaoCompras(event)">
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filter-rel-sug-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> Unidade</label>
-                                    <select id="filter-rel-sug-unidade" class="form-control" onchange="aplicarFiltrosRelatorioSugestaoCompras(event)">
-                                        <option value="">Todas as Unidades</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label for="filter-rel-sug-categoria" style="font-size: 12px;"><i class="fa-solid fa-tags"></i> Categoria</label>
-                                    <select id="filter-rel-sug-categoria" class="form-control" onchange="aplicarFiltrosRelatorioSugestaoCompras(event)">
-                                        <option value="">Todas as Categorias</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button type="button" class="btn btn-secondary" onclick="limparFiltrosRelatorioSugestaoCompras()" title="Limpar Filtros" style="flex: 1;">
-                                        <i class="fa-solid fa-eraser"></i> Limpar
-                                    </button>
-                                </div>
-                                <div class="form-group" style="margin:0; display: flex; align-items: center; gap: 8px; padding-top: 4px;">
-                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-main); margin: 0; white-space: nowrap;" title="Quando ativado, oculta os produtos que não precisam de reposição (sugestão = 0)">
-                                        <div class="toggle-switch" style="position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0;">
-                                            <input type="checkbox" id="filter-rel-sug-ocultar-zero" onchange="aplicarFiltrosRelatorioSugestaoCompras(event)" checked style="opacity:0; width:0; height:0; position:absolute;">
-                                            <span onclick="this.previousElementSibling.click()" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:var(--border-color); border-radius:22px; transition:.3s;"></span>
-                                            <span class="toggle-knob" style="position:absolute; content:''; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; pointer-events:none;"></span>
-                                        </div>
-                                        <i class="fa-solid fa-eye-slash" style="color: var(--accent-yellow);"></i>
-                                        Ocultar sugestão zerada
-                                    </label>
-                                </div>
-                            </form>
-                        </div>
-
-                        <style>
-                            #filter-rel-sug-ocultar-zero:checked + span { background: var(--accent-blue) !important; }
-                            #filter-rel-sug-ocultar-zero:checked ~ .toggle-knob { transform: translateX(18px) !important; }
-                        </style>
-
-                        <div class="kpi-grid" style="margin-bottom: 20px;">
-                            <div class="kpi-card bg-gradient-teal" style="max-width: 300px;">
-                                <div class="kpi-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
-                                <div class="kpi-data">
-                                    <span class="kpi-label">Total Sugerido (R$)</span>
-                                    <h3 id="kpi-total-sugerido-compras">R$ 0,00</h3>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Produto</th>
-                                        <th>Unidade</th>
-                                        <th>Categoria</th>
-                                        <th style="color: var(--accent-blue);">Estoque Real</th>
-                                        <th style="color: var(--accent-yellow);">Estoque Mínimo</th>
-                                        <th style="color: var(--accent-green);">Sugestão de Pedido</th>
-                                        <th style="color: var(--accent-teal);">Valor Sugerido</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-relatorios-sugestao-body">
-                                    <tr><td colspan="8" class="text-center">Carregando relatório...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -863,13 +572,6 @@
                             <option value="Administrador">Administrador (Acesso Total a Todas as Unidades)</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Categorias Permitidas</label>
-                        <div id="aprovar-categorias" class="checkbox-group" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 5px;">
-                            <!-- Checkboxes de categorias serão inseridos aqui via JS -->
-                        </div>
-                        <small style="color: var(--text-muted); margin-top: 5px; display: block;">Selecione as categorias que este usuário pode visualizar e movimentar.</small>
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-aprovar-usuario')">Cancelar</button>
@@ -915,17 +617,12 @@
                             <input type="number" id="prod-minimo" value="5" min="0" required>
                         </div>
                         <div class="form-group">
-                            <label for="prod-custo">Preço Custo (R$)</label>
-                            <input type="number" step="0.01" id="prod-custo" value="0.00" min="0">
+                            <label for="prod-custo">Preço de Custo (R$)</label>
+                            <input type="number" step="0.01" min="0" id="prod-custo" value="0.00">
                         </div>
                         <div class="form-group">
                             <label for="prod-venda">Preço Venda (R$)</label>
-                            <input type="number" step="0.01" id="prod-venda" value="0.00" min="0">
-                        </div>
-                        <div class="form-group span-2" style="display:flex; align-items:center; gap: 10px; margin-top: 10px;">
-                            <input type="checkbox" id="prod-inativo" style="width: auto; height: 16px;">
-                            <label for="prod-inativo" style="margin: 0; color: #f87171;">Produto Inativo (Ocultar de Listagens e Dashboards)</label>
-                            <small id="prod-inativo-msg" style="color: var(--text-muted); font-size: 11px; margin-left: auto; display: none;">O produto possui estoque e não pode ser inativado.</small>
+                            <input type="number" step="0.01" min="0" id="prod-venda" value="0.00">
                         </div>
                     </div>
                 </div>
@@ -967,16 +664,6 @@
                         <label for="mov-fornecedor">Fornecedor</label>
                         <select id="mov-fornecedor">
                             <option value="">Selecione o Fornecedor...</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="group-mov-nf" style="display: none;">
-                        <label for="mov-nf"><i class="fa-solid fa-file-invoice" style="color: var(--accent-blue);"></i> Número da Nota Fiscal</label>
-                        <input type="text" id="mov-nf" class="form-control" placeholder="Ex: 12345 ou NF-e 00001234" maxlength="50">
-                    </div>
-                    <div class="form-group" id="group-mov-centro-custo" style="display: none;">
-                        <label for="mov-centro-custo">Centro de Custo *</label>
-                        <select id="mov-centro-custo">
-                            <option value="">Carregando centros de custo...</option>
                         </select>
                     </div>
                     <div id="mov-saldo-info" class="info-box hidden">
@@ -1063,68 +750,8 @@
         </div>
     </div>
 
-    <!-- MODAL 5: CENTRO DE CUSTO -->
-    <div id="modal-centro-custo" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-centro-custo-title">Cadastrar Novo Centro de Custo</h3>
-                <button class="modal-close" onclick="fecharModal('modal-centro-custo')">&times;</button>
-            </div>
-            <form id="form-centro-custo" onsubmit="salvarCentroCusto(event)">
-                <input type="hidden" id="cc-id">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="cc-codigo">Código *</label>
-                        <input type="text" id="cc-codigo" placeholder="Ex: CC001" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="cc-nome">Nome *</label>
-                        <input type="text" id="cc-nome" placeholder="Ex: Operacional / Logística" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="cc-descricao">Descrição</label>
-                        <textarea id="cc-descricao" rows="3" placeholder="Descrição detalhada do centro de custo"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-centro-custo')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar Centro de Custo</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL 6: TROCAR SENHA -->
-    <div id="modal-trocar-senha" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <h3>Trocar Senha</h3>
-                <button class="modal-close" onclick="fecharModal('modal-trocar-senha')">&times;</button>
-            </div>
-            <form id="form-trocar-senha" onsubmit="solicitarTrocaSenha(event)">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="ts-senha-atual">Senha Atual *</label>
-                        <input type="password" id="ts-senha-atual" placeholder="Sua senha atual" required autocomplete="current-password">
-                    </div>
-                    <div class="form-group">
-                        <label for="ts-nova-senha">Nova Senha *</label>
-                        <input type="password" id="ts-nova-senha" placeholder="Sua nova senha" required autocomplete="new-password">
-                    </div>
-                    <div class="info-box" style="margin-bottom: 1rem; font-size: 0.85rem;">
-                        <i class="fa-solid fa-circle-info"></i> A nova senha ficará <strong>Pendente</strong> de aprovação do Administrador. A senha atual continuará funcionando até lá.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-trocar-senha')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Solicitar Troca</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- JS Application Script -->
-    <script src="js/main.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script>
         // Verifica status do banco de dados e atualiza o ícone
         function verificarStatusBanco() {
@@ -1189,6 +816,10 @@
         .kpi-clickable { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s !important; }
         .kpi-clickable:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 32px rgba(245,158,11,0.35) !important; }
         .kpi-click-hint { font-size: 11px; opacity: 0.75; margin-top: 4px; display: block; }
+        @media print {
+            body > *:not(#print-area) { display: none !important; }
+            #print-area { display: block !important; }
+        }
     </style>
 </body>
 </html>

@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    LÓGICA PRINCIPAL JAVASCRIPT - CONTROLE DE ESTOQUE
    Suporte Híbrido: Servidor Flask API / GitHub Pages (LocalStorage DB)
    ========================================================================== */
@@ -1033,6 +1033,7 @@ function navegarParaView(viewId) {
         }
         if (viewId === 'view-transferencias') {
             preencherOpcoesTransferencia();
+            carregarHistoricoTransferencias();
         }
         if (viewId === 'view-relatorios-estoque') {
             preencherOpcoesFiltrosRelatorioEstoque();
@@ -1479,18 +1480,23 @@ async function preencherOpcoesFiltrosMovimentacoes() {
 }
 
 async function preencherOpcoesTransferencia() {
+    const selectC = document.getElementById('transf-categoria');
     const selectP = document.getElementById('transf-produto');
     const selectU = document.getElementById('transf-destino');
-    
-    if (selectP) {
-        const dataP = await safeFetch(`/api/produtos${selectedUnitId ? '?id_unidade=' + selectedUnitId : ''}`);
-        if (dataP.success && dataP.produtos) {
-            const produtosComEstoque = dataP.produtos.filter(p => p.estoque_atual > 0);
-            selectP.innerHTML = '<option value="">Selecione o produto...</option>' +
-                produtosComEstoque.map(p => `<option value="${p.id_produto}">${p.nome_produto} (Saldo: ${p.estoque_atual})</option>`).join('');
+
+    // Carregar categorias
+    if (selectC && selectC.options.length <= 1) {
+        const dataC = await safeFetch('/api/categorias');
+        if (dataC.success && dataC.categorias) {
+            selectC.innerHTML = '<option value="">Todas as categorias</option>' +
+                dataC.categorias.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
         }
     }
-    
+
+    // Carregar produtos (com filtro de categoria se selecionada)
+    await filtrarProdutosPorCategoria();
+
+    // Carregar unidades de destino
     if (selectU) {
         const dataU = await safeFetch('/api/unidades');
         if (dataU.success && dataU.unidades) {
@@ -1499,6 +1505,30 @@ async function preencherOpcoesTransferencia() {
                     .filter(u => !selectedUnitId || u.id_unidade != selectedUnitId)
                     .map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
         }
+    }
+}
+
+async function filtrarProdutosPorCategoria() {
+    const selectP = document.getElementById('transf-produto');
+    const selectC = document.getElementById('transf-categoria');
+    if (!selectP) return;
+
+    const categoriaId = selectC ? selectC.value : '';
+    let url = `/api/produtos${selectedUnitId ? '?id_unidade=' + selectedUnitId : '?1=1'}`;
+    if (categoriaId) url += `&categoria_id=${categoriaId}`;
+
+    selectP.innerHTML = '<option value="">Carregando produtos...</option>';
+    const dataP = await safeFetch(url);
+    if (dataP.success && dataP.produtos) {
+        const produtosComEstoque = dataP.produtos.filter(p => p.estoque_atual > 0);
+        if (produtosComEstoque.length === 0) {
+            selectP.innerHTML = '<option value="">Nenhum produto com estoque nesta categoria</option>';
+        } else {
+            selectP.innerHTML = '<option value="">Selecione o produto...</option>' +
+                produtosComEstoque.map(p => `<option value="${p.id_produto}">${p.nome_produto} (Saldo: ${p.estoque_atual})</option>`).join('');
+        }
+    } else {
+        selectP.innerHTML = '<option value="">Selecione o produto...</option>';
     }
 }
 
@@ -1512,6 +1542,7 @@ async function submitTransferencia(event) {
     const id_produto = document.getElementById('transf-produto').value;
     const id_unidade_destino = document.getElementById('transf-destino').value;
     const quantidade = document.getElementById('transf-quantidade').value;
+    const observacao = document.getElementById('transf-observacao') ? document.getElementById('transf-observacao').value.trim() : '';
     
     if (!id_produto || !id_unidade_destino || !quantidade) {
         showToast('Preencha todos os campos obrigatórios.', 'warning');
@@ -1526,7 +1557,8 @@ async function submitTransferencia(event) {
             quantidade: quantidade,
             id_unidade_origem: selectedUnitId,
             id_unidade_destino: id_unidade_destino,
-            id_usuario: currentUser ? currentUser.id_usuario : null
+            id_usuario: currentUser ? currentUser.id_usuario : null,
+            observacao: observacao || null
         })
     });
     
@@ -1534,9 +1566,57 @@ async function submitTransferencia(event) {
         showToast(data.message, 'success');
         document.getElementById('form-transferencia').reset();
         preencherOpcoesTransferencia();
+        carregarHistoricoTransferencias();
     } else {
         showToast(data.message, 'error');
     }
+}
+
+async function carregarHistoricoTransferencias() {
+    const tbody = document.getElementById('table-transferencias-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Carregando...</td></tr>';
+
+    let url = '/api/movimentacoes?1=1&tipo_movimentacao=TRANSFERENCIA';
+    if (selectedUnitId) url += `&id_unidade=${encodeURIComponent(selectedUnitId)}`;
+
+    const result = await safeFetch(url);
+
+    if (!result.success || !result.movimentacoes) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Erro ao carregar transferências.</td></tr>';
+        return;
+    }
+
+    const movs = result.movimentacoes.filter(m =>
+        m.observacao && (m.observacao.toLowerCase().includes('transfer'))
+    );
+
+    if (movs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhuma transferência encontrada.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = movs.map(m => {
+        const isSaida = m.tipo_movimentacao === 'SAIDA';
+        const badgeClass = isSaida ? 'badge-warning' : 'badge-success';
+        const badgeLabel = isSaida ? '<i class="fa-solid fa-arrow-right"></i> Saída' : '<i class="fa-solid fa-arrow-left"></i> Entrada';
+        // Extrai a observação personalizada após " | "
+        const obsPartes = (m.observacao || '').split(' | ');
+        const obsPersonalizada = obsPartes.length > 1 ? obsPartes.slice(1).join(' | ') : '';
+        return `
+            <tr>
+                <td><small class="text-muted">#${m.id_movimentacao}</small></td>
+                <td><small>${formatarData(m.data_movimentacao)}</small></td>
+                <td><strong>${m.nome_produto || '-'}</strong></td>
+                <td><span class="badge ${badgeClass}">${badgeLabel}</span></td>
+                <td><span class="badge badge-info"><i class="fa-solid fa-building"></i> ${m.nome_unidade || '-'}</span></td>
+                <td><strong>${m.quantidade}</strong></td>
+                <td><small>${m.nome_usuario_movimentacao || 'Sistema'}</small></td>
+                <td><small class="text-muted">${obsPartes[0] || '-'}${obsPersonalizada ? '<br><em style="color:var(--text-primary);">' + obsPersonalizada + '</em>' : ''}</small></td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function carregarMovimentacoes() {

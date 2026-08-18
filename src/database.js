@@ -608,7 +608,7 @@ async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade,
   return true;
 }
 
-async function registrar_transferencia(id_produto, quantidade, id_unidade_origem, id_unidade_destino, id_usuario = null) {
+async function registrar_transferencia(id_produto, quantidade, id_unidade_origem, id_unidade_destino, id_usuario = null, observacao = null) {
   if (!id_produto) throw new Error("Selecione um produto para transferir.");
   if (!id_unidade_origem || !id_unidade_destino) throw new Error("Unidades de origem e destino são obrigatórias.");
   if (parseInt(id_unidade_origem) === parseInt(id_unidade_destino)) throw new Error("A unidade de origem e destino não podem ser iguais.");
@@ -644,13 +644,13 @@ async function registrar_transferencia(id_produto, quantidade, id_unidade_origem
     const resUnidOrigem = await client.query('SELECT nome_unidade FROM tbl_unidades_operacionais WHERE id_unidade = $1', [id_unidade_origem]);
     const nomeOrigem = resUnidOrigem.rows[0] ? resUnidOrigem.rows[0].nome_unidade : 'Outra Unidade';
 
-    const obsSaida = `Transferência para: ${nomeDestino}`;
+    const obsSaida = `Transferência para: ${nomeDestino}` + (observacao ? ` | ${observacao}` : '');
     await client.query(`
       INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_usuario)
       VALUES ($1, 'SAIDA', $2, $3, $4, $5, $6, $7)
     `, [id_produto, qtd, valor, dataMov, obsSaida, id_unidade_origem, id_usuario || null]);
 
-    const obsEntrada = `Transferência de: ${nomeOrigem}`;
+    const obsEntrada = `Transferência de: ${nomeOrigem}` + (observacao ? ` | ${observacao}` : '');
     await client.query(`
       INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_usuario)
       VALUES ($1, 'ENTRADA', $2, $3, $4, $5, $6, $7)
