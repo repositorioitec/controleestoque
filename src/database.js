@@ -1,4 +1,4 @@
-const { Pool } = require('pg');
+﻿const { Pool } = require('pg');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -680,8 +680,14 @@ async function listar_movimentacoes(limit = 1000, id_unidade = null, data_inicio
     params.push(id_produto);
   }
   if (tipo_movimentacao) {
-    where_conditions.push(`UPPER(m.tipo_movimentacao) = $${p++}`);
-    params.push(tipo_movimentacao.toUpperCase());
+    const tipoUpper = tipo_movimentacao.toUpperCase();
+    if (tipoUpper === 'TRANSFERENCIA' || tipoUpper === 'TRANSFERENCIAS') {
+      // Transferencias sao registradas como ENTRADA/SAIDA com observacao contendo 'Transferencia'
+      where_conditions.push(`LOWER(m.observacao) LIKE '%transfer%'`);
+    } else {
+      where_conditions.push(`UPPER(m.tipo_movimentacao) = $${p++}`);
+      params.push(tipoUpper);
+    }
   }
   if (data_inicio) {
     let d = data_inicio.trim();
@@ -1066,3 +1072,5 @@ module.exports = {
   salvar_centro_custo,
   excluir_centro_custo
 };
+
+
