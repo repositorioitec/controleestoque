@@ -26,6 +26,10 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+app.get('/login.html', (req, res) => {
+  res.redirect('/login');
+});
+
 // --- API DE AUTENTICAÇÃO E USUÁRIOS ---
 
 app.post('/api/auth/login', async (req, res) => {
@@ -415,7 +419,7 @@ app.post('/api/movimentacoes/transferencia', async (req, res) => {
       id_unidade_origem,
       id_unidade_destino,
       id_usuario,
-      observacao
+      observacao || null
     );
     return res.json({ success: true, message: 'Transferência registrada com sucesso!' });
   } catch (e) {
@@ -424,7 +428,7 @@ app.post('/api/movimentacoes/transferencia', async (req, res) => {
 });
 
 app.post('/api/movimentacoes', async (req, res) => {
-  const { id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor, id_usuario, numero_nf, id_centro_custo, atualizar_custo } = req.body;
+  const { id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor, id_usuario, numero_nf, id_centro_custo } = req.body;
 
   if (!id_produto || !tipo_movimentacao || !quantidade) {
     return res.status(400).json({ success: false, message: 'Produto, tipo e quantidade são obrigatórios.' });
@@ -442,8 +446,7 @@ app.post('/api/movimentacoes', async (req, res) => {
       id_fornecedor,
       id_usuario,
       numero_nf || null,
-      id_centro_custo || null,
-      atualizar_custo
+      id_centro_custo || null
     );
     return res.json({ success: true, message: `Movimentação de ${tipo_movimentacao} registrada com sucesso!` });
   } catch (e) {
