@@ -1,4 +1,4 @@
-﻿const { Pool } = require('pg');
+const { Pool } = require('pg');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -682,7 +682,7 @@ async function listar_movimentacoes(limit = 1000, id_unidade = null, data_inicio
   if (tipo_movimentacao) {
     const tipoUpper = tipo_movimentacao.toUpperCase();
     if (tipoUpper === 'TRANSFERENCIA' || tipoUpper === 'TRANSFERENCIAS') {
-      // Transferencias sao registradas como ENTRADA/SAIDA com observacao contendo 'Transferencia'
+      // Transferências são registradas como ENTRADA/SAIDA com observação contendo 'Transferência'
       where_conditions.push(`LOWER(m.observacao) LIKE '%transfer%'`);
     } else {
       where_conditions.push(`UPPER(m.tipo_movimentacao) = $${p++}`);
@@ -1072,5 +1072,3 @@ module.exports = {
   salvar_centro_custo,
   excluir_centro_custo
 };
-
-

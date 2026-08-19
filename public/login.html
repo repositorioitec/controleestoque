@@ -141,6 +141,16 @@
     </div>
 
     <script>
+        (function verificarSessaoAtiva() {
+            localStorage.removeItem('stock_user');
+            try {
+                const user = JSON.parse(sessionStorage.getItem('stock_user') || 'null');
+                if (user && user.id_usuario) {
+                    window.location.replace('/');
+                }
+            } catch (_) {}
+        })();
+
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -212,7 +222,8 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    localStorage.setItem('stock_user', JSON.stringify(data.user));
+                    sessionStorage.setItem('stock_user', JSON.stringify(data.user));
+                    localStorage.removeItem('stock_user');
                     showToast(data.message, 'success');
                     setTimeout(() => {
                         window.location.href = '/';

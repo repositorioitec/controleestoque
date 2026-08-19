@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    LÓGICA PRINCIPAL JAVASCRIPT - CONTROLE DE ESTOQUE
    Suporte Híbrido: Servidor Flask API / GitHub Pages (LocalStorage DB)
    ========================================================================== */
@@ -1480,23 +1480,18 @@ async function preencherOpcoesFiltrosMovimentacoes() {
 }
 
 async function preencherOpcoesTransferencia() {
-    const selectC = document.getElementById('transf-categoria');
     const selectP = document.getElementById('transf-produto');
     const selectU = document.getElementById('transf-destino');
-
-    // Carregar categorias
-    if (selectC && selectC.options.length <= 1) {
-        const dataC = await safeFetch('/api/categorias');
-        if (dataC.success && dataC.categorias) {
-            selectC.innerHTML = '<option value="">Todas as categorias</option>' +
-                dataC.categorias.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
+    
+    if (selectP) {
+        const dataP = await safeFetch(`/api/produtos${selectedUnitId ? '?id_unidade=' + selectedUnitId : ''}`);
+        if (dataP.success && dataP.produtos) {
+            const produtosComEstoque = dataP.produtos.filter(p => p.estoque_atual > 0);
+            selectP.innerHTML = '<option value="">Selecione o produto...</option>' +
+                produtosComEstoque.map(p => `<option value="${p.id_produto}">${p.nome_produto} (Saldo: ${p.estoque_atual})</option>`).join('');
         }
     }
-
-    // Carregar produtos (com filtro de categoria se selecionada)
-    await filtrarProdutosPorCategoria();
-
-    // Carregar unidades de destino
+    
     if (selectU) {
         const dataU = await safeFetch('/api/unidades');
         if (dataU.success && dataU.unidades) {
@@ -1505,30 +1500,6 @@ async function preencherOpcoesTransferencia() {
                     .filter(u => !selectedUnitId || u.id_unidade != selectedUnitId)
                     .map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
         }
-    }
-}
-
-async function filtrarProdutosPorCategoria() {
-    const selectP = document.getElementById('transf-produto');
-    const selectC = document.getElementById('transf-categoria');
-    if (!selectP) return;
-
-    const categoriaId = selectC ? selectC.value : '';
-    let url = `/api/produtos${selectedUnitId ? '?id_unidade=' + selectedUnitId : '?1=1'}`;
-    if (categoriaId) url += `&categoria_id=${categoriaId}`;
-
-    selectP.innerHTML = '<option value="">Carregando produtos...</option>';
-    const dataP = await safeFetch(url);
-    if (dataP.success && dataP.produtos) {
-        const produtosComEstoque = dataP.produtos.filter(p => p.estoque_atual > 0);
-        if (produtosComEstoque.length === 0) {
-            selectP.innerHTML = '<option value="">Nenhum produto com estoque nesta categoria</option>';
-        } else {
-            selectP.innerHTML = '<option value="">Selecione o produto...</option>' +
-                produtosComEstoque.map(p => `<option value="${p.id_produto}">${p.nome_produto} (Saldo: ${p.estoque_atual})</option>`).join('');
-        }
-    } else {
-        selectP.innerHTML = '<option value="">Selecione o produto...</option>';
     }
 }
 
