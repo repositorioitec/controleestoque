@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: controle-estoque-itec
+    env: node
+    region: ohio        # us-east-ohio — servidor mais próximo do Brasil
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/unidades  # Render verifica se o servidor está vivo
+    envVars:
+      - key: DATABASE_URL
+        sync: false     # Defina o valor real no painel do Render (Environment)
+      - key: NODE_ENV
+        value: production

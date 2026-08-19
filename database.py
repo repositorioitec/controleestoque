@@ -484,7 +484,7 @@ def listar_produtos(filtro_busca="", id_categoria=None, id_unidade=None):
 
     sql = """
         SELECT p.id_produto, p.codigo_barras, p.nome_produto, p.id_categoria, c.nome_categoria,
-               p.estoque_minimo, p.preco_venda, p.data_cadastro,
+               p.estoque_minimo, p.preco_custo, p.preco_venda, p.data_cadastro,
                p.id_unidade, u.nome_unidade
         FROM tbl_produtos p
         LEFT JOIN tbl_categorias c ON p.id_categoria = c.id_categoria
@@ -514,8 +514,8 @@ def listar_produtos(filtro_busca="", id_categoria=None, id_unidade=None):
         prod_id = r[0]
         estoque_atual = calcular_estoque_produto(prod_id, id_unidade=id_unidade, conn=conn)
         estoque_min = r[5] if r[5] is not None else 0
-        preco_venda = float(r[6]) if r[6] else 0.0
-        preco_custo = obter_ultimo_custo_produto(prod_id, conn=conn)
+        preco_custo = float(r[6]) if r[6] else 0.0
+        preco_venda = float(r[7]) if r[7] else 0.0
 
         status = "Normal"
         if estoque_atual <= 0:
@@ -532,9 +532,9 @@ def listar_produtos(filtro_busca="", id_categoria=None, id_unidade=None):
             "estoque_minimo": estoque_min,
             "preco_custo": preco_custo,
             "preco_venda": preco_venda,
-            "data_cadastro": str(r[7]) if r[7] else "",
-            "id_unidade": r[8],
-            "nome_unidade": r[9] or "Sem Unidade",
+            "data_cadastro": str(r[8]) if r[8] else "",
+            "id_unidade": r[9],
+            "nome_unidade": r[10] or "Sem Unidade",
             "estoque_atual": estoque_atual,
             "status_estoque": status
         })
@@ -548,7 +548,7 @@ def obter_produto_por_id(id_produto, id_unidade=None):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id_produto, codigo_barras, nome_produto, id_categoria,
-               estoque_minimo, preco_venda, id_unidade
+               estoque_minimo, preco_custo, preco_venda, id_unidade
         FROM tbl_produtos
         WHERE id_produto = %s
     """, (id_produto,))
@@ -559,7 +559,6 @@ def obter_produto_por_id(id_produto, id_unidade=None):
         return None
 
     estoque_atual = calcular_estoque_produto(id_produto, id_unidade=id_unidade, conn=conn)
-    preco_custo = obter_ultimo_custo_produto(id_produto, conn=conn)
 
     cursor.close()
     conn.close()
@@ -570,9 +569,9 @@ def obter_produto_por_id(id_produto, id_unidade=None):
         "nome_produto": r[2],
         "id_categoria": r[3],
         "estoque_minimo": r[4] or 0,
-        "preco_custo": preco_custo,
-        "preco_venda": float(r[5]) if r[5] else 0.0,
-        "id_unidade": r[6],
+        "preco_custo": float(r[5]) if r[5] else 0.0,
+        "preco_venda": float(r[6]) if r[6] else 0.0,
+        "id_unidade": r[7],
         "estoque_atual": estoque_atual
     }
 
@@ -593,20 +592,21 @@ def salvar_produto(data):
     id_unidade = int(id_unid) if id_unid and str(id_unid).isdigit() else None
     
     estoque_minimo = int(data.get("estoque_minimo") or 5)
+    preco_custo = float(data.get("preco_custo") or 0.0)
     preco_venda = float(data.get("preco_venda") or 0.0)
 
     if id_produto:
         cursor.execute("""
             UPDATE tbl_produtos
             SET codigo_barras = %s, nome_produto = %s, id_categoria = %s,
-                estoque_minimo = %s, preco_venda = %s, id_unidade = %s
+                estoque_minimo = %s, preco_custo = %s, preco_venda = %s, id_unidade = %s
             WHERE id_produto = %s
-        """, (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, id_unidade, id_produto))
+        """, (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, id_unidade, id_produto))
     else:
         cursor.execute("""
-            INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, data_cadastro, id_unidade)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, now, id_unidade))
+            INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, data_cadastro, id_unidade)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, now, id_unidade))
     
     cursor.close()
     conn.close()
