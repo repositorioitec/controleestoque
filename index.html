@@ -94,6 +94,7 @@
 
     <!-- TELA PRINCIPAL DA APLICAÇÃO (DASHBOARD & MÓDULOS) -->
     <div id="main-app" class="main-app hidden">
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -150,24 +151,33 @@
                 </ul>
             </nav>
 
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar">
-                        <i class="fa-solid fa-circle-user"></i>
-                    </div>
-                    <div class="user-details">
-                        <span id="user-display-name">Usuário</span>
-                        <small id="user-display-role">Operador</small>
-                        <small id="user-display-unit" style="display:block; color: #a0aec0; font-size: 0.75rem;"></small>
-                    </div>
+            <div class="sidebar-footer" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="text-align: center;">
+                    <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; width: 100%; border-color: rgba(255,255,255,0.1); color: var(--text-muted);" onclick="abrirModalSobre()">
+                        <i class="fa-solid fa-circle-info"></i> Sobre o Sistema
+                    </button>
                 </div>
-                <div style="display: flex; gap: 4px;">
-                    <button class="btn-logout" onclick="abrirModalTrocarSenha()" title="Trocar Senha">
-                        <i class="fa-solid fa-key"></i>
-                    </button>
-                    <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
-                        <i class="fa-solid fa-power-off"></i>
-                    </button>
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div class="user-info">
+                        <div class="user-avatar" onclick="document.getElementById('avatar-upload').click()" style="cursor: pointer; position: relative; overflow: hidden; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.1);" title="Alterar foto de perfil">
+                            <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
+                            <i class="fa-solid fa-circle-user" id="user-avatar-icon"></i>
+                            <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="handleAvatarUpload(event)">
+                        </div>
+                        <div class="user-details">
+                            <span id="user-display-name">Usuário</span>
+                            <small id="user-display-role">Operador</small>
+                            <small id="user-display-unit" style="display:block; color: #a0aec0; font-size: 0.75rem;"></small>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="btn-logout" onclick="abrirModalTrocarSenha()" title="Trocar Senha">
+                            <i class="fa-solid fa-key"></i>
+                        </button>
+                        <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
+                            <i class="fa-solid fa-power-off"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -471,6 +481,12 @@
 
                         <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
                             <form id="form-transferencia" onsubmit="submitTransferencia(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: end;">
+                                <div class="form-group" style="margin:0;">
+                                    <label for="transf-categoria" style="font-size: 12px;"><i class="fa-solid fa-tags"></i> Categoria</label>
+                                    <select id="transf-categoria" class="form-control" onchange="filtrarProdutosPorCategoria()">
+                                        <option value="">Todas as categorias</option>
+                                    </select>
+                                </div>
                                 <div class="form-group" style="margin:0;">
                                     <label for="transf-produto" style="font-size: 12px;"><i class="fa-solid fa-box"></i> Produto</label>
                                     <select id="transf-produto" class="form-control" required>
@@ -1226,6 +1242,47 @@
         .kpi-clickable:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 32px rgba(245,158,11,0.35) !important; }
         .kpi-click-hint { font-size: 11px; opacity: 0.75; margin-top: 4px; display: block; }
     </style>
+    <!-- MODAL AVATAR PREVIEW -->
+    <div id="modal-avatar-preview" class="modal-overlay hidden">
+        <div class="modal-content modal-sm" style="max-width: 400px; text-align: center;">
+            <div class="modal-header">
+                <h3>Visualizar Foto</h3>
+                <button class="modal-close" onclick="fecharModal('modal-avatar-preview')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Deseja usar esta imagem como foto de perfil?</p>
+                <div style="width: 150px; height: 150px; border-radius: 50%; overflow: hidden; margin: 0 auto; border: 2px solid var(--accent-blue);">
+                    <img id="avatar-preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center; gap: 10px;">
+                <button class="btn btn-secondary" onclick="fecharModal('modal-avatar-preview')">Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmarAvatarUpload()">Confirmar e Salvar</button>
+            </div>
+        </div>
+    </div>
+    <!-- MODAL SOBRE -->
+    <div id="modal-sobre" class="modal-overlay hidden">
+        <div class="modal-content modal-sm" style="max-width: 350px; text-align: center;">
+            <div class="modal-header">
+                <h3>Sobre</h3>
+                <button class="modal-close" onclick="fecharModal('modal-sobre')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 30px 20px;">
+                <i class="fa-solid fa-boxes-stacked" style="font-size: 40px; color: var(--accent-blue); margin-bottom: 15px;"></i>
+                <h2 style="margin: 0; font-size: 24px; color: var(--text-main);">ITEC.2026.V.1.1</h2>
+                <p style="color: var(--text-muted); margin-top: 10px; font-size: 14px;">Sistema de Gestão de Estoque</p>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button class="btn btn-secondary" onclick="fecharModal('modal-sobre')">Fechar</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function abrirModalSobre() {
+            document.getElementById('modal-sobre').classList.remove('hidden');
+        }
+    </script>
     <script src="js/main.js"></script>
 </body>
 </html>
