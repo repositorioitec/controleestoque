@@ -4058,6 +4058,9 @@ function filtrarValidacaoEstagios() {
     const inputAluno = document.getElementById('search-validacao-aluno');
     const termo = inputAluno ? (inputAluno.value || '').trim().toUpperCase() : '';
     
+    const inputProtocolo = document.getElementById('search-validacao-protocolo');
+    const termoProtocolo = inputProtocolo ? (inputProtocolo.value || '').trim().toUpperCase() : '';
+    
     const selectCurso = document.getElementById('filter-validacao-curso');
     const filtroCurso = selectCurso ? (selectCurso.value || '').trim().toUpperCase() : '';
     
@@ -4075,12 +4078,14 @@ function filtrarValidacaoEstagios() {
     
     const filtrados = estagiosCache.filter(l => {
         const alunoUpper = (l.nome_aluno || '').trim().toUpperCase();
+        const protocoloUpper = (l.protocolo_ew || '').trim().toUpperCase();
         const cursoUpper = (l.curso || '').trim().toUpperCase();
         const turmaUpper = (l.turma || '').trim().toUpperCase();
         const unidadeUpper = (l.unidade || '').trim().toUpperCase();
         const statusUpper = (l.status || '').trim().toUpperCase();
 
         const matchAluno = !termo || alunoUpper.includes(termo);
+        const matchProtocolo = !termoProtocolo || protocoloUpper.includes(termoProtocolo);
         const matchCurso = !filtroCurso || cursoUpper === filtroCurso;
         const matchTurma = !filtroTurma || turmaUpper === filtroTurma;
         const matchUnidade = !filtroUnidade || unidadeUpper === filtroUnidade;
@@ -4093,7 +4098,7 @@ function filtrarValidacaoEstagios() {
             matchValidacao = !l.validado_coordenacao;
         }
 
-        return matchAluno && matchCurso && matchTurma && matchUnidade && matchStatus && matchValidacao;
+        return matchAluno && matchProtocolo && matchCurso && matchTurma && matchUnidade && matchStatus && matchValidacao;
     });
     
     if (filtrados.length === 0) {
@@ -4129,18 +4134,18 @@ function filtrarValidacaoEstagios() {
                 <td>
                     <input type="number" step="1" min="0"
                         class="validacao-campo"
-                        data-field="horas_capacitacao"
+                        data-field="horas_campo"
                         data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_capacitacao) || 0)}"
-                        style="${inputStyle} color: var(--accent-green);">
+                        value="${Math.round(parseFloat(l.horas_campo) || 0)}"
+                        style="${inputStyle} color: var(--accent-blue);">
                 </td>
                 <td>
                     <input type="number" step="1" min="0"
                         class="validacao-campo"
-                        data-field="horas_evento"
+                        data-field="horas_capacitacao"
                         data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_evento) || 0)}"
-                        style="${inputStyle} color: var(--accent-teal);">
+                        value="${Math.round(parseFloat(l.horas_capacitacao) || 0)}"
+                        style="${inputStyle} color: var(--accent-green);">
                 </td>
                 <td>
                     <input type="number" step="1" min="0"
@@ -4153,50 +4158,10 @@ function filtrarValidacaoEstagios() {
                 <td>
                     <input type="number" step="1" min="0"
                         class="validacao-campo"
-                        data-field="horas_enf_cirurgica"
+                        data-field="horas_evento"
                         data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_enf_cirurgica) || 0)}"
-                        style="${inputStyle} color: #6366f1;">
-                </td>
-                <td>
-                    <input type="number" step="1" min="0"
-                        class="validacao-campo"
-                        data-field="horas_enf_medica"
-                        data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_enf_medica) || 0)}"
-                        style="${inputStyle} color: #ef4444;">
-                </td>
-                <td>
-                    <input type="number" step="1" min="0"
-                        class="validacao-campo"
-                        data-field="horas_saude_mulher"
-                        data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_saude_mulher) || 0)}"
-                        style="${inputStyle} color: #ec4899;">
-                </td>
-                <td>
-                    <input type="number" step="1" min="0"
-                        class="validacao-campo"
-                        data-field="horas_saude_mental"
-                        data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_saude_mental) || 0)}"
-                        style="${inputStyle} color: #8b5cf6;">
-                </td>
-                <td>
-                    <input type="number" step="1" min="0"
-                        class="validacao-campo"
-                        data-field="horas_saude_publica"
-                        data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_saude_publica) || 0)}"
-                        style="${inputStyle} color: #10b981;">
-                </td>
-                <td>
-                    <input type="number" step="1" min="0"
-                        class="validacao-campo"
-                        data-field="horas_emergencia"
-                        data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_emergencia) || 0)}"
-                        style="${inputStyle} color: #f59e0b;">
+                        value="${Math.round(parseFloat(l.horas_evento) || 0)}"
+                        style="${inputStyle} color: var(--accent-teal);">
                 </td>
                 <td>
                     <button class="btn btn-sm btn-success"
@@ -4220,21 +4185,14 @@ async function validarLancamentoEstagio(id) {
         return el ? Math.round(parseFloat(el.value) || 0) : Math.round(parseFloat(original[field]) || 0);
     };
 
+    const horas_campo       = getInput('horas_campo');
     const horas_capacitacao = getInput('horas_capacitacao');
-    const horas_evento      = getInput('horas_evento');
     const horas_laboratorio = getInput('horas_laboratorio');
-    const horas_enf_cirurgica = getInput('horas_enf_cirurgica');
-    const horas_enf_medica = getInput('horas_enf_medica');
-    const horas_saude_mulher = getInput('horas_saude_mulher');
-    const horas_saude_mental = getInput('horas_saude_mental');
-    const horas_saude_publica = getInput('horas_saude_publica');
-    const horas_emergencia = getInput('horas_emergencia');
+    const horas_evento      = getInput('horas_evento');
 
     // ── Validação: soma das disciplinas deve ser igual ao total de horas ──
     const horas_totais_previsto = Math.round(parseFloat(original.horas_totais) || 0);
-    const soma_disciplinas = horas_capacitacao + horas_evento + horas_laboratorio +
-        horas_enf_cirurgica + horas_enf_medica + horas_saude_mulher +
-        horas_saude_mental + horas_saude_publica + horas_emergencia;
+    const soma_disciplinas = horas_campo + horas_capacitacao + horas_laboratorio + horas_evento;
 
     if (soma_disciplinas !== horas_totais_previsto) {
         showToast(
@@ -4255,15 +4213,10 @@ async function validarLancamentoEstagio(id) {
         horas_totais:        Math.round(parseFloat(original.horas_totais) || 0),
         protocolo_ew:        original.protocolo_ew || null,
         observacoes:         original.observacoes || null,
+        horas_campo,
         horas_capacitacao,
-        horas_evento,
         horas_laboratorio,
-        horas_enf_cirurgica,
-        horas_enf_medica,
-        horas_saude_mulher,
-        horas_saude_mental,
-        horas_saude_publica,
-        horas_emergencia,
+        horas_evento,
         validado_coordenacao: true
     };
 
@@ -4287,15 +4240,10 @@ async function validarLancamentoEstagio(id) {
             }
             const idx = estagiosCache.findIndex(x => x.id_lancamento === id);
             if (idx !== -1) {
+                estagiosCache[idx].horas_campo       = horas_campo;
                 estagiosCache[idx].horas_capacitacao = horas_capacitacao;
-                estagiosCache[idx].horas_evento      = horas_evento;
                 estagiosCache[idx].horas_laboratorio = horas_laboratorio;
-                estagiosCache[idx].horas_enf_cirurgica = horas_enf_cirurgica;
-                estagiosCache[idx].horas_enf_medica = horas_enf_medica;
-                estagiosCache[idx].horas_saude_mulher = horas_saude_mulher;
-                estagiosCache[idx].horas_saude_mental = horas_saude_mental;
-                estagiosCache[idx].horas_saude_publica = horas_saude_publica;
-                estagiosCache[idx].horas_emergencia = horas_emergencia;
+                estagiosCache[idx].horas_evento      = horas_evento;
                 estagiosCache[idx].validado_coordenacao = true;
             }
         } else {
@@ -4336,12 +4284,18 @@ function gerarRelatorioHorasAluno() {
     const inputPesquisa = document.getElementById('relatorio-search-aluno');
     if (!inputPesquisa) return;
     const termo = (inputPesquisa.value || '').trim().toUpperCase();
-    if (!termo) {
-        alert('Por favor, digite o nome de um aluno para pesquisar.');
+    const termoProtocolo = ((document.getElementById('relatorio-search-protocolo') || {}).value || '').trim().toUpperCase();
+
+    if (!termo && !termoProtocolo) {
+        alert('Por favor, preencha ao menos um campo de pesquisa (Nome do Aluno ou Protocolo EW).');
         return;
     }
-    
-    const filtrados = estagiosCache.filter(l => (l.nome_aluno || '').trim().toUpperCase().includes(termo));
+
+    const filtrados = estagiosCache.filter(l => {
+        const matchAluno = !termo || (l.nome_aluno || '').trim().toUpperCase().includes(termo);
+        const matchProtocolo = !termoProtocolo || (l.protocolo_ew || '').trim().toUpperCase().includes(termoProtocolo);
+        return matchAluno && matchProtocolo;
+    });
     
     document.getElementById('relatorio-horas-aluno-inicial').style.display = 'none';
     
@@ -4372,7 +4326,7 @@ function gerarRelatorioHorasAluno() {
     
     if (!tbody || !tfoot) return;
     
-    let totalHoras = 0, totalCapacitacao = 0, totalEvento = 0, totalLaboratorio = 0, totalEnfCirurgica = 0, totalEnfMedica = 0, totalSaudeMulher = 0, totalSaudeMental = 0, totalSaudePublica = 0, totalEmergencia = 0;
+    let totalHoras = 0, totalCampo = 0, totalCapacitacao = 0, totalLaboratorio = 0, totalEvento = 0;
     
     tbody.innerHTML = filtrados.map(l => {
         let dataFormatada = l.data_lancamento || '-';
@@ -4388,26 +4342,16 @@ function gerarRelatorioHorasAluno() {
         else if (l.status === 'Cancelado') statusBadge = 'badge-danger';
         
         const hTotal = Math.round(parseFloat(l.horas_totais) || 0);
+        const hCampo = Math.round(parseFloat(l.horas_campo) || 0);
         const hCapacitacao = Math.round(parseFloat(l.horas_capacitacao) || 0);
-        const hEvento = Math.round(parseFloat(l.horas_evento) || 0);
         const hLaboratorio = Math.round(parseFloat(l.horas_laboratorio) || 0);
-        const hEnfCirurgica = Math.round(parseFloat(l.horas_enf_cirurgica) || 0);
-        const hEnfMedica = Math.round(parseFloat(l.horas_enf_medica) || 0);
-        const hSaudeMulher = Math.round(parseFloat(l.horas_saude_mulher) || 0);
-        const hSaudeMental = Math.round(parseFloat(l.horas_saude_mental) || 0);
-        const hSaudePublica = Math.round(parseFloat(l.horas_saude_publica) || 0);
-        const hEmergencia = Math.round(parseFloat(l.horas_emergencia) || 0);
+        const hEvento = Math.round(parseFloat(l.horas_evento) || 0);
 
         totalHoras += hTotal;
+        totalCampo += hCampo;
         totalCapacitacao += hCapacitacao;
-        totalEvento += hEvento;
         totalLaboratorio += hLaboratorio;
-        totalEnfCirurgica += hEnfCirurgica;
-        totalEnfMedica += hEnfMedica;
-        totalSaudeMulher += hSaudeMulher;
-        totalSaudeMental += hSaudeMental;
-        totalSaudePublica += hSaudePublica;
-        totalEmergencia += hEmergencia;
+        totalEvento += hEvento;
         
         return `
             <tr>
@@ -4415,15 +4359,10 @@ function gerarRelatorioHorasAluno() {
                 <td>${l.turma || '-'}</td>
                 <td><span class="badge ${statusBadge}">${l.status}</span></td>
                 <td>${l.protocolo_ew || '-'}</td>
+                <td style="color: var(--accent-blue);">${hCampo}</td>
                 <td style="color: var(--accent-green);">${hCapacitacao}</td>
-                <td style="color: var(--accent-teal);">${hEvento}</td>
                 <td style="color: var(--accent-warning);">${hLaboratorio}</td>
-                <td style="color: #6366f1;">${hEnfCirurgica}</td>
-                <td style="color: #ef4444;">${hEnfMedica}</td>
-                <td style="color: #ec4899;">${hSaudeMulher}</td>
-                <td style="color: #8b5cf6;">${hSaudeMental}</td>
-                <td style="color: #10b981;">${hSaudePublica}</td>
-                <td style="color: #f59e0b;">${hEmergencia}</td>
+                <td style="color: var(--accent-teal);">${hEvento}</td>
                 <td><strong>${hTotal}</strong></td>
             </tr>
         `;
@@ -4434,15 +4373,10 @@ function gerarRelatorioHorasAluno() {
             <td colspan="4" style="text-align: right; padding-right: 12px;">
                 <i class="fa-solid fa-sigma"></i> TOTAL (${filtrados.length} lançamento${filtrados.length > 1 ? 's' : ''})
             </td>
+            <td style="color: var(--accent-blue);">${totalCampo}</td>
             <td style="color: var(--accent-green);">${totalCapacitacao}</td>
-            <td style="color: var(--accent-teal);">${totalEvento}</td>
             <td style="color: var(--accent-warning);">${totalLaboratorio}</td>
-            <td style="color: #6366f1;">${totalEnfCirurgica}</td>
-            <td style="color: #ef4444;">${totalEnfMedica}</td>
-            <td style="color: #ec4899;">${totalSaudeMulher}</td>
-            <td style="color: #8b5cf6;">${totalSaudeMental}</td>
-            <td style="color: #10b981;">${totalSaudePublica}</td>
-            <td style="color: #f59e0b;">${totalEmergencia}</td>
+            <td style="color: var(--accent-teal);">${totalEvento}</td>
             <td style="font-size: 16px;">${totalHoras} h</td>
         </tr>
     `;
@@ -4450,6 +4384,8 @@ function gerarRelatorioHorasAluno() {
 
 function limparRelatorioHorasAluno() {
     document.getElementById('relatorio-search-aluno').value = '';
+    const inputProtocolo = document.getElementById('relatorio-search-protocolo');
+    if (inputProtocolo) inputProtocolo.value = '';
     document.getElementById('relatorio-horas-aluno-resultado').style.display = 'none';
     document.getElementById('relatorio-horas-aluno-vazio').style.display = 'none';
     document.getElementById('relatorio-horas-aluno-inicial').style.display = 'block';

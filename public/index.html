@@ -956,6 +956,10 @@
                                 <input type="text" id="search-validacao-aluno" class="form-control" placeholder="DIGITE O NOME DO ALUNO..." oninput="filtrarValidacaoEstagios()" list="lista-alunos" style="text-transform: uppercase;">
                             </div>
                             <div class="form-group" style="margin:0; flex: 1.5; min-width: 170px;">
+                                <label for="search-validacao-protocolo" style="font-size: 12px;"><i class="fa-solid fa-hashtag"></i> PROTOCOLO EW</label>
+                                <input type="text" id="search-validacao-protocolo" class="form-control" placeholder="DIGITE O PROTOCOLO..." oninput="filtrarValidacaoEstagios()" style="text-transform: uppercase;">
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1.5; min-width: 170px;">
                                 <label for="filter-validacao-curso" style="font-size: 12px;"><i class="fa-solid fa-graduation-cap"></i> CURSO</label>
                                 <select id="filter-validacao-curso" class="form-control" onchange="filtrarValidacaoEstagios()">
                                     <option value="">TODOS OS CURSOS</option>
@@ -998,20 +1002,15 @@
                                         <th>Status</th>
                                         <th>Protocolo EW</th>
                                         <th>Total Horas</th>
+                                        <th style="color: var(--accent-blue);">Campo</th>
                                         <th style="color: var(--accent-green);">Capacitação</th>
-                                        <th style="color: var(--accent-teal);">Eventos</th>
                                         <th style="color: var(--accent-warning);">Laboratório</th>
-                                        <th style="color: #6366f1;">Enf. Cirúrgica</th>
-                                        <th style="color: #ef4444;">Enf. Médica</th>
-                                        <th style="color: #ec4899;">Saúde da Mulher</th>
-                                        <th style="color: #8b5cf6;">Saúde Mental</th>
-                                        <th style="color: #10b981;">Saúde Pública</th>
-                                        <th style="color: #f59e0b;">Emergência</th>
+                                        <th style="color: var(--accent-teal);">Evento</th>
                                         <th></th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-estagios-validacao-body">
-                                    <tr><td colspan="15" class="text-center">Carregando dados...</td></tr>
+                                    <tr><td colspan="10" class="text-center">Carregando dados...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1067,15 +1066,10 @@
                                             <th>Turma</th>
                                             <th>Status</th>
                                             <th>Protocolo EW</th>
+                                            <th style="color: var(--accent-blue);">Campo</th>
                                             <th style="color: var(--accent-green);">Capacitação</th>
-                                            <th style="color: var(--accent-teal);">Eventos</th>
                                             <th style="color: var(--accent-warning);">Laboratório</th>
-                                            <th style="color: #6366f1;">Enf. Cirúrgica</th>
-                                            <th style="color: #ef4444;">Enf. Médica</th>
-                                            <th style="color: #ec4899;">Saúde da Mulher</th>
-                                            <th style="color: #8b5cf6;">Saúde Mental</th>
-                                            <th style="color: #10b981;">Saúde Pública</th>
-                                            <th style="color: #f59e0b;">Emergência</th>
+                                            <th style="color: var(--accent-teal);">Evento</th>
                                             <th>Total Horas</th>
                                         </tr>
                                     </thead>
