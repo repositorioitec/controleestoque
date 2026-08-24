@@ -67,6 +67,14 @@ async function init_db() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS tbl_usuario_unidades (
+          id_usuario INT REFERENCES tbl_usuarios(id_usuario) ON DELETE CASCADE,
+          id_unidade INT REFERENCES tbl_unidades_operacionais(id_unidade) ON DELETE CASCADE,
+          PRIMARY KEY (id_usuario, id_unidade)
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS tbl_fornecedores (
           id_fornecedor SERIAL PRIMARY KEY,
           nome_fornecedor VARCHAR(150) NOT NULL,
@@ -159,6 +167,12 @@ async function init_db() {
       ADD COLUMN IF NOT EXISTS horas_capacitacao NUMERIC(6, 2) DEFAULT 0,
       ADD COLUMN IF NOT EXISTS horas_laboratorio NUMERIC(6, 2) DEFAULT 0,
       ADD COLUMN IF NOT EXISTS horas_evento NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_enf_cirurgica NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_enf_medica NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_saude_mulher NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_saude_mental NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_saude_publica NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_emergencia NUMERIC(6, 2) DEFAULT 0,
       ADD COLUMN IF NOT EXISTS validado_coordenacao BOOLEAN DEFAULT FALSE;
     `);
 
@@ -295,6 +309,15 @@ async function autenticar_usuario(usuario, senha) {
     if (status !== "Aprovado") {
       throw new Error("Sua conta aguarda aprovação do administrador.");
     }
+    // Buscar unidades vinculadas
+    const unidRes = await pool.query(`
+      SELECT uu.id_unidade, un2.nome_unidade
+      FROM tbl_usuario_unidades uu
+      LEFT JOIN tbl_unidades_operacionais un2 ON uu.id_unidade = un2.id_unidade
+      WHERE uu.id_usuario = $1
+      ORDER BY un2.nome_unidade ASC
+    `, [row.id_usuario]);
+    const unidades_acesso = unidRes.rows.map(r => ({ id_unidade: r.id_unidade, nome_unidade: r.nome_unidade }));
     return {
       id_usuario: row.id_usuario,
       usuario: row.usuario,
@@ -303,7 +326,8 @@ async function autenticar_usuario(usuario, senha) {
       id_unidade: row.id_unidade,
       status_aprovacao: status,
       nome_unidade: row.nome_unidade || "Não Atrelado",
-      menus_permitidos: row.menus_permitidos
+      menus_permitidos: row.menus_permitidos,
+      unidades_acesso
     };
   }
   return null;
@@ -329,7 +353,14 @@ async function listar_usuarios() {
               FROM tbl_usuario_categorias uc 
               WHERE uc.id_usuario = u.id_usuario), 
              '[]'
-           ) as categorias_acesso
+           ) as categorias_acesso,
+           COALESCE(
+             (SELECT json_agg(json_build_object('id_unidade', uu.id_unidade, 'nome_unidade', un2.nome_unidade))
+              FROM tbl_usuario_unidades uu
+              LEFT JOIN tbl_unidades_operacionais un2 ON uu.id_unidade = un2.id_unidade
+              WHERE uu.id_usuario = u.id_usuario),
+             '[]'
+           ) as unidades_acesso
     FROM tbl_usuarios u
     LEFT JOIN tbl_unidades_operacionais un ON u.id_unidade = un.id_unidade
     ORDER BY u.nome_usuario ASC
@@ -343,6 +374,7 @@ async function listar_usuarios() {
     id_unidade: r.id_unidade,
     nome_unidade: r.nome_unidade || "Sem Unidade",
     categorias_acesso: r.categorias_acesso || [],
+    unidades_acesso: r.unidades_acesso || [],
     senha_pendente: r.senha_pendente || null,
     menus_permitidos: r.menus_permitidos
   }));
@@ -361,6 +393,19 @@ async function atualizar_categorias_usuario(id_usuario, categorias_acesso) {
   }
 }
 
+async function atualizar_unidades_usuario(id_usuario, unidades_acesso) {
+  await pool.query(`DELETE FROM tbl_usuario_unidades WHERE id_usuario = $1`, [id_usuario]);
+  if (unidades_acesso && Array.isArray(unidades_acesso) && unidades_acesso.length > 0) {
+    for (let id_unid of unidades_acesso) {
+      await pool.query(`
+        INSERT INTO tbl_usuario_unidades (id_usuario, id_unidade)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+      `, [id_usuario, id_unid]);
+    }
+  }
+}
+
 async function atualizar_menus_usuario(id_usuario, menus_permitidos) {
   await pool.query(`
     UPDATE tbl_usuarios 
@@ -370,23 +415,28 @@ async function atualizar_menus_usuario(id_usuario, menus_permitidos) {
   return true;
 }
 
-async function aprovar_usuario(id_usuario, id_unidade, nivel_acesso = "Operador", categorias_acesso = []) {
+async function aprovar_usuario(id_usuario, unidades_acesso = [], nivel_acesso = "Operador", categorias_acesso = []) {
+  // Usa a primeira unidade como principal para compatibilidade
+  const id_unidade_principal = unidades_acesso.length > 0 ? unidades_acesso[0] : null;
   await pool.query(`
     UPDATE tbl_usuarios
     SET status_aprovacao = 'Aprovado', id_unidade = $1, nivel_acesso = $2
     WHERE id_usuario = $3
-  `, [id_unidade, nivel_acesso, id_usuario]);
+  `, [id_unidade_principal, nivel_acesso, id_usuario]);
   await atualizar_categorias_usuario(id_usuario, categorias_acesso);
+  await atualizar_unidades_usuario(id_usuario, unidades_acesso);
   return true;
 }
 
-async function atualizar_usuario(id_usuario, id_unidade, nivel_acesso = "Operador", categorias_acesso = []) {
+async function atualizar_usuario(id_usuario, unidades_acesso = [], nivel_acesso = "Operador", categorias_acesso = []) {
+  const id_unidade_principal = unidades_acesso.length > 0 ? unidades_acesso[0] : null;
   await pool.query(`
     UPDATE tbl_usuarios
     SET id_unidade = $1, nivel_acesso = $2
     WHERE id_usuario = $3
-  `, [id_unidade, nivel_acesso, id_usuario]);
+  `, [id_unidade_principal, nivel_acesso, id_usuario]);
   await atualizar_categorias_usuario(id_usuario, categorias_acesso);
+  await atualizar_unidades_usuario(id_usuario, unidades_acesso);
   return true;
 }
 
@@ -1115,29 +1165,29 @@ async function excluir_centro_custo(id_centro_custo) {
 
 async function listar_lancamentos_estagio() {
   const res = await pool.query(`
-    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao
+    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao
     FROM tbl_estagios_lancamentos
     ORDER BY id_lancamento DESC
   `);
   return res.rows;
 }
 
-async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao) {
+async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao) {
   if (id_lancamento) {
-    await pool.query(
-      `UPDATE tbl_estagios_lancamentos 
-       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, validado_coordenacao = $15
-       WHERE id_lancamento = $10`,
-      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao || false]
-    );
+    await pool.query(`
+      UPDATE tbl_estagios_lancamentos
+       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, horas_enf_cirurgica = $15, horas_enf_medica = $16, horas_saude_mulher = $17, horas_saude_mental = $18, horas_saude_publica = $19, horas_emergencia = $20, validado_coordenacao = $21
+       WHERE id_lancamento = $10
+    `, [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao || false]);
+    return id_lancamento;
   } else {
-    await pool.query(
-      `INSERT INTO tbl_estagios_lancamentos (data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo || 0, horas_capacitacao || 0, horas_laboratorio || 0, horas_evento || 0, validado_coordenacao || false]
+    const res = await pool.query(
+      `INSERT INTO tbl_estagios_lancamentos (data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id_lancamento`,
+      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo || 0, horas_capacitacao || 0, horas_laboratorio || 0, horas_evento || 0, horas_enf_cirurgica || 0, horas_enf_medica || 0, horas_saude_mulher || 0, horas_saude_mental || 0, horas_saude_publica || 0, horas_emergencia || 0, validado_coordenacao || false]
     );
+    return res.rows[0].id_lancamento;
   }
-  return true;
 }
 
 async function excluir_lancamento_estagio(id_lancamento) {
@@ -1155,6 +1205,7 @@ module.exports = {
   listar_usuarios,
   aprovar_usuario,
   atualizar_usuario,
+  atualizar_unidades_usuario,
   atualizar_menus_usuario,
   rejeitar_usuario,
   solicitar_troca_senha,

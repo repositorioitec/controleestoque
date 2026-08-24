@@ -95,16 +95,26 @@ app.get('/api/auth/users', async (req, res) => {
 
 app.post('/api/auth/users/:id_usuario/aprovar', async (req, res) => {
   const id_usuario = parseInt(req.params.id_usuario);
-  const id_unidade = req.body.id_unidade ? parseInt(req.body.id_unidade) : null;
   const nivel_acesso = req.body.nivel_acesso || 'Operador';
   const categorias_acesso = Array.isArray(req.body.categorias) ? req.body.categorias.map(Number) : [];
+  let unidades_acesso = Array.isArray(req.body.unidades) ? req.body.unidades.map(Number) : [];
 
-  if (!id_unidade) {
-    return res.status(400).json({ success: false, message: 'Selecione uma Unidade Operacional para vincular ao usuário.' });
+  // Se marcou "Todas as Unidades", busca todos os IDs
+  if (req.body.todas_unidades === true || req.body.todas_unidades === 'true') {
+    try {
+      const todasUnidades = await database.listar_unidades();
+      unidades_acesso = todasUnidades.map(u => u.id_unidade);
+    } catch (e) {
+      return res.status(500).json({ success: false, message: 'Erro ao buscar unidades: ' + e.message });
+    }
+  }
+
+  if (unidades_acesso.length === 0) {
+    return res.status(400).json({ success: false, message: 'Selecione ao menos uma Unidade Operacional para vincular ao usuário.' });
   }
 
   try {
-    await database.aprovar_usuario(id_usuario, id_unidade, nivel_acesso, categorias_acesso);
+    await database.aprovar_usuario(id_usuario, unidades_acesso, nivel_acesso, categorias_acesso);
     return res.json({ success: true, message: 'Usuário aprovado com sucesso!' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -113,16 +123,26 @@ app.post('/api/auth/users/:id_usuario/aprovar', async (req, res) => {
 
 app.post('/api/auth/users/:id_usuario/editar', async (req, res) => {
   const id_usuario = parseInt(req.params.id_usuario);
-  const id_unidade = req.body.id_unidade ? parseInt(req.body.id_unidade) : null;
   const nivel_acesso = req.body.nivel_acesso || 'Operador';
   const categorias_acesso = Array.isArray(req.body.categorias) ? req.body.categorias.map(Number) : [];
+  let unidades_acesso = Array.isArray(req.body.unidades) ? req.body.unidades.map(Number) : [];
 
-  if (!id_unidade) {
-    return res.status(400).json({ success: false, message: 'Selecione uma Unidade Operacional.' });
+  // Se marcou "Todas as Unidades", busca todos os IDs
+  if (req.body.todas_unidades === true || req.body.todas_unidades === 'true') {
+    try {
+      const todasUnidades = await database.listar_unidades();
+      unidades_acesso = todasUnidades.map(u => u.id_unidade);
+    } catch (e) {
+      return res.status(500).json({ success: false, message: 'Erro ao buscar unidades: ' + e.message });
+    }
+  }
+
+  if (unidades_acesso.length === 0) {
+    return res.status(400).json({ success: false, message: 'Selecione ao menos uma Unidade Operacional.' });
   }
 
   try {
-    await database.atualizar_usuario(id_usuario, id_unidade, nivel_acesso, categorias_acesso);
+    await database.atualizar_usuario(id_usuario, unidades_acesso, nivel_acesso, categorias_acesso);
     return res.json({ success: true, message: 'Permissões do usuário atualizadas com sucesso!' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -550,7 +570,7 @@ app.get('/api/estagios/lancamentos', async (req, res) => {
 });
 
 app.post('/api/estagios/lancamentos', async (req, res) => {
-  const { id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao } = req.body;
+  const { id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao } = req.body;
 
   if (!data_lancamento || !status || !nome_aluno || !unidade || !curso) {
     return res.status(400).json({ success: false, message: 'Campos obrigatórios: Data, Status, Aluno, Unidade e Curso.' });
@@ -572,6 +592,12 @@ app.post('/api/estagios/lancamentos', async (req, res) => {
       horas_capacitacao || 0,
       horas_laboratorio || 0,
       horas_evento || 0,
+      horas_enf_cirurgica || 0,
+      horas_enf_medica || 0,
+      horas_saude_mulher || 0,
+      horas_saude_mental || 0,
+      horas_saude_publica || 0,
+      horas_emergencia || 0,
       validado_coordenacao || false
     );
     const msg = id_lancamento ? 'Lançamento atualizado com sucesso!' : 'Lançamento criado com sucesso!';

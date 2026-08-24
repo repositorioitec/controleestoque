@@ -9,6 +9,7 @@ let produtosCache = [];
 let categoriasCache = [];
 let unidadesCache = [];
 let movimentacoesCache = [];
+let _userDataMap = {}; // mapa id_usuario -> dados completos do usuário
 
 // --- HELPERS DE NÍVEL DE ACESSO ---
 function isAdmin() {
@@ -266,10 +267,15 @@ const LocalDB = {
                         l.horas_totais = body.horas_totais;
                         l.protocolo_ew = body.protocolo_ew;
                         l.observacoes = body.observacoes;
-                        if (body.horas_campo !== undefined) l.horas_campo = body.horas_campo;
                         if (body.horas_capacitacao !== undefined) l.horas_capacitacao = body.horas_capacitacao;
-                        if (body.horas_laboratorio !== undefined) l.horas_laboratorio = body.horas_laboratorio;
                         if (body.horas_evento !== undefined) l.horas_evento = body.horas_evento;
+                        if (body.horas_laboratorio !== undefined) l.horas_laboratorio = body.horas_laboratorio;
+                        if (body.horas_enf_cirurgica !== undefined) l.horas_enf_cirurgica = body.horas_enf_cirurgica;
+                        if (body.horas_enf_medica !== undefined) l.horas_enf_medica = body.horas_enf_medica;
+                        if (body.horas_saude_mulher !== undefined) l.horas_saude_mulher = body.horas_saude_mulher;
+                        if (body.horas_saude_mental !== undefined) l.horas_saude_mental = body.horas_saude_mental;
+                        if (body.horas_saude_publica !== undefined) l.horas_saude_publica = body.horas_saude_publica;
+                        if (body.horas_emergencia !== undefined) l.horas_emergencia = body.horas_emergencia;
                     }
                 } else {
                     lancamentos.push({
@@ -283,10 +289,15 @@ const LocalDB = {
                         horas_totais: body.horas_totais,
                         protocolo_ew: body.protocolo_ew,
                         observacoes: body.observacoes,
-                        horas_campo: body.horas_campo || 0,
                         horas_capacitacao: body.horas_capacitacao || 0,
-                        horas_laboratorio: body.horas_laboratorio || 0,
                         horas_evento: body.horas_evento || 0,
+                        horas_laboratorio: body.horas_laboratorio || 0,
+                        horas_enf_cirurgica: body.horas_enf_cirurgica || 0,
+                        horas_enf_medica: body.horas_enf_medica || 0,
+                        horas_saude_mulher: body.horas_saude_mulher || 0,
+                        horas_saude_mental: body.horas_saude_mental || 0,
+                        horas_saude_publica: body.horas_saude_publica || 0,
+                        horas_emergencia: body.horas_emergencia || 0,
                         data_cadastro: new Date().toISOString()
                     });
                 }
@@ -1054,10 +1065,21 @@ async function iniciarAplicacao() {
             selectGlobal.disabled = false;
         }
     } else {
-        selectedUnitId = currentUser.id_unidade ? parseInt(currentUser.id_unidade) : null;
-        if (selectGlobal) {
-            selectGlobal.innerHTML = `<option value="${currentUser.id_unidade || ''}">${currentUser.nome_unidade || 'Sua Unidade'}</option>`;
-            selectGlobal.disabled = true;
+        const unidades_usuario = currentUser.unidades_acesso || [];
+        if (unidades_usuario.length > 1) {
+            // Usuário com múltiplas unidades pode trocar entre elas
+            selectGlobal.innerHTML = '<option value="">Todas as Minhas Unidades</option>' +
+                unidades_usuario.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
+            selectGlobal.disabled = false;
+            const savedUnit = sessionStorage.getItem(`user_unit_${currentUser.id_usuario}`) || '';
+            selectGlobal.value = savedUnit;
+            selectedUnitId = savedUnit ? parseInt(savedUnit) : null;
+        } else {
+            selectedUnitId = currentUser.id_unidade ? parseInt(currentUser.id_unidade) : null;
+            if (selectGlobal) {
+                selectGlobal.innerHTML = `<option value="${currentUser.id_unidade || ''}">${currentUser.nome_unidade || 'Sua Unidade'}</option>`;
+                selectGlobal.disabled = true;
+            }
         }
     }
 
@@ -1171,9 +1193,14 @@ function abrirPrimeiroMenuESubmenu() {
 }
 
 function trocarUnidadeAtiva(unitId) {
-    if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+    const isAdminOrMultiUnit = isAdmin() || (currentUser && (currentUser.unidades_acesso || []).length > 1);
+    if (isAdminOrMultiUnit) {
         selectedUnitId = unitId ? parseInt(unitId) : null;
-        localStorage.setItem('admin_selected_unit', unitId || '');
+        if (isAdmin()) {
+            localStorage.setItem('admin_selected_unit', unitId || '');
+        } else {
+            sessionStorage.setItem(`user_unit_${currentUser.id_usuario}`, unitId || '');
+        }
         
         const activeView = document.querySelector('.app-view.active');
         if (activeView) {
@@ -1181,9 +1208,21 @@ function trocarUnidadeAtiva(unitId) {
             if (viewId === 'view-dashboard') carregarDashboard();
             if (viewId === 'view-produtos') carregarProdutos();
             if (viewId === 'view-movimentacoes') carregarMovimentacoes();
+            if (viewId === 'view-estagios-lancamento') carregarLancamentosEstagio();
+            if (viewId === 'view-estagios-validacao') carregarValidacaoEstagios();
+            if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
         }
-        showToast(unitId ? 'Filtro atualizado para a unidade selecionada.' : 'Visualizando estoque de todas as unidades.', 'info');
+        showToast(unitId ? 'Filtro atualizado para a unidade selecionada.' : 'Visualizando estoque de todas as unidades permitidas.', 'info');
     }
+}
+
+// Retorna o nome da unidade global selecionada, se houver
+function getGlobalSelectedUnitName() {
+    if (selectedUnitId && unidadesCache.length > 0) {
+        const uObj = unidadesCache.find(u => u.id_unidade == selectedUnitId);
+        if (uObj) return uObj.nome_unidade;
+    }
+    return null;
 }
 
 // --- NAVEGAÇÃO ENTRE TELAS ---
@@ -2507,6 +2546,10 @@ async function carregarUsuarios() {
     const result = await safeFetch('/api/auth/users');
 
     if (result.success) {
+        // Atualiza o mapa de dados de usuário
+        _userDataMap = {};
+        result.users.forEach(u => { _userDataMap[u.id_usuario] = u; });
+
         const tbody = document.getElementById('table-usuarios-body');
         tbody.innerHTML = result.users.map(u => {
             let statusBadge = 'badge-success';
@@ -2515,10 +2558,20 @@ async function carregarUsuarios() {
 
             let badgeSenha = u.senha_pendente ? ' <span class="badge badge-warning" style="margin-left: 5px;" title="Troca de senha solicitada"><i class="fa-solid fa-key"></i> Pendente</span>' : '';
 
+            // Texto de unidades
+            let unidades_texto;
+            if (u.nivel_acesso === 'Administrador') {
+                unidades_texto = '<span style="color:var(--primary);font-weight:600;">Todas (Admin)</span>';
+            } else if (u.unidades_acesso && u.unidades_acesso.length > 0) {
+                unidades_texto = u.unidades_acesso.map(uu => uu.nome_unidade).join(', ');
+            } else {
+                unidades_texto = u.nome_unidade || 'Sem Unidade';
+            }
+
             let acoesHtml = '';
             if (u.status_aprovacao === 'Pendente') {
                 acoesHtml = `
-                    <button class="btn btn-sm btn-success" onclick="abrirModalUsuario(${u.id_usuario}, '${u.nome_usuario}', ${u.id_unidade || 'null'}, '${u.nivel_acesso}', 'aprovar', [${u.categorias_acesso ? u.categorias_acesso.join(',') : ''}])" title="Aprovar Cadastro">
+                    <button class="btn btn-sm btn-success" onclick="abrirModalUsuario(${u.id_usuario}, 'aprovar')" title="Aprovar Cadastro">
                         <i class="fa-solid fa-check"></i> Aprovar
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="rejeitarUsuario(${u.id_usuario})" title="Rejeitar Cadastro">
@@ -2531,7 +2584,7 @@ async function carregarUsuarios() {
             } else {
                 let menusPermJson = u.menus_permitidos ? JSON.stringify(u.menus_permitidos).replace(/"/g, '&quot;') : 'null';
                 acoesHtml = `
-                    <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, '${u.nome_usuario}', ${u.id_unidade || 'null'}, '${u.nivel_acesso}', 'editar', [${u.categorias_acesso ? u.categorias_acesso.join(',') : ''}])" title="Editar Unidade / Nível">
+                    <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / Nível">
                         <i class="fa-solid fa-pen-to-square"></i> Editar
                     </button>
                     <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
@@ -2560,7 +2613,7 @@ async function carregarUsuarios() {
                     <td><strong>${u.nome_usuario}</strong>${badgeSenha}</td>
                     <td><code>${u.usuario}</code></td>
                     <td><span class="badge ${u.nivel_acesso === 'Administrador' ? 'badge-info' : u.nivel_acesso === 'Supervisor' ? 'badge-warning' : 'badge-secondary'}">${u.nivel_acesso}</span></td>
-                    <td>${u.nome_unidade || 'Sem Unidade'}</td>
+                    <td>${unidades_texto}</td>
                     <td><span class="badge ${statusBadge}">${u.status_aprovacao || 'Aprovado'}</span></td>
                     <td class="text-right">${acoesHtml}</td>
                 </tr>
@@ -2601,7 +2654,22 @@ async function excluirUsuario(id_usuario) {
 }
 
 
-async function abrirModalUsuario(id_usuario, nome_usuario, id_unidade_atual, nivel_atual, modo = 'editar', categorias_acesso = []) {
+// Controla o checkbox "Todas as Unidades"
+function toggleTodasUnidades(checkbox) {
+    const cbs = document.querySelectorAll('input[name="usuario-unidade"]');
+    cbs.forEach(cb => {
+        cb.checked = checkbox.checked;
+        cb.disabled = checkbox.checked;
+    });
+}
+
+async function abrirModalUsuario(id_usuario, modo = 'editar') {
+    const u = _userDataMap[id_usuario] || {};
+    const nome_usuario = u.nome_usuario || '';
+    const unidades_atuais = u.unidades_acesso || [];
+    const nivel_atual = u.nivel_acesso || 'Operador';
+    const categorias_acesso = u.categorias_acesso || [];
+
     document.getElementById('aprovar-user-id').value = id_usuario;
     document.getElementById('aprovar-user-nome').textContent = nome_usuario;
     document.getElementById('aprovar-user-modo').value = modo;
@@ -2609,22 +2677,35 @@ async function abrirModalUsuario(id_usuario, nome_usuario, id_unidade_atual, niv
     const title = modo === 'aprovar' ? 'Aprovar e Vincular Usuário' : 'Editar Unidade e Nível de Acesso';
     document.getElementById('modal-user-title').textContent = title;
 
+    // Carregar unidades
     const data = await safeFetch('/api/unidades');
     if (data.success) {
         unidadesCache = data.unidades;
-        const selectU = document.getElementById('aprovar-unidade');
-        selectU.innerHTML = '<option value="">Selecione a Unidade...</option>' +
-            data.unidades.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
-        
-        if (id_unidade_atual && id_unidade_atual !== 'null') {
-            selectU.value = id_unidade_atual;
-        }
+        const unidContainer = document.getElementById('aprovar-unidades-container');
+        const idsAtuais = unidades_atuais.map(uu => uu.id_unidade);
+        const todasMarcadas = idsAtuais.length > 0 && idsAtuais.length === data.unidades.length;
+
+        unidContainer.innerHTML = data.unidades.map(un => {
+            const isChecked = idsAtuais.includes(un.id_unidade) ? 'checked' : '';
+            const isDisabled = todasMarcadas ? 'disabled' : '';
+            return `
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
+                    <input type="checkbox" name="usuario-unidade" value="${un.id_unidade}" ${isChecked} ${isDisabled}>
+                    ${un.nome_unidade}
+                </label>
+            `;
+        }).join('');
+
+        // Marcar "Todas" se todas estiverem selecionadas
+        const checkTodas = document.getElementById('check-todas-unidades');
+        if (checkTodas) checkTodas.checked = todasMarcadas;
     }
 
     if (nivel_atual) {
         document.getElementById('aprovar-nivel').value = nivel_atual;
     }
 
+    // Carregar categorias
     let cats = categoriasCache;
     if (cats.length === 0) {
         const catReq = await safeFetch('/api/categorias');
@@ -2654,16 +2735,23 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
     event.preventDefault();
     const userId = document.getElementById('aprovar-user-id').value;
     const modo = document.getElementById('aprovar-user-modo').value;
-    const id_unidade = document.getElementById('aprovar-unidade').value;
     const nivel_acesso = document.getElementById('aprovar-nivel').value;
+
+    // Verificar se marcou "Todas as Unidades"
+    const checkTodas = document.getElementById('check-todas-unidades');
+    const todasMarcadas = checkTodas && checkTodas.checked;
+
+    // Coletar unidades selecionadas
+    const unidades = Array.from(document.querySelectorAll('input[name="usuario-unidade"]:checked'))
+                          .map(cb => parseInt(cb.value));
+
+    if (!todasMarcadas && unidades.length === 0) {
+        showToast('Selecione ao menos uma Unidade Operacional.', 'warning');
+        return;
+    }
 
     const categoriasSelecionadas = Array.from(document.querySelectorAll('input[name="usuario-categoria"]:checked'))
                                         .map(cb => parseInt(cb.value));
-
-    if (!id_unidade) {
-        showToast('Selecione uma Unidade Operacional.', 'warning');
-        return;
-    }
 
     const endpoint = modo === 'aprovar' 
         ? `/api/auth/users/${userId}/aprovar` 
@@ -2672,7 +2760,12 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
     const result = await safeFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_unidade, nivel_acesso, categorias: categoriasSelecionadas })
+        body: JSON.stringify({ 
+            unidades, 
+            todas_unidades: todasMarcadas, 
+            nivel_acesso, 
+            categorias: categoriasSelecionadas 
+        })
     });
 
     if (result.success) {
@@ -2681,10 +2774,7 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
         carregarUsuarios();
 
         if (currentUser && currentUser.id_usuario == userId) {
-            currentUser.id_unidade = id_unidade;
             currentUser.nivel_acesso = nivel_acesso;
-            const unitObj = unidadesCache.find(u => u.id_unidade == id_unidade);
-            if (unitObj) currentUser.nome_unidade = unitObj.nome_unidade;
             setSessionUser(currentUser);
             iniciarAplicacao();
         }
@@ -3566,7 +3656,12 @@ async function carregarLancamentosEstagio() {
     try {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
-            estagiosCache = res.lancamentos;
+            let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
+            estagiosCache = data;
             atualizarFiltrosLancamentosEstagio();
             atualizarDatalistAlunos();
             renderEstagios(estagiosCache);
@@ -3904,7 +3999,12 @@ async function carregarValidacaoEstagios() {
     try {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
-            estagiosCache = res.lancamentos;
+            let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
+            estagiosCache = data;
             atualizarFiltrosValidacaoEstagio();
             filtrarValidacaoEstagios();
         }
@@ -3997,7 +4097,7 @@ function filtrarValidacaoEstagios() {
     });
     
     if (filtrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="13" class="text-center">Nenhum registro encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15" class="text-center">Nenhum registro encontrado.</td></tr>';
         return;
     }
     
@@ -4022,21 +4122,10 @@ function filtrarValidacaoEstagios() {
         return `
             <tr data-id="${l.id_lancamento}">
                 <td><strong>${l.nome_aluno}</strong></td>
-                <td>${l.curso}</td>
                 <td>${l.turma || '-'}</td>
-                <td>${l.unidade}</td>
                 <td><span class="badge ${statusBadge}">${l.status}</span></td>
                 <td>${l.protocolo_ew || '-'}</td>
                 <td><strong>${Math.round(parseFloat(l.horas_totais) || 0)}</strong></td>
-                <td>${l.observacoes || '-'}</td>
-                <td>
-                    <input type="number" step="1" min="0"
-                        class="validacao-campo"
-                        data-field="horas_campo"
-                        data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_campo) || 0)}"
-                        style="${inputStyle} color: var(--accent-blue);">
-                </td>
                 <td>
                     <input type="number" step="1" min="0"
                         class="validacao-campo"
@@ -4044,6 +4133,14 @@ function filtrarValidacaoEstagios() {
                         data-id="${l.id_lancamento}"
                         value="${Math.round(parseFloat(l.horas_capacitacao) || 0)}"
                         style="${inputStyle} color: var(--accent-green);">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_evento"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_evento) || 0)}"
+                        style="${inputStyle} color: var(--accent-teal);">
                 </td>
                 <td>
                     <input type="number" step="1" min="0"
@@ -4056,10 +4153,50 @@ function filtrarValidacaoEstagios() {
                 <td>
                     <input type="number" step="1" min="0"
                         class="validacao-campo"
-                        data-field="horas_evento"
+                        data-field="horas_enf_cirurgica"
                         data-id="${l.id_lancamento}"
-                        value="${Math.round(parseFloat(l.horas_evento) || 0)}"
-                        style="${inputStyle} color: var(--accent-teal);">
+                        value="${Math.round(parseFloat(l.horas_enf_cirurgica) || 0)}"
+                        style="${inputStyle} color: #6366f1;">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_enf_medica"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_enf_medica) || 0)}"
+                        style="${inputStyle} color: #ef4444;">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_saude_mulher"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_saude_mulher) || 0)}"
+                        style="${inputStyle} color: #ec4899;">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_saude_mental"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_saude_mental) || 0)}"
+                        style="${inputStyle} color: #8b5cf6;">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_saude_publica"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_saude_publica) || 0)}"
+                        style="${inputStyle} color: #10b981;">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_emergencia"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_emergencia) || 0)}"
+                        style="${inputStyle} color: #f59e0b;">
                 </td>
                 <td>
                     <button class="btn btn-sm btn-success"
@@ -4083,10 +4220,29 @@ async function validarLancamentoEstagio(id) {
         return el ? Math.round(parseFloat(el.value) || 0) : Math.round(parseFloat(original[field]) || 0);
     };
 
-    const horas_campo       = getInput('horas_campo');
     const horas_capacitacao = getInput('horas_capacitacao');
-    const horas_laboratorio = getInput('horas_laboratorio');
     const horas_evento      = getInput('horas_evento');
+    const horas_laboratorio = getInput('horas_laboratorio');
+    const horas_enf_cirurgica = getInput('horas_enf_cirurgica');
+    const horas_enf_medica = getInput('horas_enf_medica');
+    const horas_saude_mulher = getInput('horas_saude_mulher');
+    const horas_saude_mental = getInput('horas_saude_mental');
+    const horas_saude_publica = getInput('horas_saude_publica');
+    const horas_emergencia = getInput('horas_emergencia');
+
+    // ── Validação: soma das disciplinas deve ser igual ao total de horas ──
+    const horas_totais_previsto = Math.round(parseFloat(original.horas_totais) || 0);
+    const soma_disciplinas = horas_capacitacao + horas_evento + horas_laboratorio +
+        horas_enf_cirurgica + horas_enf_medica + horas_saude_mulher +
+        horas_saude_mental + horas_saude_publica + horas_emergencia;
+
+    if (soma_disciplinas !== horas_totais_previsto) {
+        showToast(
+            `⚠️ Soma das disciplinas (${soma_disciplinas}h) é diferente do Total de Horas (${horas_totais_previsto}h). Corrija antes de validar.`,
+            'error'
+        );
+        return;
+    }
 
     const payload = {
         id_lancamento:       original.id_lancamento,
@@ -4099,10 +4255,15 @@ async function validarLancamentoEstagio(id) {
         horas_totais:        Math.round(parseFloat(original.horas_totais) || 0),
         protocolo_ew:        original.protocolo_ew || null,
         observacoes:         original.observacoes || null,
-        horas_campo,
         horas_capacitacao,
-        horas_laboratorio,
         horas_evento,
+        horas_laboratorio,
+        horas_enf_cirurgica,
+        horas_enf_medica,
+        horas_saude_mulher,
+        horas_saude_mental,
+        horas_saude_publica,
+        horas_emergencia,
         validado_coordenacao: true
     };
 
@@ -4126,10 +4287,15 @@ async function validarLancamentoEstagio(id) {
             }
             const idx = estagiosCache.findIndex(x => x.id_lancamento === id);
             if (idx !== -1) {
-                estagiosCache[idx].horas_campo       = horas_campo;
                 estagiosCache[idx].horas_capacitacao = horas_capacitacao;
-                estagiosCache[idx].horas_laboratorio = horas_laboratorio;
                 estagiosCache[idx].horas_evento      = horas_evento;
+                estagiosCache[idx].horas_laboratorio = horas_laboratorio;
+                estagiosCache[idx].horas_enf_cirurgica = horas_enf_cirurgica;
+                estagiosCache[idx].horas_enf_medica = horas_enf_medica;
+                estagiosCache[idx].horas_saude_mulher = horas_saude_mulher;
+                estagiosCache[idx].horas_saude_mental = horas_saude_mental;
+                estagiosCache[idx].horas_saude_publica = horas_saude_publica;
+                estagiosCache[idx].horas_emergencia = horas_emergencia;
                 estagiosCache[idx].validado_coordenacao = true;
             }
         } else {
@@ -4153,7 +4319,12 @@ async function iniciarRelatorioHorasAluno() {
     try {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
-            estagiosCache = res.lancamentos;
+            let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
+            estagiosCache = data;
             atualizarDatalistAlunos();
         }
     } catch (e) {
@@ -4184,13 +4355,24 @@ function gerarRelatorioHorasAluno() {
     document.getElementById('relatorio-horas-aluno-vazio').style.display = 'none';
     document.getElementById('relatorio-horas-aluno-resultado').style.display = 'block';
     document.getElementById('btn-imprimir-horas').style.display = 'inline-block';
+
+    // Preenche o bloco de info do aluno (usa o primeiro registro encontrado)
+    const primeiroReg = filtrados[0];
+    const infoEl = document.getElementById('relatorio-aluno-info');
+    if (infoEl && primeiroReg) {
+        infoEl.innerHTML = `
+            <span><i class="fa-solid fa-user" style="color:#6366f1; margin-right:6px;"></i><strong>Aluno(a):</strong>&nbsp;${primeiroReg.nome_aluno || '-'}</span>
+            <span><i class="fa-solid fa-building" style="color:#10b981; margin-right:6px;"></i><strong>Unidade:</strong>&nbsp;${primeiroReg.unidade || '-'}</span>
+            <span><i class="fa-solid fa-graduation-cap" style="color:#f59e0b; margin-right:6px;"></i><strong>Curso:</strong>&nbsp;${primeiroReg.curso || '-'}</span>
+        `;
+    }
     
     const tbody = document.getElementById('table-relatorio-horas-aluno-body');
     const tfoot = document.getElementById('table-relatorio-horas-aluno-footer');
     
     if (!tbody || !tfoot) return;
     
-    let totalHoras = 0, totalCampo = 0, totalCapacitacao = 0, totalLaboratorio = 0, totalEvento = 0;
+    let totalHoras = 0, totalCapacitacao = 0, totalEvento = 0, totalLaboratorio = 0, totalEnfCirurgica = 0, totalEnfMedica = 0, totalSaudeMulher = 0, totalSaudeMental = 0, totalSaudePublica = 0, totalEmergencia = 0;
     
     tbody.innerHTML = filtrados.map(l => {
         let dataFormatada = l.data_lancamento || '-';
@@ -4206,30 +4388,42 @@ function gerarRelatorioHorasAluno() {
         else if (l.status === 'Cancelado') statusBadge = 'badge-danger';
         
         const hTotal = Math.round(parseFloat(l.horas_totais) || 0);
-        const hCampo = Math.round(parseFloat(l.horas_campo) || 0);
         const hCapacitacao = Math.round(parseFloat(l.horas_capacitacao) || 0);
-        const hLaboratorio = Math.round(parseFloat(l.horas_laboratorio) || 0);
         const hEvento = Math.round(parseFloat(l.horas_evento) || 0);
+        const hLaboratorio = Math.round(parseFloat(l.horas_laboratorio) || 0);
+        const hEnfCirurgica = Math.round(parseFloat(l.horas_enf_cirurgica) || 0);
+        const hEnfMedica = Math.round(parseFloat(l.horas_enf_medica) || 0);
+        const hSaudeMulher = Math.round(parseFloat(l.horas_saude_mulher) || 0);
+        const hSaudeMental = Math.round(parseFloat(l.horas_saude_mental) || 0);
+        const hSaudePublica = Math.round(parseFloat(l.horas_saude_publica) || 0);
+        const hEmergencia = Math.round(parseFloat(l.horas_emergencia) || 0);
 
         totalHoras += hTotal;
-        totalCampo += hCampo;
         totalCapacitacao += hCapacitacao;
-        totalLaboratorio += hLaboratorio;
         totalEvento += hEvento;
+        totalLaboratorio += hLaboratorio;
+        totalEnfCirurgica += hEnfCirurgica;
+        totalEnfMedica += hEnfMedica;
+        totalSaudeMulher += hSaudeMulher;
+        totalSaudeMental += hSaudeMental;
+        totalSaudePublica += hSaudePublica;
+        totalEmergencia += hEmergencia;
         
         return `
             <tr>
                 <td>${dataFormatada}</td>
-                <td><strong>${l.nome_aluno}</strong></td>
-                <td>${l.unidade}</td>
-                <td>${l.curso}</td>
                 <td>${l.turma || '-'}</td>
                 <td><span class="badge ${statusBadge}">${l.status}</span></td>
                 <td>${l.protocolo_ew || '-'}</td>
-                <td style="color: var(--accent-blue);">${hCampo}</td>
                 <td style="color: var(--accent-green);">${hCapacitacao}</td>
-                <td style="color: var(--accent-warning);">${hLaboratorio}</td>
                 <td style="color: var(--accent-teal);">${hEvento}</td>
+                <td style="color: var(--accent-warning);">${hLaboratorio}</td>
+                <td style="color: #6366f1;">${hEnfCirurgica}</td>
+                <td style="color: #ef4444;">${hEnfMedica}</td>
+                <td style="color: #ec4899;">${hSaudeMulher}</td>
+                <td style="color: #8b5cf6;">${hSaudeMental}</td>
+                <td style="color: #10b981;">${hSaudePublica}</td>
+                <td style="color: #f59e0b;">${hEmergencia}</td>
                 <td><strong>${hTotal}</strong></td>
             </tr>
         `;
@@ -4237,13 +4431,18 @@ function gerarRelatorioHorasAluno() {
     
     tfoot.innerHTML = `
         <tr style="background: rgba(99, 102, 241, 0.15); font-weight: 700; border-top: 2px solid var(--accent-blue);">
-            <td colspan="7" style="text-align: right; padding-right: 12px;">
+            <td colspan="4" style="text-align: right; padding-right: 12px;">
                 <i class="fa-solid fa-sigma"></i> TOTAL (${filtrados.length} lançamento${filtrados.length > 1 ? 's' : ''})
             </td>
-            <td style="color: var(--accent-blue);">${totalCampo}</td>
             <td style="color: var(--accent-green);">${totalCapacitacao}</td>
-            <td style="color: var(--accent-warning);">${totalLaboratorio}</td>
             <td style="color: var(--accent-teal);">${totalEvento}</td>
+            <td style="color: var(--accent-warning);">${totalLaboratorio}</td>
+            <td style="color: #6366f1;">${totalEnfCirurgica}</td>
+            <td style="color: #ef4444;">${totalEnfMedica}</td>
+            <td style="color: #ec4899;">${totalSaudeMulher}</td>
+            <td style="color: #8b5cf6;">${totalSaudeMental}</td>
+            <td style="color: #10b981;">${totalSaudePublica}</td>
+            <td style="color: #f59e0b;">${totalEmergencia}</td>
             <td style="font-size: 16px;">${totalHoras} h</td>
         </tr>
     `;
