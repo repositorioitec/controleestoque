@@ -1,4 +1,4 @@
-﻿const { Pool } = require('pg');
+const { Pool } = require('pg');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -40,13 +40,15 @@ async function init_db() {
           nivel_acesso VARCHAR(30) DEFAULT 'Operador',
           id_unidade INT REFERENCES tbl_unidades_operacionais(id_unidade) ON DELETE SET NULL,
           status_aprovacao VARCHAR(20) DEFAULT 'Pendente',
-          senha_pendente VARCHAR(100)
+          senha_pendente VARCHAR(100),
+          menus_permitidos JSONB DEFAULT NULL
       );
     `);
 
     await client.query(`
       ALTER TABLE tbl_usuarios 
-      ADD COLUMN IF NOT EXISTS senha_pendente VARCHAR(100);
+      ADD COLUMN IF NOT EXISTS senha_pendente VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS menus_permitidos JSONB DEFAULT NULL;
     `);
 
     await client.query(`
@@ -135,6 +137,67 @@ async function init_db() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tbl_estagios_lancamentos (
+          id_lancamento SERIAL PRIMARY KEY,
+          data_lancamento DATE NOT NULL,
+          status VARCHAR(50) NOT NULL,
+          nome_aluno VARCHAR(150) NOT NULL,
+          unidade VARCHAR(100) NOT NULL,
+          curso VARCHAR(150) NOT NULL,
+          turma VARCHAR(50),
+          horas_totais NUMERIC(6, 2) DEFAULT 0,
+          protocolo_ew VARCHAR(50),
+          observacoes TEXT,
+          data_cadastro TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      ALTER TABLE tbl_estagios_lancamentos 
+      ADD COLUMN IF NOT EXISTS horas_campo NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_capacitacao NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_laboratorio NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS horas_evento NUMERIC(6, 2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS validado_coordenacao BOOLEAN DEFAULT FALSE;
+    `);
+
+    // Atualiza variações de "Tecnico de Enfermagem" para "Tecnico em Enfermagem"
+    await client.query(`
+      UPDATE tbl_estagios_lancamentos
+      SET curso = 'Tecnico em Enfermagem'
+      WHERE LOWER(curso) = 'tecnico de enfermagem' 
+         OR LOWER(curso) = 'técnico de enfermagem' 
+         OR LOWER(curso) = 'tecnicos de enfermagem'
+         OR LOWER(curso) = 'técnicos de enfermagem'
+         OR LOWER(curso) LIKE '%tecnico%de%enfermagem%'
+         OR LOWER(curso) LIKE '%técnico%de%enfermagem%';
+    `);
+
+    // --- INDEXES FOR PERFORMANCE OPTIMIZATION ---
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_mov_produto ON tbl_movimentacoes(id_produto);
+      CREATE INDEX IF NOT EXISTS idx_mov_tipo ON tbl_movimentacoes(tipo_movimentacao);
+      CREATE INDEX IF NOT EXISTS idx_mov_data ON tbl_movimentacoes(data_movimentacao);
+      CREATE INDEX IF NOT EXISTS idx_mov_unidade ON tbl_movimentacoes(id_unidade);
+      CREATE INDEX IF NOT EXISTS idx_mov_usuario ON tbl_movimentacoes(id_usuario);
+      CREATE INDEX IF NOT EXISTS idx_mov_fornecedor ON tbl_movimentacoes(id_fornecedor);
+      CREATE INDEX IF NOT EXISTS idx_mov_cc ON tbl_movimentacoes(id_centro_custo);
+      
+      CREATE INDEX IF NOT EXISTS idx_prod_codigo ON tbl_produtos(codigo_barras);
+      CREATE INDEX IF NOT EXISTS idx_prod_categoria ON tbl_produtos(id_categoria);
+      CREATE INDEX IF NOT EXISTS idx_prod_fornecedor ON tbl_produtos(id_fornecedor);
+      CREATE INDEX IF NOT EXISTS idx_prod_unidade ON tbl_produtos(id_unidade);
+      CREATE INDEX IF NOT EXISTS idx_prod_usuario ON tbl_produtos(id_usuario);
+      
+      CREATE INDEX IF NOT EXISTS idx_estagio_data ON tbl_estagios_lancamentos(data_lancamento);
+      CREATE INDEX IF NOT EXISTS idx_estagio_status ON tbl_estagios_lancamentos(status);
+      CREATE INDEX IF NOT EXISTS idx_estagio_aluno ON tbl_estagios_lancamentos(nome_aluno);
+      CREATE INDEX IF NOT EXISTS idx_estagio_unidade ON tbl_estagios_lancamentos(unidade);
+      
+      CREATE INDEX IF NOT EXISTS idx_usr_unidade ON tbl_usuarios(id_unidade);
+    `);
+
     let res = await client.query("SELECT COUNT(*) FROM tbl_unidades_operacionais");
     if (parseInt(res.rows[0].count) === 0) {
       await client.query(`
@@ -217,7 +280,7 @@ async function atualizar_unidade(id_unidade, nome_unidade, endereco = "", cnpj =
 
 async function autenticar_usuario(usuario, senha) {
   const res = await pool.query(`
-    SELECT u.id_usuario, u.usuario, u.senha, u.nome_usuario, u.nivel_acesso, u.id_unidade, u.status_aprovacao, un.nome_unidade
+    SELECT u.id_usuario, u.usuario, u.senha, u.nome_usuario, u.nivel_acesso, u.id_unidade, u.status_aprovacao, un.nome_unidade, u.menus_permitidos
     FROM tbl_usuarios u
     LEFT JOIN tbl_unidades_operacionais un ON u.id_unidade = un.id_unidade
     WHERE (
@@ -239,7 +302,8 @@ async function autenticar_usuario(usuario, senha) {
       nivel_acesso: row.nivel_acesso,
       id_unidade: row.id_unidade,
       status_aprovacao: status,
-      nome_unidade: row.nome_unidade || "Não Atrelado"
+      nome_unidade: row.nome_unidade || "Não Atrelado",
+      menus_permitidos: row.menus_permitidos
     };
   }
   return null;
@@ -259,7 +323,7 @@ async function cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso = "O
 
 async function listar_usuarios() {
   const res = await pool.query(`
-    SELECT u.id_usuario, u.usuario, u.nome_usuario, u.nivel_acesso, u.status_aprovacao, u.id_unidade, un.nome_unidade, u.senha_pendente,
+    SELECT u.id_usuario, u.usuario, u.nome_usuario, u.nivel_acesso, u.status_aprovacao, u.id_unidade, un.nome_unidade, u.senha_pendente, u.menus_permitidos,
            COALESCE(
              (SELECT json_agg(uc.id_categoria) 
               FROM tbl_usuario_categorias uc 
@@ -279,7 +343,8 @@ async function listar_usuarios() {
     id_unidade: r.id_unidade,
     nome_unidade: r.nome_unidade || "Sem Unidade",
     categorias_acesso: r.categorias_acesso || [],
-    senha_pendente: r.senha_pendente || null
+    senha_pendente: r.senha_pendente || null,
+    menus_permitidos: r.menus_permitidos
   }));
 }
 
@@ -294,6 +359,15 @@ async function atualizar_categorias_usuario(id_usuario, categorias_acesso) {
       `, [id_usuario, id_cat]);
     }
   }
+}
+
+async function atualizar_menus_usuario(id_usuario, menus_permitidos) {
+  await pool.query(`
+    UPDATE tbl_usuarios 
+    SET menus_permitidos = $1 
+    WHERE id_usuario = $2
+  `, [menus_permitidos ? JSON.stringify(menus_permitidos) : null, id_usuario]);
+  return true;
 }
 
 async function aprovar_usuario(id_usuario, id_unidade, nivel_acesso = "Operador", categorias_acesso = []) {
@@ -1037,6 +1111,40 @@ async function excluir_centro_custo(id_centro_custo) {
   return true;
 }
 
+// --- CONTROLE DE ESTÁGIOS ---
+
+async function listar_lancamentos_estagio() {
+  const res = await pool.query(`
+    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao
+    FROM tbl_estagios_lancamentos
+    ORDER BY id_lancamento DESC
+  `);
+  return res.rows;
+}
+
+async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao) {
+  if (id_lancamento) {
+    await pool.query(
+      `UPDATE tbl_estagios_lancamentos 
+       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, validado_coordenacao = $15
+       WHERE id_lancamento = $10`,
+      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao || false]
+    );
+  } else {
+    await pool.query(
+      `INSERT INTO tbl_estagios_lancamentos (data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo || 0, horas_capacitacao || 0, horas_laboratorio || 0, horas_evento || 0, validado_coordenacao || false]
+    );
+  }
+  return true;
+}
+
+async function excluir_lancamento_estagio(id_lancamento) {
+  await pool.query("DELETE FROM tbl_estagios_lancamentos WHERE id_lancamento = $1", [id_lancamento]);
+  return true;
+}
+
 module.exports = {
   init_db,
   listar_unidades,
@@ -1047,6 +1155,7 @@ module.exports = {
   listar_usuarios,
   aprovar_usuario,
   atualizar_usuario,
+  atualizar_menus_usuario,
   rejeitar_usuario,
   solicitar_troca_senha,
   aprovar_senha_pendente,
@@ -1056,6 +1165,7 @@ module.exports = {
   listar_fornecedores,
   cadastrar_fornecedor,
   listar_produtos,
+
   obter_produto_por_id,
   salvar_produto,
   excluir_produto,
@@ -1070,7 +1180,8 @@ module.exports = {
   gerar_relatorio_sugestao_compras,
   listar_centros_custo,
   salvar_centro_custo,
-  excluir_centro_custo
+  excluir_centro_custo,
+  listar_lancamentos_estagio,
+  salvar_lancamento_estagio,
+  excluir_lancamento_estagio
 };
-
-

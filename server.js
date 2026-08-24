@@ -8,7 +8,8 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Inicializar o banco de dados
@@ -23,11 +24,11 @@ app.get('/', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.redirect('/');
 });
 
 app.get('/login.html', (req, res) => {
-  res.redirect('/login');
+  res.redirect('/');
 });
 
 // --- API DE AUTENTICAÇÃO E USUÁRIOS ---
@@ -123,6 +124,17 @@ app.post('/api/auth/users/:id_usuario/editar', async (req, res) => {
   try {
     await database.atualizar_usuario(id_usuario, id_unidade, nivel_acesso, categorias_acesso);
     return res.json({ success: true, message: 'Permissões do usuário atualizadas com sucesso!' });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+app.post('/api/auth/users/:id_usuario/menus', async (req, res) => {
+  const id_usuario = parseInt(req.params.id_usuario);
+  const menus = req.body.menus; // Deve ser um array ou null
+  try {
+    await database.atualizar_menus_usuario(id_usuario, menus);
+    return res.json({ success: true, message: 'Permissões de menu atualizadas com sucesso!' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
   }
@@ -524,6 +536,103 @@ app.get('/api/relatorios/sugestao-compras', async (req, res) => {
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }
+});
+
+// --- API DE CONTROLE DE ESTÁGIOS ---
+
+app.get('/api/estagios/lancamentos', async (req, res) => {
+  try {
+    const lancamentos = await database.listar_lancamentos_estagio();
+    return res.json({ success: true, lancamentos });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.post('/api/estagios/lancamentos', async (req, res) => {
+  const { id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, validado_coordenacao } = req.body;
+
+  if (!data_lancamento || !status || !nome_aluno || !unidade || !curso) {
+    return res.status(400).json({ success: false, message: 'Campos obrigatórios: Data, Status, Aluno, Unidade e Curso.' });
+  }
+
+  try {
+    await database.salvar_lancamento_estagio(
+      id_lancamento || null,
+      data_lancamento,
+      status,
+      nome_aluno,
+      unidade,
+      curso,
+      turma || null,
+      horas_totais || 0,
+      protocolo_ew || null,
+      observacoes || null,
+      horas_campo || 0,
+      horas_capacitacao || 0,
+      horas_laboratorio || 0,
+      horas_evento || 0,
+      validado_coordenacao || false
+    );
+    const msg = id_lancamento ? 'Lançamento atualizado com sucesso!' : 'Lançamento criado com sucesso!';
+    return res.json({ success: true, message: msg });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+app.delete('/api/estagios/lancamentos/:id', async (req, res) => {
+  try {
+    await database.excluir_lancamento_estagio(req.params.id);
+    return res.json({ success: true, message: 'Lançamento excluído com sucesso!' });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+// --- IMPORTAÇÃO DE PLANILHA DE ESTÁGIOS ---
+app.post('/api/estagios/importar-json', async (req, res) => {
+  const { lancamentos } = req.body;
+  if (!lancamentos || !Array.isArray(lancamentos) || lancamentos.length === 0) {
+    return res.status(400).json({ success: false, message: 'Nenhum dado recebido.' });
+  }
+
+  let importados = 0;
+  let erros = [];
+
+  for (const row of lancamentos) {
+    const nome_aluno = row.nome_aluno;
+    const unidade = row.unidade;
+    const curso = row.curso;
+    const turma = row.turma;
+    const status = row.status || 'Em andamento';
+    const horas_totais = parseFloat(row.horas_totais) || 0;
+    const data_lancamento = row.data_lancamento;
+    const protocolo_ew = row.protocolo_ew || null;
+    const observacoes = row.observacoes || null;
+
+    if (!nome_aluno || !unidade || !curso) {
+      erros.push(`Linha ignorada (dados incompletos): ${nome_aluno || JSON.stringify(row)}`);
+      continue;
+    }
+
+    try {
+      await database.salvar_lancamento_estagio(
+        null, data_lancamento, status, nome_aluno, unidade, curso,
+        turma, horas_totais, protocolo_ew, observacoes, 0, 0, 0, 0, false
+      );
+      importados++;
+    } catch (err) {
+      erros.push(`Erro ao salvar "${nome_aluno}": ${err.message}`);
+    }
+  }
+
+  return res.json({
+    success: true,
+    message: `${importados} lançamento(s) importado(s) com sucesso.${erros.length ? ` ${erros.length} linha(s) com erro.` : ''}`,
+    importados,
+    erros
+  });
 });
 
 const PORT = process.env.PORT || 5000;

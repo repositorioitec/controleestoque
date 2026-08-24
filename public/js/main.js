@@ -65,6 +65,9 @@ const LocalDB = {
         if (!localStorage.getItem('gh_centros_custo')) {
             localStorage.setItem('gh_centros_custo', JSON.stringify([]));
         }
+        if (!localStorage.getItem('gh_estagios_lancamentos')) {
+            localStorage.setItem('gh_estagios_lancamentos', JSON.stringify([]));
+        }
     },
 
     get(key) {
@@ -180,6 +183,19 @@ const LocalDB = {
             }
         }
 
+        // PERMISSOES MENU USER
+        if (path.match(/\/api\/auth\/users\/\d+\/menus/) && method === 'POST') {
+            const id = path.split('/')[4];
+            const users = this.get('usuarios');
+            const u = users.find(x => x.id_usuario == id);
+            if (u) {
+                u.menus_permitidos = body.menus;
+                this.set('usuarios', users);
+                return { success: true, message: 'Permissões de menu atualizadas!' };
+            }
+            return { success: false, message: 'Usuário não encontrado.' };
+        }
+
         // REJEITAR USER
         if (path.match(/\/api\/auth\/users\/\d+\/rejeitar/) && method === 'POST') {
             const id = path.split('/')[4];
@@ -229,6 +245,61 @@ const LocalDB = {
                 return { success: true, message: 'Solicitação de troca de senha rejeitada.' };
             }
             return { success: false, message: 'Usuário não encontrado.' };
+        }
+
+        // --- ESTÁGIOS ---
+        if (path === '/api/estagios/lancamentos') {
+            const lancamentos = this.get('estagios_lancamentos');
+            if (method === 'GET') {
+                return { success: true, lancamentos: lancamentos.sort((a,b) => b.id_lancamento - a.id_lancamento) };
+            }
+            if (method === 'POST') {
+                if (body.id_lancamento) {
+                    const l = lancamentos.find(x => x.id_lancamento == body.id_lancamento);
+                    if (l) {
+                        l.data_lancamento = body.data_lancamento;
+                        l.status = body.status;
+                        l.nome_aluno = body.nome_aluno;
+                        l.unidade = body.unidade;
+                        l.curso = body.curso;
+                        l.turma = body.turma;
+                        l.horas_totais = body.horas_totais;
+                        l.protocolo_ew = body.protocolo_ew;
+                        l.observacoes = body.observacoes;
+                        if (body.horas_campo !== undefined) l.horas_campo = body.horas_campo;
+                        if (body.horas_capacitacao !== undefined) l.horas_capacitacao = body.horas_capacitacao;
+                        if (body.horas_laboratorio !== undefined) l.horas_laboratorio = body.horas_laboratorio;
+                        if (body.horas_evento !== undefined) l.horas_evento = body.horas_evento;
+                    }
+                } else {
+                    lancamentos.push({
+                        id_lancamento: Date.now(),
+                        data_lancamento: body.data_lancamento,
+                        status: body.status,
+                        nome_aluno: body.nome_aluno,
+                        unidade: body.unidade,
+                        curso: body.curso,
+                        turma: body.turma,
+                        horas_totais: body.horas_totais,
+                        protocolo_ew: body.protocolo_ew,
+                        observacoes: body.observacoes,
+                        horas_campo: body.horas_campo || 0,
+                        horas_capacitacao: body.horas_capacitacao || 0,
+                        horas_laboratorio: body.horas_laboratorio || 0,
+                        horas_evento: body.horas_evento || 0,
+                        data_cadastro: new Date().toISOString()
+                    });
+                }
+                this.set('estagios_lancamentos', lancamentos);
+                return { success: true, message: 'Lançamento salvo com sucesso!' };
+            }
+        }
+        if (path.match(/\/api\/estagios\/lancamentos\/\d+/) && method === 'DELETE') {
+            const id = path.split('/')[4];
+            let lancamentos = this.get('estagios_lancamentos');
+            lancamentos = lancamentos.filter(x => x.id_lancamento != id);
+            this.set('estagios_lancamentos', lancamentos);
+            return { success: true, message: 'Lançamento excluído com sucesso!' };
         }
 
         // UNIDADES
@@ -773,13 +844,13 @@ function checarSessaoUsuario() {
     if (urlParams.get('action') === 'login' || urlParams.get('logout') === 'true') {
         clearSessionUser();
         currentUser = null;
-        window.location.replace('/login');
+        exibirTelaAuth();
         return;
     }
 
     const user = getSessionUser();
     if (!user) {
-        window.location.replace('/login');
+        exibirTelaAuth();
         return;
     }
 
@@ -857,6 +928,7 @@ async function handleLogin(event) {
     if (data.success) {
         currentUser = data.user;
         setSessionUser(currentUser);
+        localStorage.setItem('stock_user', JSON.stringify(currentUser));
         showToast(data.message, 'success');
         iniciarAplicacao();
     } else {
@@ -892,7 +964,7 @@ function handleLogout() {
     clearTimeout(inatividadeTimer);
     clearSessionUser();
     currentUser = null;
-    window.location.replace('/login');
+    exibirTelaAuth();
 }
 
 function resetInatividadeTimer() {
@@ -999,13 +1071,103 @@ async function iniciarAplicacao() {
         el.style.display = isSupervisor() ? '' : 'none';
     });
 
-    if (!isSupervisor()) {
-        navegarParaView('view-dashboard');
-    }
+    // Enforce Menus Permitidos
+    const menuItems = document.querySelectorAll('[data-menu-key]');
+    menuItems.forEach(el => {
+        const key = el.getAttribute('data-menu-key');
+        if (isAdmin()) {
+            el.style.display = '';
+        } else {
+            if (currentUser.menus_permitidos && Array.isArray(currentUser.menus_permitidos)) {
+                if (!currentUser.menus_permitidos.includes(key)) {
+                    el.style.display = 'none';
+                } else {
+                    el.style.display = '';
+                }
+            } else {
+                // Fallback: se menus_permitidos for nulo, mostra tudo (comportamento antigo)
+                el.style.display = '';
+            }
+        }
+    });
 
     carregarCategoriasEFornecedores();
-    carregarDashboard();
-    carregarProdutos();
+    
+    // Abre automaticamente o primeiro menu pai e navega para o primeiro submenu disponível
+    abrirPrimeiroMenuESubmenu();
+}
+
+function abrirPrimeiroMenuESubmenu() {
+    // Fecha todos os submenus primeiro
+    const submenus = ['ul-controle-estoques', 'ul-controle-estagios', 'ul-estagios-relatorios'];
+    submenus.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    // Remove active de todos os nav-items
+    const allNavItems = document.querySelectorAll('.sidebar-nav li');
+    allNavItems.forEach(i => i.classList.remove('active'));
+
+    // Lista ordenada dos menus pais e seus submenus
+    const parentMenus = [
+        { parentKey: 'controle-estoques', ulId: 'ul-controle-estoques' },
+        { parentKey: 'controle-estagios', ulId: 'ul-controle-estagios' }
+    ];
+
+    let targetView = null;
+    let targetNavItem = null;
+    let parentUlToOpen = null;
+
+    for (const p of parentMenus) {
+        const parentLi = document.querySelector(`li[data-menu-key="${p.parentKey}"]`);
+        // Verifica se o menu pai está visível/permitido
+        if (parentLi && parentLi.style.display !== 'none') {
+            const ul = document.getElementById(p.ulId);
+            if (ul) {
+                // Procura o primeiro submenu visível com data-target
+                const subItems = ul.querySelectorAll('li[data-target]');
+                for (const item of subItems) {
+                    if (item.style.display !== 'none') {
+                        if (item.classList.contains('admin-only') && !isAdmin()) continue;
+                        if (item.classList.contains('supervisor-only') && !isSupervisor()) continue;
+
+                        targetView = item.getAttribute('data-target');
+                        targetNavItem = item;
+                        parentUlToOpen = ul;
+                        break;
+                    }
+                }
+            }
+        }
+        if (targetView) break;
+    }
+
+    // Fallback se não for menu pai (ex: Administrador direto em Usuários)
+    if (!targetView) {
+        const anyVisibleItem = document.querySelector('.sidebar-nav li[data-target]:not([style*="display: none"])');
+        if (anyVisibleItem) {
+            targetView = anyVisibleItem.getAttribute('data-target');
+            targetNavItem = anyVisibleItem;
+        }
+    }
+
+    // Abre o primeiro menu pai correspondente
+    if (parentUlToOpen) {
+        parentUlToOpen.style.display = 'block';
+    }
+
+    // Marca como active o primeiro submenu
+    if (targetNavItem) {
+        targetNavItem.classList.add('active');
+    }
+
+    // Carrega a tela do primeiro submenu
+    if (targetView) {
+        navegarParaView(targetView);
+    } else {
+        navegarParaView('view-dashboard');
+    }
 }
 
 function trocarUnidadeAtiva(unitId) {
@@ -1068,9 +1230,12 @@ function navegarParaView(viewId) {
             'view-usuarios': 'Usuários e Aprovações',
             'view-relatorios-estoque': 'Relatório de Estoque Atual',
             'view-relatorios-sugestao-compras': 'Sugestão de Compras',
-            'view-transferencias': 'Transferência de Materiais'
+            'view-transferencias': 'Transferência de Materiais',
+            'view-estagios-lancamento': 'Lançamento de Horas (Estágios)',
+            'view-estagios-validacao': 'Validação Coordenação (Estágios)',
+            'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno'
         };
-        document.getElementById('page-title').textContent = titles[viewId] || 'Controle de Estoque';
+        document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
 
         if (viewId === 'view-dashboard') carregarDashboard();
         if (viewId === 'view-produtos') carregarProdutos();
@@ -1092,6 +1257,9 @@ function navegarParaView(viewId) {
         }
         if (viewId.startsWith('view-cadastros-')) carregarCadastrosGerais();
         if (viewId === 'view-usuarios') carregarUsuarios();
+        if (viewId === 'view-estagios-lancamento') carregarLancamentosEstagio();
+        if (viewId === 'view-estagios-validacao') carregarValidacaoEstagios();
+        if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
     }
 }
 
@@ -1483,9 +1651,7 @@ function getFormattedLocalDateTime() {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return `${year}-${month}-${day}`;
 }
 
 async function preencherOpcoesFiltrosMovimentacoes() {
@@ -1779,7 +1945,7 @@ function imprimirRelatorioMovimentacoes() {
     const saldoVal = document.getElementById('report-saldo-val')?.innerText || 'R$ 0,00';
 
     const tbody = document.getElementById('table-movimentacoes-body')?.innerHTML || '';
-    const now = new Date().toLocaleString('pt-BR');
+    const now = new Date().toLocaleDateString('pt-BR');
 
     let filtrosTexto = [];
     if (dataInicio) filtrosTexto.push(`Data Inicial: <strong>${dataInicio.split('-').reverse().join('/')}</strong>`);
@@ -1916,12 +2082,10 @@ async function abrirModalMovimentacao(param) {
 
         document.getElementById('mov-tipo').value = mov.tipo_movimentacao;
         
-        // Formatar a data para o input datetime-local
+        // Formatar a data para o input date
         let dt = mov.data_movimentacao;
         if (dt) {
-            if (dt.endsWith('Z')) dt = dt.substring(0, dt.length - 1);
-            if (dt.length > 16) dt = dt.substring(0, 16);
-            document.getElementById('mov-data').value = dt;
+            document.getElementById('mov-data').value = dt.substring(0, 10);
         } else {
             document.getElementById('mov-data').value = getFormattedLocalDateTime();
         }
@@ -2365,9 +2529,13 @@ async function carregarUsuarios() {
                     </button>
                 `;
             } else {
+                let menusPermJson = u.menus_permitidos ? JSON.stringify(u.menus_permitidos).replace(/"/g, '&quot;') : 'null';
                 acoesHtml = `
                     <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, '${u.nome_usuario}', ${u.id_unidade || 'null'}, '${u.nivel_acesso}', 'editar', [${u.categorias_acesso ? u.categorias_acesso.join(',') : ''}])" title="Editar Unidade / Nível">
                         <i class="fa-solid fa-pen-to-square"></i> Editar
+                    </button>
+                    <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
+                        <i class="fa-solid fa-list-check"></i> Permissões
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
                         <i class="fa-solid fa-trash"></i>
@@ -2525,6 +2693,75 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
     }
 }
 
+const TODOS_MENUS = [
+    { key: 'controle-estoques', label: 'Controle de Estoques (Menu Pai)', isParent: true },
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'produtos', label: 'Produtos' },
+    { key: 'movimentacoes', label: 'Movimentações (Grupo)' },
+    { key: 'historico', label: 'Histórico' },
+    { key: 'transferencias', label: 'Transferências' },
+    { key: 'cadastros', label: 'Cadastros (Grupo)' },
+    { key: 'centros-custo', label: 'Centros de Custo' },
+    { key: 'unidades', label: 'Unidades' },
+    { key: 'categorias', label: 'Categorias' },
+    { key: 'fornecedores', label: 'Fornecedores' },
+    { key: 'relatorios', label: 'Relatórios (Grupo)' },
+    { key: 'estoque-atual', label: 'Estoque Atual' },
+    { key: 'sugestao-compras', label: 'Sugestão de Compras' },
+    { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
+    { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
+    { key: 'estagios-validacao', label: 'Validação Coordenação' },
+    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
+    { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' }
+];
+
+function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
+    document.getElementById('perm-menu-id').value = id_usuario;
+    document.getElementById('perm-menu-username').textContent = `- ${nome_usuario}`;
+
+    const permitidos = menus_permitidos || [];
+    const isAdminUser = false; // Em uma aplicação real checaríamos se u.nivel_acesso === 'Administrador'
+
+    const container = document.getElementById('permissoes-menu-list');
+    container.innerHTML = TODOS_MENUS.map(m => {
+        // Se null/undefined (antes da feature), assume que pode ver (fallback).
+        // Se for admin, sempre marcado
+        const isChecked = !menus_permitidos || permitidos.includes(m.key) ? 'checked' : '';
+        const boldStyle = m.isParent ? 'font-weight: bold;' : 'margin-left: 15px;';
+        
+        return `
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; ${boldStyle}">
+                <input type="checkbox" name="menu-permission" value="${m.key}" ${isChecked}>
+                ${m.label}
+            </label>
+        `;
+    }).join('');
+
+    document.getElementById('modal-permissoes-menu').classList.remove('hidden');
+}
+
+async function salvarPermissoesMenu(event) {
+    event.preventDefault();
+    const id_usuario = document.getElementById('perm-menu-id').value;
+    
+    const checkboxes = document.querySelectorAll('input[name="menu-permission"]:checked');
+    const menus = Array.from(checkboxes).map(cb => cb.value);
+
+    const result = await safeFetch(`/api/auth/users/${id_usuario}/menus`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menus })
+    });
+
+    if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modal-permissoes-menu');
+        carregarUsuarios(); // recarregar a lista para pegar as permissões novas
+    } else {
+        showToast(result.message, 'error');
+    }
+}
+
 async function rejeitarUsuario(id_usuario) {
     if (!confirm('Deseja rejeitar este usuário?')) return;
 
@@ -2591,6 +2828,17 @@ function fecharModal(modalId) {
     document.getElementById(modalId).classList.add('hidden');
 }
 
+function getNomeUnidadeAtiva() {
+    if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
+        return currentUser.nome_unidade;
+    }
+    const globalSelect = document.getElementById('select-global-unidade');
+    if (globalSelect && globalSelect.value) {
+        return globalSelect.options[globalSelect.selectedIndex].text;
+    }
+    return ''; // Retorna vazio se for "Todas as Unidades"
+}
+
 function formatarMoeda(valor) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
 }
@@ -2600,7 +2848,7 @@ function formatarData(strData) {
     try {
         const d = new Date(strData);
         if (isNaN(d.getTime())) return strData;
-        return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch (e) {
         return strData;
     }
@@ -2652,7 +2900,7 @@ async function abrirRelatorioEstoqueBaixo() {
     const unidadeLabel = selectedUnitId
         ? (unidadesCache.find(u => u.id_unidade == selectedUnitId)?.nome_unidade || 'Unidade selecionada')
         : 'Todas as Unidades';
-    const agora = new Date().toLocaleString('pt-BR');
+    const agora = new Date().toLocaleDateString('pt-BR');
     infoEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> &nbsp;
         <strong>${baixos.length} produto(s)</strong> com estoque abaixo do mínimo &nbsp;|&nbsp;
         Unidade: <strong>${unidadeLabel}</strong> &nbsp;|&nbsp;
@@ -2847,7 +3095,7 @@ function imprimirRelatorioEstoque() {
     const incluirZerados = document.getElementById('filter-rel-est-zerados')?.checked || false;
 
     const tbody = document.getElementById('table-relatorios-estoque-body')?.innerHTML || '';
-    const now = new Date().toLocaleString('pt-BR');
+    const now = new Date().toLocaleDateString('pt-BR');
 
     let filtrosTexto = [];
     if (nomeUnidade && nomeUnidade !== 'Todas as Unidades') filtrosTexto.push(`Unidade: <strong>${nomeUnidade}</strong>`);
@@ -3077,7 +3325,7 @@ function imprimirRelatorioSugestaoCompras() {
     const dataFim = document.getElementById('filter-rel-sug-fim')?.value || '';
 
     const tbody = document.getElementById('table-relatorios-sugestao-body')?.innerHTML || '';
-    const now = new Date().toLocaleString('pt-BR');
+    const now = new Date().toLocaleDateString('pt-BR');
 
     let filtrosTexto = [];
     if (dataInicio && dataFim) filtrosTexto.push(`Período: <strong>${dataInicio.split('-').reverse().join('/')} a ${dataFim.split('-').reverse().join('/')}</strong>`);
@@ -3097,84 +3345,983 @@ function imprimirRelatorioSugestaoCompras() {
         body { font-family: 'Inter', Arial, sans-serif; padding: 20px; color: #333; }
         .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; border-bottom: 2px solid #0284c7; padding-bottom: 10px; }
         .header h1 { font-size: 22px; margin: 0 0 5px 0; color: #0f172a; }
-        .header .meta { text-align: right; font-size: 11px; color: #475569; }
-        .filter-box { font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; color: #334155; }
-        .total-box { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-        .total-card { background: #f0fdfa; border: 1px solid #14b8a6; border-radius: 8px; padding: 10px 20px; text-align: center; }
-        .total-card .label { font-size: 11px; color: #0f766e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .total-card .value { font-size: 20px; font-weight: 700; color: #0d9488; }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
-        th { background: #0f172a; color: #ffffff; padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 600; }
-        td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; color: #334155; }
-        tr:nth-child(even) td { background: #f8fafc; }
-        .badge { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; display: inline-block; }
-        .badge-primary { background: #dbeafe; color: #1e3a8a; border: 1px solid #bfdbfe; }
-        .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-        .badge-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-        .badge-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-        .badge-secondary { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-        .tfoot-total td { background: #f0fdfa !important; font-weight: 700; color: #0d9488; border-top: 2px solid #14b8a6; }
-        @page { margin: 12mm; size: A4 landscape; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; font-size: 13px; }
+        th { background-color: #f1f5f9; font-weight: 600; color: #334155; }
+        .footer { margin-top: 30px; text-align: right; font-weight: 600; font-size: 16px; color: #0f172a; }
+        .meta { color: #64748b; font-size: 13px; }
+        @media print { body { padding: 0; } }
     </style>
 </head>
 <body>
     <div class="header">
         <div>
-            <h1>🛒 Sugestão de Compras</h1>
-            <small style="color: #64748b;">Sistema de Controle de Estoques - ITEC</small>
+            <h1>Sugestão de Compras</h1>
+            <div class="meta">
+                ${filtrosHtml}<br>
+                Gerado em: ${new Date().toLocaleString()}
+            </div>
         </div>
-        <div class="meta">
-            <strong>Gerado em:</strong> ${now}<br>
-            <strong>Usuário:</strong> ${currentUser ? currentUser.nome_usuario : 'Sistema'}
-        </div>
-    </div>
-
-    <div class="filter-box">
-        🔍 <strong>Filtros Aplicados:</strong> ${filtrosHtml}
-    </div>
-
-    <div class="total-box">
-        <div class="total-card">
-            <div class="label">💰 Total Sugerido</div>
-            <div class="value">${totalSugeridoTexto}</div>
+        <div>
+            <div style="font-size: 18px; font-weight: 700; color: #0284c7;">
+                Custo Estimado: ${totalSugeridoTexto}
+            </div>
         </div>
     </div>
-
+    
     <table>
         <thead>
             <tr>
-                <th>ID</th>
                 <th>Produto</th>
-                <th>Unidade</th>
                 <th>Categoria</th>
-                <th>Estoque Real</th>
+                <th>Unidade</th>
+                <th>Estoque Atual</th>
                 <th>Estoque Mínimo</th>
-                <th>Sugestão de Pedido</th>
-                <th>Valor Sugerido</th>
+                <th>A Comprar</th>
+                <th>Custo Médio</th>
+                <th>Subtotal</th>
             </tr>
         </thead>
         <tbody>
-            ${tbody}
+            ${linhasSugeridasHtml}
         </tbody>
-        <tfoot>
-            <tr class="tfoot-total">
-                <td colspan="7" style="text-align:right; font-size:12px;">TOTAL GERAL SUGERIDO:</td>
-                <td>${totalSugeridoTexto}</td>
-            </tr>
-        </tfoot>
     </table>
 </body>
-</html>`;
-
-    const win = window.open('', '_blank');
-    if (win) {
-        win.document.write(html);
-        win.document.close();
-        setTimeout(() => {
-            win.focus();
-            win.print();
-        }, 250);
-    } else {
-        window.print();
+</html>
+    `;
+    
+    // Fallback se printWindow falhar
+    if (!printWindow) {
+        showToast('Erro ao abrir janela de impressão. Verifique se há bloqueio de pop-ups.', 'error');
+        return;
     }
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+
+    printWindow.onload = function() {
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+        }, 500);
+    };
+}
+
+// ============================================================================
+// IMPORTAÇÃO DE PLANILHA DE ESTÁGIOS
+// ============================================================================
+
+let _planilhaArquivo = null;
+
+function abrirModalImportarPlanilha() {
+    _planilhaArquivo = null;
+    document.getElementById('input-planilha').value = '';
+    document.getElementById('nome-arquivo-planilha').textContent = 'Nenhum arquivo selecionado';
+    document.getElementById('btn-confirmar-importacao').disabled = true;
+    const resultado = document.getElementById('resultado-importacao');
+    resultado.style.display = 'none';
+    resultado.innerHTML = '';
+    document.getElementById('drop-zone-planilha').style.borderColor = '';
+    document.getElementById('modal-importar-planilha').classList.remove('hidden');
+}
+
+function selecionarPlanilha(input) {
+    if (input.files && input.files[0]) {
+        _planilhaArquivo = input.files[0];
+        document.getElementById('nome-arquivo-planilha').textContent = _planilhaArquivo.name;
+        document.getElementById('btn-confirmar-importacao').disabled = false;
+        document.getElementById('drop-zone-planilha').style.borderColor = 'var(--accent-blue)';
+    }
+}
+
+function handleDropPlanilha(event) {
+    event.preventDefault();
+    document.getElementById('drop-zone-planilha').style.borderColor = 'var(--border-color)';
+    const file = event.dataTransfer.files[0];
+    if (file) {
+        _planilhaArquivo = file;
+        document.getElementById('nome-arquivo-planilha').textContent = file.name;
+        document.getElementById('btn-confirmar-importacao').disabled = false;
+        document.getElementById('drop-zone-planilha').style.borderColor = 'var(--accent-blue)';
+    }
+}
+
+async function confirmarImportacaoPlanilha() {
+    if (!_planilhaArquivo) return;
+
+    const btn = document.getElementById('btn-confirmar-importacao');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importando...';
+
+    const resultado = document.getElementById('resultado-importacao');
+    resultado.style.display = 'none';
+
+    try {
+        const data = await _planilhaArquivo.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+        if (rows.length === 0) {
+            throw new Error('Planilha vazia ou sem dados.');
+        }
+
+        const lancamentos = [];
+        for (const row of rows) {
+            const normalizar = (obj, chave) => {
+                const norm = (s) => s.toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+                const chaveNorm = norm(chave);
+                for (const k of Object.keys(obj)) {
+                    if (norm(k) === chaveNorm) return obj[k];
+                }
+                return '';
+            };
+
+            const nome_aluno = String(normalizar(row, 'Alunos') || normalizar(row, 'Aluno') || '').trim();
+            const unidade = String(normalizar(row, 'Unidade') || '').trim();
+            let curso = String(normalizar(row, 'Curso') || '').trim();
+            if (curso.toLowerCase() === 'tecnico de enfermagem' || curso.toLowerCase() === 'técnico de enfermagem') {
+                curso = 'Tecnico em Enfermagem';
+            }
+            const turma = String(normalizar(row, 'Turma') || '').trim() || null;
+            const status = String(normalizar(row, 'Status') || 'Em andamento').trim();
+            const horas_totais = parseFloat(normalizar(row, 'Horas') || normalizar(row, 'Horas Totais')) || 0;
+            const protocolo_ew = String(normalizar(row, 'Protocolo') || normalizar(row, 'Protocolo EW') || '').trim() || null;
+            const observacoes = String(normalizar(row, 'Observacoes') || normalizar(row, 'Observações') || '').trim() || null;
+
+            let data_lancamento = normalizar(row, 'Data');
+            if (data_lancamento instanceof Date) {
+                data_lancamento = data_lancamento.toISOString().split('T')[0];
+            } else if (typeof data_lancamento === 'number') {
+                const d = XLSX.SSF.parse_date_code(data_lancamento);
+                data_lancamento = `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+            } else if (typeof data_lancamento === 'string' && data_lancamento.includes('/')) {
+                const [dd, mm, yyyy] = data_lancamento.split('/');
+                data_lancamento = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+            } else {
+                data_lancamento = data_lancamento || new Date().toISOString().split('T')[0];
+            }
+
+            lancamentos.push({
+                nome_aluno,
+                unidade,
+                curso,
+                turma,
+                status,
+                horas_totais,
+                data_lancamento,
+                protocolo_ew,
+                observacoes
+            });
+        }
+
+        const res = await fetch('/api/estagios/importar-json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lancamentos })
+        });
+        const respData = await res.json();
+
+        resultado.style.display = 'block';
+        if (respData.success) {
+            resultado.style.background = 'rgba(34, 197, 94, 0.1)';
+            resultado.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+            resultado.style.color = 'var(--accent-green)';
+            resultado.innerHTML = `<i class="fa-solid fa-check-circle"></i> <strong>${respData.message}</strong>`
+                + (respData.erros && respData.erros.length
+                    ? `<ul style="margin-top:8px;font-size:12px;color:var(--text-muted);">${respData.erros.map(e => `<li>${e}</li>`).join('')}</ul>`
+                    : '');
+            carregarLancamentosEstagio();
+        } else {
+            resultado.style.background = 'rgba(239, 68, 68, 0.1)';
+            resultado.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            resultado.style.color = 'var(--accent-red, #ef4444)';
+            resultado.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${respData.message}`;
+        }
+    } catch (e) {
+        resultado.style.display = 'block';
+        resultado.style.background = 'rgba(239, 68, 68, 0.1)';
+        resultado.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        resultado.style.color = 'var(--accent-red, #ef4444)';
+        resultado.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Erro ao processar planilha: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-upload"></i> Importar';
+    }
+}
+
+// ============================================================================
+// NOVO CÓDIGO - ABA DE ESTÁGIOS
+// ============================================================================
+
+let estagiosCache = [];
+
+async function carregarLancamentosEstagio() {
+    const tbody = document.getElementById('table-estagios-lancamentos-body');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Carregando estágios...</td></tr>';
+    
+    try {
+        const res = await safeFetch('/api/estagios/lancamentos');
+        if (res.success && res.lancamentos) {
+            estagiosCache = res.lancamentos;
+            atualizarFiltrosLancamentosEstagio();
+            atualizarDatalistAlunos();
+            renderEstagios(estagiosCache);
+        } else {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nenhum estágio encontrado.</td></tr>';
+        }
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Erro ao carregar estágios.</td></tr>';
+        console.error(e);
+    }
+}
+
+function atualizarFiltrosLancamentosEstagio() {
+    const elCurso = document.getElementById('filtro-lancamento-curso');
+    const elTurma = document.getElementById('filtro-lancamento-turma');
+    const elUnidade = document.getElementById('filtro-lancamento-unidade');
+    const elStatus = document.getElementById('filtro-lancamento-status');
+
+    if (!elCurso || !elTurma || !elUnidade) return;
+
+    // Salva os valores atualmente selecionados
+    const cursoAtual = (elCurso.value || '').toUpperCase();
+    const turmaAtual = (elTurma.value || '').toUpperCase();
+    const unidadeAtual = (elUnidade.value || '').toUpperCase();
+    const statusAtual = elStatus ? (elStatus.value || '').toUpperCase() : '';
+
+    // Extrai valores únicos em MAIÚSCULO
+    const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const turmas = [...new Set(estagiosCache.map(l => (l.turma || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
+
+    // Atualiza opções Curso
+    elCurso.innerHTML = '<option value="">TODOS OS CURSOS</option>' + 
+        cursos.map(c => `<option value="${c}">${c}</option>`).join('');
+    
+    // Atualiza opções Turma
+    elTurma.innerHTML = '<option value="">TODAS AS TURMAS</option>' + 
+        turmas.map(t => `<option value="${t}">${t}</option>`).join('');
+
+    // Atualiza opções Unidade
+    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
+        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+
+    // Atualiza opções Status
+    if (elStatus) {
+        elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
+            statuses.map(s => `<option value="${s}">${s}</option>`).join('');
+        if (statuses.includes(statusAtual)) elStatus.value = statusAtual;
+    }
+
+    // Restaura os valores caso ainda existam na lista
+    if (cursos.includes(cursoAtual)) elCurso.value = cursoAtual;
+    if (turmas.includes(turmaAtual)) elTurma.value = turmaAtual;
+    if (unidades.includes(unidadeAtual)) elUnidade.value = unidadeAtual;
+}
+
+function obterUnidadePadraoUsuario() {
+    // 1. Se houver unidade selecionada no topo da página (select global)
+    const selectGlobal = document.getElementById('select-global-unidade');
+    if (selectGlobal && selectGlobal.value) {
+        const unitId = selectGlobal.value;
+        const uObj = unidadesCache.find(u => u.id_unidade == unitId);
+        if (uObj && uObj.nome_unidade) return uObj.nome_unidade;
+    }
+    
+    // 2. Se houver selectedUnitId
+    if (selectedUnitId && unidadesCache.length > 0) {
+        const uObj = unidadesCache.find(u => u.id_unidade == selectedUnitId);
+        if (uObj && uObj.nome_unidade) return uObj.nome_unidade;
+    }
+
+    // 3. Se o usuário tiver unidade permitida no cadastro
+    if (currentUser && currentUser.nome_unidade) {
+        return currentUser.nome_unidade;
+    }
+
+    return '';
+}
+
+async function preencherSelectUnidadesModalEstagio() {
+    const selectU = document.getElementById('estagio-unidade');
+    if (!selectU) return;
+
+    if (unidadesCache.length === 0) {
+        const dataU = await safeFetch('/api/unidades');
+        if (dataU.success && dataU.unidades) {
+            unidadesCache = dataU.unidades;
+        }
+    }
+
+    // Coleta todas as unidades do sistema e dos lançamentos
+    const setUnidades = new Set();
+    unidadesCache.forEach(u => {
+        if (u.nome_unidade) setUnidades.add(u.nome_unidade.trim());
+    });
+    estagiosCache.forEach(l => {
+        if (l.unidade) setUnidades.add(l.unidade.trim());
+    });
+    if (currentUser && currentUser.nome_unidade) {
+        setUnidades.add(currentUser.nome_unidade.trim());
+    }
+
+    const listaOrdenada = Array.from(setUnidades).sort();
+    
+    selectU.innerHTML = '<option value="">Selecione a Unidade...</option>' +
+        listaOrdenada.map(nome => `<option value="${nome}">${nome}</option>`).join('');
+}
+
+async function abrirModalLancamentoEstagio() {
+    document.getElementById('form-estagios-lancamento').reset();
+    document.getElementById('estagio-id').value = '';
+    document.getElementById('modal-estagio-title').innerText = 'Novo Lançamento de Horas';
+    document.getElementById('estagio-data').value = new Date().toISOString().split('T')[0];
+
+    // Popula opções de unidades no modal
+    await preencherSelectUnidadesModalEstagio();
+
+    // Define a unidade padrão fixa/selecionada
+    const padraoUnidade = obterUnidadePadraoUsuario();
+    const selectUnidade = document.getElementById('estagio-unidade');
+    if (padraoUnidade && selectUnidade) {
+        let matched = false;
+        for (let opt of selectUnidade.options) {
+            if (opt.value.trim().toUpperCase() === padraoUnidade.trim().toUpperCase()) {
+                selectUnidade.value = opt.value;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            const newOpt = document.createElement('option');
+            newOpt.value = padraoUnidade;
+            newOpt.textContent = padraoUnidade;
+            selectUnidade.appendChild(newOpt);
+            selectUnidade.value = padraoUnidade;
+        }
+
+        // Se o usuário não for Administrador, bloqueia o select para manter fixo na sua unidade
+        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            selectUnidade.disabled = true;
+        } else {
+            selectUnidade.disabled = false;
+        }
+    } else if (selectUnidade) {
+        selectUnidade.disabled = false;
+    }
+
+    document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
+}
+
+async function salvarLancamentoEstagio(event) {
+    event.preventDefault();
+    const id = document.getElementById('estagio-id').value;
+    const selectUnidade = document.getElementById('estagio-unidade');
+    const unidadeValor = (selectUnidade ? selectUnidade.value : '') || obterUnidadePadraoUsuario();
+
+    const payload = {
+        id_lancamento: id || null,
+        data_lancamento: document.getElementById('estagio-data').value,
+        status: document.getElementById('estagio-status').value,
+        nome_aluno: (document.getElementById('estagio-aluno').value || '').trim().toUpperCase(),
+        unidade: unidadeValor,
+        curso: document.getElementById('estagio-curso').value,
+        turma: (document.getElementById('estagio-turma').value || '').trim().toUpperCase() || null,
+        horas_totais: Math.round(parseFloat(document.getElementById('estagio-horas').value) || 0),
+        protocolo_ew: document.getElementById('estagio-protocolo').value,
+        observacoes: document.getElementById('estagio-observacoes').value,
+        horas_campo: 0,
+        horas_capacitacao: 0,
+        horas_laboratorio: 0,
+        horas_evento: 0,
+        validado_coordenacao: false
+    };
+
+    try {
+        const res = await fetch('/api/estagios/lancamentos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            fecharModal('modal-estagios-lancamento');
+            carregarLancamentosEstagio();
+            alert(data.message);
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    } catch (e) {
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+function renderEstagios(lista) {
+    const tbody = document.getElementById('table-estagios-lancamentos-body');
+    if (!tbody) return;
+
+    if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nenhum registro encontrado.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = lista.map(l => {
+        let statusBadge = 'badge-secondary';
+        const stUpper = (l.status || '').toUpperCase();
+        if (stUpper === 'EM ANDAMENTO') statusBadge = 'badge-primary';
+        else if (stUpper === 'CONCLUIDO' || stUpper === 'CONCLUÍDO') statusBadge = 'badge-success';
+        else if (stUpper === 'EVADIDO') statusBadge = 'badge-warning';
+        else if (stUpper === 'CANCELADO') statusBadge = 'badge-danger';
+
+        // Formata data para DD/MM/YYYY
+        let dataFormatada = l.data_lancamento || '-';
+        if (dataFormatada.includes('-')) {
+            const parts = dataFormatada.split('-');
+            if (parts.length === 3) dataFormatada = parts[2] + '/' + parts[1] + '/' + parts[0];
+        }
+
+        const hTotal = Math.round(parseFloat(l.horas_totais) || 0);
+        const validado = l.validado_coordenacao ? '<span class="text-success"><i class="fa-solid fa-check"></i> Sim</span>' : '<span class="text-warning"><i class="fa-solid fa-clock"></i> Pendente</span>';
+
+        return `
+            <tr>
+                <td>${dataFormatada}</td>
+                <td><strong>${l.nome_aluno}</strong></td>
+                <td>${l.curso}</td>
+                <td>${l.turma || '-'}</td>
+                <td>${l.unidade}</td>
+                <td><strong>${hTotal}</strong></td>
+                <td><span class="badge ${statusBadge}">${l.status}</span></td>
+                <td>${validado}</td>
+                <td class="text-right">
+                    <button class="btn btn-sm btn-secondary" onclick="editarLancamentoEstagio(${l.id_lancamento})" title="Editar"><i class="fa-solid fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="excluirLancamentoEstagio(${l.id_lancamento})" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filtrarLancamentosEstagio() {
+    const elAluno = document.getElementById('filtro-lancamento-aluno');
+    const elCurso = document.getElementById('filtro-lancamento-curso');
+    const elTurma = document.getElementById('filtro-lancamento-turma');
+    const elUnidade = document.getElementById('filtro-lancamento-unidade');
+    const elStatus = document.getElementById('filtro-lancamento-status');
+
+    if (!elAluno) return; // Garante que a view existe
+
+    const termoAluno = (elAluno.value || '').trim().toUpperCase();
+    const filtroCurso = (elCurso ? elCurso.value : '').trim().toUpperCase();
+    const filtroTurma = (elTurma ? elTurma.value : '').trim().toUpperCase();
+    const filtroUnidade = (elUnidade ? elUnidade.value : '').trim().toUpperCase();
+    const filtroStatus = (elStatus ? elStatus.value : '').trim().toUpperCase();
+
+    const filtrados = estagiosCache.filter(l => {
+        const alunoUpper = (l.nome_aluno || '').trim().toUpperCase();
+        const cursoUpper = (l.curso || '').trim().toUpperCase();
+        const turmaUpper = (l.turma || '').trim().toUpperCase();
+        const unidadeUpper = (l.unidade || '').trim().toUpperCase();
+        const statusUpper = (l.status || '').trim().toUpperCase();
+
+        const matchAluno = !termoAluno || alunoUpper.includes(termoAluno);
+        const matchCurso = !filtroCurso || cursoUpper === filtroCurso;
+        const matchTurma = !filtroTurma || turmaUpper === filtroTurma;
+        const matchUnidade = !filtroUnidade || unidadeUpper === filtroUnidade;
+        const matchStatus = !filtroStatus || statusUpper === filtroStatus;
+        return matchAluno && matchCurso && matchTurma && matchUnidade && matchStatus;
+    });
+
+    renderEstagios(filtrados);
+}
+
+async function editarLancamentoEstagio(id) {
+    const l = estagiosCache.find(x => x.id_lancamento === id);
+    if (!l) return;
+
+    await preencherSelectUnidadesModalEstagio();
+
+    document.getElementById('estagio-id').value = l.id_lancamento;
+    document.getElementById('estagio-data').value = l.data_lancamento;
+    document.getElementById('estagio-status').value = l.status;
+    document.getElementById('estagio-aluno').value = l.nome_aluno;
+    
+    const selectUnidade = document.getElementById('estagio-unidade');
+    if (selectUnidade) {
+        let matched = false;
+        for (let opt of selectUnidade.options) {
+            if (opt.value.trim().toUpperCase() === (l.unidade || '').trim().toUpperCase()) {
+                selectUnidade.value = opt.value;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched && l.unidade) {
+            const newOpt = document.createElement('option');
+            newOpt.value = l.unidade;
+            newOpt.textContent = l.unidade;
+            selectUnidade.appendChild(newOpt);
+            selectUnidade.value = l.unidade;
+        }
+        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            selectUnidade.disabled = true;
+        } else {
+            selectUnidade.disabled = false;
+        }
+    }
+
+    document.getElementById('estagio-curso').value = l.curso;
+    document.getElementById('estagio-turma').value = l.turma || '';
+    document.getElementById('estagio-horas').value = l.horas_totais;
+    document.getElementById('estagio-protocolo').value = l.protocolo_ew || '';
+    document.getElementById('estagio-observacoes').value = l.observacoes || '';
+    
+    document.getElementById('modal-estagio-title').innerText = 'Editar Lançamento de Horas';
+    document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
+}
+
+async function excluirLancamentoEstagio(id) {
+    if (!confirm('Deseja realmente excluir este lançamento?')) return;
+    try {
+        const res = await fetch('/api/estagios/lancamentos/' + id, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            carregarLancamentosEstagio();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    } catch(e) {
+        alert('Erro ao excluir lançamento.');
+    }
+}
+
+async function carregarValidacaoEstagios() {
+    try {
+        const res = await safeFetch('/api/estagios/lancamentos');
+        if (res.success && res.lancamentos) {
+            estagiosCache = res.lancamentos;
+            atualizarFiltrosValidacaoEstagio();
+            filtrarValidacaoEstagios();
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function atualizarFiltrosValidacaoEstagio() {
+    const elCurso = document.getElementById('filter-validacao-curso');
+    const elTurma = document.getElementById('filter-validacao-turma');
+    const elUnidade = document.getElementById('filter-validacao-unidade');
+    const elStatus = document.getElementById('filter-validacao-status-estagio');
+
+    if (!elCurso || !elTurma || !elUnidade) return;
+
+    const cursoAtual = (elCurso.value || '').toUpperCase();
+    const turmaAtual = (elTurma.value || '').toUpperCase();
+    const unidadeAtual = (elUnidade.value || '').toUpperCase();
+    const statusAtual = elStatus ? (elStatus.value || '').toUpperCase() : '';
+
+    const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const turmas = [...new Set(estagiosCache.map(l => (l.turma || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
+
+    elCurso.innerHTML = '<option value="">TODOS OS CURSOS</option>' + 
+        cursos.map(c => `<option value="${c}">${c}</option>`).join('');
+    
+    elTurma.innerHTML = '<option value="">TODAS AS TURMAS</option>' + 
+        turmas.map(t => `<option value="${t}">${t}</option>`).join('');
+
+    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
+        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+
+    if (elStatus) {
+        elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
+            statuses.map(s => `<option value="${s}">${s}</option>`).join('');
+        if (statuses.includes(statusAtual)) elStatus.value = statusAtual;
+    }
+
+    if (cursos.includes(cursoAtual)) elCurso.value = cursoAtual;
+    if (turmas.includes(turmaAtual)) elTurma.value = turmaAtual;
+    if (unidades.includes(unidadeAtual)) elUnidade.value = unidadeAtual;
+}
+
+function filtrarValidacaoEstagios() {
+    const tbody = document.getElementById('table-estagios-validacao-body');
+    if (!tbody) return;
+    
+    const inputAluno = document.getElementById('search-validacao-aluno');
+    const termo = inputAluno ? (inputAluno.value || '').trim().toUpperCase() : '';
+    
+    const selectCurso = document.getElementById('filter-validacao-curso');
+    const filtroCurso = selectCurso ? (selectCurso.value || '').trim().toUpperCase() : '';
+    
+    const selectTurma = document.getElementById('filter-validacao-turma');
+    const filtroTurma = selectTurma ? (selectTurma.value || '').trim().toUpperCase() : '';
+    
+    const selectUnidade = document.getElementById('filter-validacao-unidade');
+    const filtroUnidade = selectUnidade ? (selectUnidade.value || '').trim().toUpperCase() : '';
+    
+    const selectStatusEstagio = document.getElementById('filter-validacao-status-estagio');
+    const filtroStatusEstagio = selectStatusEstagio ? (selectStatusEstagio.value || '').trim().toUpperCase() : '';
+    
+    const selectStatus = document.getElementById('filter-validacao-status');
+    const statusVal = selectStatus ? (selectStatus.value || '').trim().toLowerCase() : '';
+    
+    const filtrados = estagiosCache.filter(l => {
+        const alunoUpper = (l.nome_aluno || '').trim().toUpperCase();
+        const cursoUpper = (l.curso || '').trim().toUpperCase();
+        const turmaUpper = (l.turma || '').trim().toUpperCase();
+        const unidadeUpper = (l.unidade || '').trim().toUpperCase();
+        const statusUpper = (l.status || '').trim().toUpperCase();
+
+        const matchAluno = !termo || alunoUpper.includes(termo);
+        const matchCurso = !filtroCurso || cursoUpper === filtroCurso;
+        const matchTurma = !filtroTurma || turmaUpper === filtroTurma;
+        const matchUnidade = !filtroUnidade || unidadeUpper === filtroUnidade;
+        const matchStatus = !filtroStatusEstagio || statusUpper === filtroStatusEstagio;
+        
+        let matchValidacao = true;
+        if (statusVal === 'validado') {
+            matchValidacao = l.validado_coordenacao === true;
+        } else if (statusVal === 'pendente') {
+            matchValidacao = !l.validado_coordenacao;
+        }
+
+        return matchAluno && matchCurso && matchTurma && matchUnidade && matchStatus && matchValidacao;
+    });
+    
+    if (filtrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center">Nenhum registro encontrado.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = filtrados.map(l => {
+        let statusBadge = 'badge-secondary';
+        if (l.status === 'Em andamento') statusBadge = 'badge-primary';
+        else if (l.status === 'Concluido') statusBadge = 'badge-success';
+        else if (l.status === 'Evadido') statusBadge = 'badge-warning';
+        else if (l.status === 'Cancelado') statusBadge = 'badge-danger';
+
+        const inputStyle = `
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: inherit;
+            width: 70px;
+            padding: 3px 6px;
+            font-size: 13px;
+            text-align: center;
+        `;
+
+        return `
+            <tr data-id="${l.id_lancamento}">
+                <td><strong>${l.nome_aluno}</strong></td>
+                <td>${l.curso}</td>
+                <td>${l.turma || '-'}</td>
+                <td>${l.unidade}</td>
+                <td><span class="badge ${statusBadge}">${l.status}</span></td>
+                <td>${l.protocolo_ew || '-'}</td>
+                <td><strong>${Math.round(parseFloat(l.horas_totais) || 0)}</strong></td>
+                <td>${l.observacoes || '-'}</td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_campo"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_campo) || 0)}"
+                        style="${inputStyle} color: var(--accent-blue);">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_capacitacao"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_capacitacao) || 0)}"
+                        style="${inputStyle} color: var(--accent-green);">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_laboratorio"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_laboratorio) || 0)}"
+                        style="${inputStyle} color: var(--accent-warning);">
+                </td>
+                <td>
+                    <input type="number" step="1" min="0"
+                        class="validacao-campo"
+                        data-field="horas_evento"
+                        data-id="${l.id_lancamento}"
+                        value="${Math.round(parseFloat(l.horas_evento) || 0)}"
+                        style="${inputStyle} color: var(--accent-teal);">
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-success"
+                        onclick="validarLancamentoEstagio(${l.id_lancamento})"
+                        title="Salvar e Validar">
+                        <i class="fa-solid fa-check-double"></i> Validar
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function validarLancamentoEstagio(id) {
+    const original = estagiosCache.find(x => x.id_lancamento === id);
+    if (!original) return;
+
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    const getInput = (field) => {
+        const el = row ? row.querySelector(`input[data-field="${field}"]`) : null;
+        return el ? Math.round(parseFloat(el.value) || 0) : Math.round(parseFloat(original[field]) || 0);
+    };
+
+    const horas_campo       = getInput('horas_campo');
+    const horas_capacitacao = getInput('horas_capacitacao');
+    const horas_laboratorio = getInput('horas_laboratorio');
+    const horas_evento      = getInput('horas_evento');
+
+    const payload = {
+        id_lancamento:       original.id_lancamento,
+        data_lancamento:     original.data_lancamento,
+        status:              original.status,
+        nome_aluno:          original.nome_aluno,
+        unidade:             original.unidade,
+        curso:               original.curso,
+        turma:               original.turma || null,
+        horas_totais:        Math.round(parseFloat(original.horas_totais) || 0),
+        protocolo_ew:        original.protocolo_ew || null,
+        observacoes:         original.observacoes || null,
+        horas_campo,
+        horas_capacitacao,
+        horas_laboratorio,
+        horas_evento,
+        validado_coordenacao: true
+    };
+
+    try {
+        const res  = await fetch('/api/estagios/lancamentos', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Lançamento validado com sucesso!', 'success');
+            if (row) {
+                const btn = row.querySelector('button');
+                if (btn) {
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-secondary');
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Validado';
+                    btn.disabled = true;
+                }
+            }
+            const idx = estagiosCache.findIndex(x => x.id_lancamento === id);
+            if (idx !== -1) {
+                estagiosCache[idx].horas_campo       = horas_campo;
+                estagiosCache[idx].horas_capacitacao = horas_capacitacao;
+                estagiosCache[idx].horas_laboratorio = horas_laboratorio;
+                estagiosCache[idx].horas_evento      = horas_evento;
+                estagiosCache[idx].validado_coordenacao = true;
+            }
+        } else {
+            showToast('Erro: ' + data.message, 'error');
+        }
+    } catch (e) {
+        showToast('Erro de comunicação com o servidor.', 'error');
+    }
+}
+
+function atualizarDatalistAlunos() {
+    const datalist = document.getElementById('lista-alunos');
+    if (datalist && estagiosCache.length > 0) {
+        const alunos = [...new Set(estagiosCache.map(l => (l.nome_aluno || '').trim().toUpperCase()).filter(Boolean))].sort();
+        datalist.innerHTML = alunos.map(a => `<option value="${a}">`).join('');
+    }
+}
+
+async function iniciarRelatorioHorasAluno() {
+    limparRelatorioHorasAluno();
+    try {
+        const res = await safeFetch('/api/estagios/lancamentos');
+        if (res.success && res.lancamentos) {
+            estagiosCache = res.lancamentos;
+            atualizarDatalistAlunos();
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function gerarRelatorioHorasAluno() {
+    const inputPesquisa = document.getElementById('relatorio-search-aluno');
+    if (!inputPesquisa) return;
+    const termo = (inputPesquisa.value || '').trim().toUpperCase();
+    if (!termo) {
+        alert('Por favor, digite o nome de um aluno para pesquisar.');
+        return;
+    }
+    
+    const filtrados = estagiosCache.filter(l => (l.nome_aluno || '').trim().toUpperCase().includes(termo));
+    
+    document.getElementById('relatorio-horas-aluno-inicial').style.display = 'none';
+    
+    if (filtrados.length === 0) {
+        document.getElementById('relatorio-horas-aluno-resultado').style.display = 'none';
+        document.getElementById('relatorio-horas-aluno-vazio').style.display = 'block';
+        document.getElementById('btn-imprimir-horas').style.display = 'none';
+        return;
+    }
+    
+    document.getElementById('relatorio-horas-aluno-vazio').style.display = 'none';
+    document.getElementById('relatorio-horas-aluno-resultado').style.display = 'block';
+    document.getElementById('btn-imprimir-horas').style.display = 'inline-block';
+    
+    const tbody = document.getElementById('table-relatorio-horas-aluno-body');
+    const tfoot = document.getElementById('table-relatorio-horas-aluno-footer');
+    
+    if (!tbody || !tfoot) return;
+    
+    let totalHoras = 0, totalCampo = 0, totalCapacitacao = 0, totalLaboratorio = 0, totalEvento = 0;
+    
+    tbody.innerHTML = filtrados.map(l => {
+        let dataFormatada = l.data_lancamento || '-';
+        if (dataFormatada.includes('-')) {
+            const parts = dataFormatada.split('-');
+            if (parts.length === 3) dataFormatada = parts[2] + '/' + parts[1] + '/' + parts[0];
+        }
+        
+        let statusBadge = 'badge-secondary';
+        if (l.status === 'Em andamento') statusBadge = 'badge-primary';
+        else if (l.status === 'Concluido') statusBadge = 'badge-success';
+        else if (l.status === 'Evadido') statusBadge = 'badge-warning';
+        else if (l.status === 'Cancelado') statusBadge = 'badge-danger';
+        
+        const hTotal = Math.round(parseFloat(l.horas_totais) || 0);
+        const hCampo = Math.round(parseFloat(l.horas_campo) || 0);
+        const hCapacitacao = Math.round(parseFloat(l.horas_capacitacao) || 0);
+        const hLaboratorio = Math.round(parseFloat(l.horas_laboratorio) || 0);
+        const hEvento = Math.round(parseFloat(l.horas_evento) || 0);
+
+        totalHoras += hTotal;
+        totalCampo += hCampo;
+        totalCapacitacao += hCapacitacao;
+        totalLaboratorio += hLaboratorio;
+        totalEvento += hEvento;
+        
+        return `
+            <tr>
+                <td>${dataFormatada}</td>
+                <td><strong>${l.nome_aluno}</strong></td>
+                <td>${l.unidade}</td>
+                <td>${l.curso}</td>
+                <td>${l.turma || '-'}</td>
+                <td><span class="badge ${statusBadge}">${l.status}</span></td>
+                <td>${l.protocolo_ew || '-'}</td>
+                <td style="color: var(--accent-blue);">${hCampo}</td>
+                <td style="color: var(--accent-green);">${hCapacitacao}</td>
+                <td style="color: var(--accent-warning);">${hLaboratorio}</td>
+                <td style="color: var(--accent-teal);">${hEvento}</td>
+                <td><strong>${hTotal}</strong></td>
+            </tr>
+        `;
+    }).join('');
+    
+    tfoot.innerHTML = `
+        <tr style="background: rgba(99, 102, 241, 0.15); font-weight: 700; border-top: 2px solid var(--accent-blue);">
+            <td colspan="7" style="text-align: right; padding-right: 12px;">
+                <i class="fa-solid fa-sigma"></i> TOTAL (${filtrados.length} lançamento${filtrados.length > 1 ? 's' : ''})
+            </td>
+            <td style="color: var(--accent-blue);">${totalCampo}</td>
+            <td style="color: var(--accent-green);">${totalCapacitacao}</td>
+            <td style="color: var(--accent-warning);">${totalLaboratorio}</td>
+            <td style="color: var(--accent-teal);">${totalEvento}</td>
+            <td style="font-size: 16px;">${totalHoras} h</td>
+        </tr>
+    `;
+}
+
+function limparRelatorioHorasAluno() {
+    document.getElementById('relatorio-search-aluno').value = '';
+    document.getElementById('relatorio-horas-aluno-resultado').style.display = 'none';
+    document.getElementById('relatorio-horas-aluno-vazio').style.display = 'none';
+    document.getElementById('relatorio-horas-aluno-inicial').style.display = 'block';
+    const btnImprimir = document.getElementById('btn-imprimir-horas');
+    if (btnImprimir) btnImprimir.style.display = 'none';
+}
+
+function imprimirRelatorioHorasAluno() {
+    const relatorioContent = document.getElementById('relatorio-horas-aluno-resultado').cloneNode(true);
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
+        return;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Relatório - Total de Horas por Aluno</title>
+                <style>
+                    body { font-family: 'Inter', Arial, sans-serif; padding: 25px; color: #1e293b; background: #fff; }
+                    .btn-imprimir-toolbar {
+                        display: flex;
+                        justify-content: flex-end;
+                        margin-bottom: 20px;
+                        gap: 10px;
+                    }
+                    .btn-print {
+                        background-color: #2563eb;
+                        color: white;
+                        border: none;
+                        padding: 10px 18px;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        transition: background 0.2s;
+                    }
+                    .btn-print:hover {
+                        background-color: #1d4ed8;
+                    }
+                    h2 { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 8px; text-transform: uppercase; color: #0f172a; font-size: 20px; }
+                    .info-header { margin-bottom: 24px; font-size: 13px; text-align: center; color: #64748b; }
+                    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 15px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+                    th { background-color: #f1f5f9; text-transform: uppercase; color: #334155; font-size: 11px; }
+                    .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; background: #e2e8f0; }
+                    tfoot tr { background-color: #f8fafc; font-weight: bold; }
+                    @media print {
+                        .no-print { display: none !important; }
+                        body { -webkit-print-color-adjust: exact; padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="btn-imprimir-toolbar no-print">
+                    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+                </div>
+                <h2>Relatório de Horas por Aluno</h2>
+                <div class="info-header">
+                    Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
+                </div>
+                ${relatorioContent.innerHTML}
+            </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
 }

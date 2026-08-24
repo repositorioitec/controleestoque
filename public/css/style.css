@@ -42,6 +42,11 @@
     padding: 0;
 }
 
+/* ===== VISIBILIDADE GLOBAL ===== */
+.hidden {
+    display: none !important;
+}
+
 body {
     font-family: var(--font-body);
     background-color: var(--bg-primary);
@@ -49,6 +54,25 @@ body {
     line-height: 1.5;
     min-height: 100vh;
     overflow-x: hidden;
+    text-transform: uppercase;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="number"],
+input[type="date"],
+input[type="password"],
+textarea,
+select {
+    text-transform: none;
+}
+
+/* Email e senha sempre em minúsculo */
+input[type="email"],
+input[type="password"] {
+    text-transform: lowercase;
+    letter-spacing: normal;
 }
 
 h1, h2, h3, h4, h5, h6 {

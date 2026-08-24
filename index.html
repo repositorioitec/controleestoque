@@ -94,7 +94,6 @@
 
     <!-- TELA PRINCIPAL DA APLICAÇÃO (DASHBOARD & MÓDULOS) -->
     <div id="main-app" class="main-app hidden">
-        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -106,78 +105,76 @@
 
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="nav-item active" data-target="view-dashboard">
-                        <a href="#"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                    <li class="nav-item" style="cursor: pointer;" onclick="const el = document.getElementById('ul-controle-estoques'); el.style.display = el.style.display === 'none' ? 'block' : 'none';">
+                        <a style="text-transform: uppercase; font-size: 13px; font-weight: 700; color: var(--text-main);"><i class="fa-solid fa-boxes-stacked"></i> <span>Controle de Estoques</span></a>
                     </li>
-                    <li class="nav-item supervisor-only" data-target="view-produtos">
-                        <a href="#"><i class="fa-solid fa-box-open"></i> <span>Produtos</span></a>
-                    </li>
-                    <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-mov-historico','li-mov-transferencia'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
-                        <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span>Movimentações</span></a>
-                    </li>
-                    <li class="nav-item" id="li-mov-historico" data-target="view-movimentacoes" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-list"></i> <span>Histórico</span></a>
-                    </li>
-                    <li class="nav-item" id="li-mov-transferencia" data-target="view-transferencias" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-truck-fast"></i> <span>Transferências</span></a>
-                    </li>
-                    <li class="nav-item supervisor-only" style="margin-top: 15px; cursor: pointer;" onclick="['li-cad-centros','li-cad-unidades','li-cad-categorias','li-cad-fornecedores'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
-                        <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-calculator"></i> <span>Centros de Custo</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-building-user"></i> <span>Unidades</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias</span></a>
-                    </li>
-                    <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
+                    <li style="list-style: none;">
+                        <ul id="ul-controle-estoques" style="display: none; padding-left: 15px; list-style: none; margin-top: 5px;">
+                            <li class="nav-item active" data-target="view-dashboard">
+                                <a href="#"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
+                            </li>
+                            <li class="nav-item supervisor-only" data-target="view-produtos">
+                                <a href="#"><i class="fa-solid fa-box-open"></i> <span>Produtos</span></a>
+                            </li>
+                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-mov-historico','li-mov-transferencia'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
+                                <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span>Movimentações</span></a>
+                            </li>
+                            <li class="nav-item" id="li-mov-historico" data-target="view-movimentacoes" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-list"></i> <span>Histórico</span></a>
+                            </li>
+                            <li class="nav-item" id="li-mov-transferencia" data-target="view-transferencias" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-truck-fast"></i> <span>Transferências</span></a>
+                            </li>
+                            <li class="nav-item supervisor-only" style="margin-top: 15px; cursor: pointer;" onclick="['li-cad-centros','li-cad-unidades','li-cad-categorias','li-cad-fornecedores'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
+                                <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
+                            </li>
+                            <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-calculator"></i> <span>Centros de Custo</span></a>
+                            </li>
+                            <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-building-user"></i> <span>Unidades</span></a>
+                            </li>
+                            <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias</span></a>
+                            </li>
+                            <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
+                            </li>
+                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-estoque','li-sugestao-compras'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
+                                <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-open"></i> <span>Relatórios</span></a>
+                            </li>
+                            <li class="nav-item" id="li-estoque" data-target="view-relatorios-estoque" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-file-invoice"></i> <span>Estoque Atual</span></a>
+                            </li>
+                            <li class="nav-item" id="li-sugestao-compras" data-target="view-relatorios-sugestao-compras" style="display: none;">
+                                <a href="#"><i class="fa-solid fa-cart-shopping"></i> <span>Sugestão de Compras</span></a>
+                            </li>
+                        </ul>
                     </li>
                     <li class="nav-item admin-only" data-target="view-usuarios">
                         <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários</span></a>
                     </li>
-                    <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-estoque','li-sugestao-compras'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
-                        <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-open"></i> <span>Relatórios</span></a>
-                    </li>
-                    <li class="nav-item" id="li-estoque" data-target="view-relatorios-estoque" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-file-invoice"></i> <span>Estoque Atual</span></a>
-                    </li>
-                    <li class="nav-item" id="li-sugestao-compras" data-target="view-relatorios-sugestao-compras" style="display: none;">
-                        <a href="#"><i class="fa-solid fa-cart-shopping"></i> <span>Sugestão de Compras</span></a>
-                    </li>
                 </ul>
             </nav>
 
-            <div class="sidebar-footer" style="flex-direction: column; align-items: stretch; gap: 12px;">
-                <div style="text-align: center;">
-                    <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; width: 100%; border-color: rgba(255,255,255,0.1); color: var(--text-muted);" onclick="abrirModalSobre()">
-                        <i class="fa-solid fa-circle-info"></i> Sobre o Sistema
-                    </button>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i class="fa-solid fa-circle-user"></i>
+                    </div>
+                    <div class="user-details">
+                        <span id="user-display-name">Usuário</span>
+                        <small id="user-display-role">Operador</small>
+                        <small id="user-display-unit" style="display:block; color: #a0aec0; font-size: 0.75rem;"></small>
+                    </div>
                 </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <div class="user-info">
-                        <div class="user-avatar" onclick="document.getElementById('avatar-upload').click()" style="cursor: pointer; position: relative; overflow: hidden; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.1);" title="Alterar foto de perfil">
-                            <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
-                            <i class="fa-solid fa-circle-user" id="user-avatar-icon"></i>
-                            <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="handleAvatarUpload(event)">
-                        </div>
-                        <div class="user-details">
-                            <span id="user-display-name">Usuário</span>
-                            <small id="user-display-role">Operador</small>
-                            <small id="user-display-unit" style="display:block; color: #a0aec0; font-size: 0.75rem;"></small>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 4px;">
-                        <button class="btn-logout" onclick="abrirModalTrocarSenha()" title="Trocar Senha">
-                            <i class="fa-solid fa-key"></i>
-                        </button>
-                        <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
-                            <i class="fa-solid fa-power-off"></i>
-                        </button>
-                    </div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="btn-logout" onclick="abrirModalTrocarSenha()" title="Trocar Senha">
+                        <i class="fa-solid fa-key"></i>
+                    </button>
+                    <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
+                        <i class="fa-solid fa-power-off"></i>
+                    </button>
                 </div>
             </div>
         </aside>
@@ -482,12 +479,6 @@
                         <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
                             <form id="form-transferencia" onsubmit="submitTransferencia(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: end;">
                                 <div class="form-group" style="margin:0;">
-                                    <label for="transf-categoria" style="font-size: 12px;"><i class="fa-solid fa-tags"></i> Categoria</label>
-                                    <select id="transf-categoria" class="form-control" onchange="filtrarProdutosPorCategoria()">
-                                        <option value="">Todas as categorias</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin:0;">
                                     <label for="transf-produto" style="font-size: 12px;"><i class="fa-solid fa-box"></i> Produto</label>
                                     <select id="transf-produto" class="form-control" required>
                                         <option value="">Selecione o produto...</option>
@@ -503,48 +494,12 @@
                                     <label for="transf-quantidade" style="font-size: 12px;"><i class="fa-solid fa-cubes"></i> Quantidade</label>
                                     <input type="number" id="transf-quantidade" class="form-control" min="1" required placeholder="Ex: 10">
                                 </div>
-                                <div class="form-group" style="margin:0; grid-column: 1 / -1;">
-                                    <label for="transf-observacao" style="font-size: 12px;"><i class="fa-solid fa-comment-dots"></i> Observações</label>
-                                    <input type="text" id="transf-observacao" class="form-control" placeholder="Ex: Remessa para evento, reposição urgente..." maxlength="500">
-                                </div>
-                                <div style="display: flex; gap: 8px; grid-column: 1 / -1; justify-content: flex-end;">
-                                    <button type="submit" class="btn btn-primary" style="padding: 10px 28px;">
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 10px;">
                                         <i class="fa-solid fa-paper-plane"></i> Transferir
                                     </button>
                                 </div>
                             </form>
-                        </div>
-                    </div>
-
-                    <!-- Histórico de Transferências -->
-                    <div class="panel" style="margin-top: 20px;">
-                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
-                            <div>
-                                <h3><i class="fa-solid fa-clock-rotate-left text-primary"></i> Histórico de Transferências</h3>
-                                <small style="color: var(--text-muted);">Transferências realizadas para/da unidade selecionada</small>
-                            </div>
-                            <button class="btn btn-sm btn-outline" onclick="carregarHistoricoTransferencias()">
-                                <i class="fa-solid fa-rotate-right"></i> Atualizar
-                            </button>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Data</th>
-                                        <th>Produto</th>
-                                        <th>Tipo</th>
-                                        <th>Unidade</th>
-                                        <th>Qtd</th>
-                                        <th>Usuário</th>
-                                        <th>Observações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-transferencias-body">
-                                    <tr><td colspan="8" class="text-center text-muted">Carregando transferências...</td></tr>
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </section>
@@ -1242,47 +1197,5 @@
         .kpi-clickable:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 32px rgba(245,158,11,0.35) !important; }
         .kpi-click-hint { font-size: 11px; opacity: 0.75; margin-top: 4px; display: block; }
     </style>
-    <!-- MODAL AVATAR PREVIEW -->
-    <div id="modal-avatar-preview" class="modal-overlay hidden">
-        <div class="modal-content modal-sm" style="max-width: 400px; text-align: center;">
-            <div class="modal-header">
-                <h3>Visualizar Foto</h3>
-                <button class="modal-close" onclick="fecharModal('modal-avatar-preview')">&times;</button>
-            </div>
-            <div class="modal-body" style="padding: 20px;">
-                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Deseja usar esta imagem como foto de perfil?</p>
-                <div style="width: 150px; height: 150px; border-radius: 50%; overflow: hidden; margin: 0 auto; border: 2px solid var(--accent-blue);">
-                    <img id="avatar-preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">
-                </div>
-            </div>
-            <div class="modal-footer" style="justify-content: center; gap: 10px;">
-                <button class="btn btn-secondary" onclick="fecharModal('modal-avatar-preview')">Cancelar</button>
-                <button class="btn btn-primary" onclick="confirmarAvatarUpload()">Confirmar e Salvar</button>
-            </div>
-        </div>
-    </div>
-    <!-- MODAL SOBRE -->
-    <div id="modal-sobre" class="modal-overlay hidden">
-        <div class="modal-content modal-sm" style="max-width: 350px; text-align: center;">
-            <div class="modal-header">
-                <h3>Sobre</h3>
-                <button class="modal-close" onclick="fecharModal('modal-sobre')">&times;</button>
-            </div>
-            <div class="modal-body" style="padding: 30px 20px;">
-                <i class="fa-solid fa-boxes-stacked" style="font-size: 40px; color: var(--accent-blue); margin-bottom: 15px;"></i>
-                <h2 style="margin: 0; font-size: 24px; color: var(--text-main);">ITEC.2026.V.1.1</h2>
-                <p style="color: var(--text-muted); margin-top: 10px; font-size: 14px;">Sistema de Gestão de Estoque</p>
-            </div>
-            <div class="modal-footer" style="justify-content: center;">
-                <button class="btn btn-secondary" onclick="fecharModal('modal-sobre')">Fechar</button>
-            </div>
-        </div>
-    </div>
-    <script>
-        function abrirModalSobre() {
-            document.getElementById('modal-sobre').classList.remove('hidden');
-        }
-    </script>
-    <script src="js/main.js"></script>
 </body>
 </html>

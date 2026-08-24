@@ -3,259 +3,226 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Controle de Estoques - ITEC</title>
+    <title>Acessar Login - Controle de Estoques - ITEC</title>
     <!-- Google Fonts: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="css/style.css">
     <style>
-        .login-page-body {
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-surface: #151c2c;
+            --bg-card: rgba(21, 28, 44, 0.85);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-blue-hover: #2563eb;
+            --accent-green: #10b981;
+            --accent-warning: #f59e0b;
+            --font-heading: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --radius-lg: 16px;
+            --shadow-lg: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0b0f19 70%);
+            color: var(--text-main);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0b0f19 70%);
             padding: 20px;
         }
-        .login-card {
-            background: var(--bg-card, rgba(21, 28, 44, 0.75));
+
+        .container {
+            background: var(--bg-card);
             backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-            border-radius: var(--radius-lg, 16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
             width: 100%;
-            max-width: 440px;
+            max-width: 480px;
             padding: 40px;
-            box-shadow: var(--shadow-lg, 0 20px 40px rgba(0,0,0,0.4));
+            box-shadow: var(--shadow-lg);
+            text-align: center;
         }
-        .server-status-badge {
+
+        .logo-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--accent-blue), #8b5cf6);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #ffffff;
+            margin: 0 auto 20px;
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+        }
+
+        h1 {
+            font-family: var(--font-heading);
+            font-size: 1.75rem;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 25px;
+        }
+
+        .status-box {
+            padding: 16px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 0.95rem;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--accent-warning);
+            box-shadow: 0 0 10px var(--accent-warning);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-indicator.online {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 10px var(--accent-green);
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        .btn {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 20px;
-            color: #34d399;
-            font-size: 0.85rem;
-            margin-bottom: 20px;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px 24px;
+            border-radius: 10px;
+            border: none;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 1rem;
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
         }
-        .server-status-badge .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #34d399;
-            box-shadow: 0 0 8px #34d399;
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        }
+
+        .instructions {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: left;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .instructions code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #ffffff;
+            font-family: monospace;
         }
     </style>
 </head>
-<body class="login-page-body">
+<body>
 
-    <!-- Toast Notifications Container -->
-    <div id="toast-container" class="toast-container"></div>
+    <div class="container">
+        <div class="logo-icon">
+            <i class="fa-solid fa-boxes-stacked"></i>
+        </div>
+        <h1>Controle de Estoques - ITEC</h1>
+        <p class="subtitle">Acesso Direto à Tela de Login</p>
 
-    <div class="login-card">
-        <div class="auth-brand">
-            <div class="auth-logo">
-                <i class="fa-solid fa-boxes-stacked"></i>
-            </div>
-            <h2>Controle de Estoques - ITEC</h2>
-            <p>Sistema de Gestão Multiusuário e Unidades Operacionais</p>
-            <div class="server-status-badge">
-                <span class="dot"></span> Servidor Online
-            </div>
+        <div class="status-box">
+            <div id="indicator" class="status-indicator"></div>
+            <span id="status-text">Verificando servidor local (http://127.0.0.1:5000)...</span>
         </div>
 
-        <!-- Login Form -->
-        <div id="login-box" class="auth-box active">
-            <div class="auth-header">
-                <h3>Acesse sua Conta</h3>
-                <p>Entre com suas credenciais de usuário</p>
-            </div>
-            <form id="form-login" onsubmit="executarLogin(event)">
-                <div class="form-group">
-                    <label for="login-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login)</label>
-                    <input type="email" id="login-usuario" placeholder="Ex: admin@itec.com" required autocomplete="username">
-                </div>
-                <div class="form-group">
-                    <label for="login-senha"><i class="fa-solid fa-key"></i> Senha</label>
-                    <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password">
-                </div>
-                <button type="submit" id="btn-entrar" class="btn btn-primary btn-block">
-                    <i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
-                </button>
-            </form>
-            <div class="auth-footer" style="margin-top: 20px; text-align: center;">
-                <p style="color: var(--text-muted, #94a3b8); font-size: 0.9rem;">
-                    Deseja cadastrar novo usuário? <a href="/?action=login" onclick="trocarParaRegistro(event)">Criar Conta</a>
-                </p>
-            </div>
-        </div>
+        <a id="btn-login" href="http://127.0.0.1:5000/login" class="btn">
+            <i class="fa-solid fa-right-to-bracket"></i> Abrir Tela de Login
+        </a>
 
-        <!-- Register Form (Inicialmente oculto) -->
-        <div id="register-box" class="auth-box hidden">
-            <div class="auth-header">
-                <h3>Novo Cadastro</h3>
-                <p>Cadastre um novo operador ou administrador</p>
-            </div>
-            <form id="form-register" onsubmit="executarRegistro(event)">
-                <div class="form-group">
-                    <label for="reg-nome"><i class="fa-solid fa-id-card"></i> Nome Completo</label>
-                    <input type="text" id="reg-nome" placeholder="Ex: João da Silva" required>
-                </div>
-                <div class="form-group">
-                    <label for="reg-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login)</label>
-                    <input type="email" id="reg-usuario" placeholder="Ex: joao@empresa.com" required autocomplete="username">
-                </div>
-                <div class="form-group">
-                    <label for="reg-senha"><i class="fa-solid fa-lock"></i> Senha</label>
-                    <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
-                </div>
-                <div class="form-group">
-                    <label for="reg-nivel"><i class="fa-solid fa-user-shield"></i> Nível de Acesso</label>
-                    <select id="reg-nivel" required>
-                        <option value="Operador">Operador (Entrada/Saída/Consulta)</option>
-                        <option value="Supervisor">Supervisor (Produtos e Cadastros, sem Usuários)</option>
-                        <option value="Administrador">Administrador (Acesso Total)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="reg-unidade"><i class="fa-solid fa-building"></i> Unidade Operacional</label>
-                    <select id="reg-unidade" required>
-                        <option value="">Carregando unidades...</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-success btn-block">
-                    <i class="fa-solid fa-user-plus"></i> Finalizar Cadastro
-                </button>
-            </form>
-            <div class="auth-footer" style="margin-top: 20px; text-align: center;">
-                <p style="color: var(--text-muted, #94a3b8); font-size: 0.9rem;">
-                    Já possui conta? <a href="#" onclick="trocarParaLogin(event)">Voltar ao Login</a>
-                </p>
-            </div>
+        <div class="instructions">
+            <p><strong><i class="fa-solid fa-circle-info"></i> Dica de Uso:</strong></p>
+            <p>Se o servidor estiver rodando, você será redirecionado automaticamente.</p>
+            <p style="margin-top: 6px;">Caso o servidor esteja desligado, execute o arquivo <code>iniciar_sistema.bat</code> na pasta do projeto para ligá-lo.</p>
         </div>
     </div>
 
     <script>
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            
-            let icon = 'fa-info-circle';
-            if (type === 'success') icon = 'fa-circle-check';
-            if (type === 'error') icon = 'fa-circle-exclamation';
+        const targetUrl = 'http://127.0.0.1:5000/login';
+        const indicator = document.getElementById('indicator');
+        const statusText = document.getElementById('status-text');
 
-            toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(-10px)';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
-
-        async function carregarUnidadesRegistro() {
+        async function checarServidorERedirecionar() {
             try {
-                const response = await fetch('/api/unidades');
-                const data = await response.json();
-                if (data.success && data.unidades) {
-                    const select = document.getElementById('reg-unidade');
-                    select.innerHTML = '<option value="">Selecione a Unidade...</option>' + 
-                        data.unidades.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
-                    if (data.unidades.length > 0) {
-                        select.value = data.unidades[0].id_unidade;
-                    }
+                const res = await fetch('http://127.0.0.1:5000/api/dashboard', { method: 'GET', mode: 'cors' });
+                if (res.ok || res.status === 200 || res.status === 401) {
+                    indicator.classList.add('online');
+                    statusText.innerText = 'Servidor Online! Redirecionando para o Login...';
+                    setTimeout(() => {
+                        window.location.href = targetUrl;
+                    }, 500);
+                    return;
                 }
             } catch (e) {
-                console.error("Erro ao carregar unidades:", e);
+                // Tenta fetch na raiz se o cors bloquear o dashboard
+                fetch('http://127.0.0.1:5000/', { mode: 'no-cors' })
+                    .then(() => {
+                        indicator.classList.add('online');
+                        statusText.innerText = 'Servidor Online! Redirecionando...';
+                        setTimeout(() => {
+                            window.location.href = targetUrl;
+                        }, 500);
+                    })
+                    .catch(() => {
+                        indicator.classList.remove('online');
+                        statusText.innerText = 'Servidor Offline. Clique no botão acima para acessar quando iniciar.';
+                    });
             }
         }
 
-        function trocarParaRegistro(e) {
-            if(e) e.preventDefault();
-            document.getElementById('login-box').classList.add('hidden');
-            document.getElementById('login-box').classList.remove('active');
-            document.getElementById('register-box').classList.remove('hidden');
-            document.getElementById('register-box').classList.add('active');
-            carregarUnidadesRegistro();
-        }
-
-        function trocarParaLogin(e) {
-            if(e) e.preventDefault();
-            document.getElementById('register-box').classList.add('hidden');
-            document.getElementById('register-box').classList.remove('active');
-            document.getElementById('login-box').classList.remove('hidden');
-            document.getElementById('login-box').classList.add('active');
-        }
-
-        async function executarLogin(event) {
-            event.preventDefault();
-            const usuario = document.getElementById('login-usuario').value.trim();
-            const senha = document.getElementById('login-senha').value.trim();
-            const btn = document.getElementById('btn-entrar');
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Autenticando...';
-
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ usuario, senha })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    localStorage.setItem('stock_user', JSON.stringify(data.user));
-                    showToast(data.message, 'success');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 800);
-                } else {
-                    showToast(data.message, 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema';
-                }
-            } catch (error) {
-                showToast('Erro ao se conectar ao servidor Python.', 'error');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema';
-            }
-        }
-
-        async function executarRegistro(event) {
-            event.preventDefault();
-            const nome_usuario = document.getElementById('reg-nome').value.trim();
-            const usuario = document.getElementById('reg-usuario').value.trim();
-            const senha = document.getElementById('reg-senha').value.trim();
-            const nivel_acesso = document.getElementById('reg-nivel').value;
-            const id_unidade = document.getElementById('reg-unidade').value;
-
-            try {
-                const response = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ usuario, senha, nome_usuario, nivel_acesso, id_unidade })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    document.getElementById('form-register').reset();
-                    trocarParaLogin();
-                } else {
-                    showToast(data.message, 'error');
-                }
-            } catch (error) {
-                showToast('Erro ao se conectar ao servidor.', 'error');
-            }
-        }
+        checarServidorERedirecionar();
+        setInterval(checarServidorERedirecionar, 3000);
     </script>
 </body>
 </html>
