@@ -829,7 +829,7 @@ const SESSION_KEY = 'stock_user';
 
 function getSessionUser() {
     try {
-        const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+        const raw = sessionStorage.getItem(SESSION_KEY);
         if (!raw) return null;
         const user = JSON.parse(raw);
         if (!user || !user.id_usuario) return null;
@@ -939,7 +939,6 @@ async function handleLogin(event) {
     if (data.success) {
         currentUser = data.user;
         setSessionUser(currentUser);
-        localStorage.setItem('stock_user', JSON.stringify(currentUser));
         showToast(data.message, 'success');
         iniciarAplicacao();
     } else {
@@ -3896,7 +3895,12 @@ async function salvarLancamentoEstagio(event) {
     try {
         const res = await fetch('/api/estagios/lancamentos', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': currentUser ? currentUser.id_usuario : '',
+                'X-User-Nivel': currentUser ? currentUser.nivel_acesso : '',
+                'X-User-Nome': currentUser ? currentUser.nome_usuario : ''
+            },
             body: JSON.stringify(payload)
         });
         const data = await res.json();
@@ -3917,7 +3921,7 @@ function renderEstagios(lista) {
     if (!tbody) return;
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nenhum registro encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nenhum registro encontrado.</td></tr>';
         return;
     }
 
@@ -3949,6 +3953,7 @@ function renderEstagios(lista) {
                 <td><strong>${hTotal}</strong></td>
                 <td><span class="badge ${statusBadge}">${l.status}</span></td>
                 <td>${validado}</td>
+                <td><small style="color: var(--text-muted);">${l.nome_usuario_registro || '-'}</small></td>
                 <td class="text-right">
                     <button class="btn btn-sm btn-secondary" onclick="editarLancamentoEstagio(${l.id_lancamento})" title="Editar"><i class="fa-solid fa-edit"></i></button>
                     <button class="btn btn-sm btn-danger" onclick="excluirLancamentoEstagio(${l.id_lancamento})" title="Excluir"><i class="fa-solid fa-trash"></i></button>
@@ -4260,6 +4265,7 @@ function filtrarValidacaoEstagios() {
                         <i class="fa-solid fa-check-double"></i> Validar
                     </button>
                 </td>
+                <td><small style="color: var(--text-muted);">${l.nome_usuario_registro || '-'}</small></td>
             </tr>
         `;
     }).join('');

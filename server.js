@@ -591,6 +591,7 @@ app.get('/api/estagios/lancamentos', async (req, res) => {
 
 app.post('/api/estagios/lancamentos', async (req, res) => {
   const { id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao } = req.body;
+  const nome_usuario_registro = req.headers['x-user-nome'] || null;
 
   if (!data_lancamento || !status || !nome_aluno || !unidade || !curso) {
     return res.status(400).json({ success: false, message: 'Campos obrigatórios: Data, Status, Aluno, Unidade e Curso.' });
@@ -618,7 +619,8 @@ app.post('/api/estagios/lancamentos', async (req, res) => {
       horas_saude_mental || 0,
       horas_saude_publica || 0,
       horas_emergencia || 0,
-      validado_coordenacao || false
+      validado_coordenacao || false,
+      nome_usuario_registro
     );
     const msg = id_lancamento ? 'Lançamento atualizado com sucesso!' : 'Lançamento criado com sucesso!';
     return res.json({ success: true, message: msg });

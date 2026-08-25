@@ -176,6 +176,40 @@ a:hover {
     color: var(--text-muted);
 }
 
+/* ===== CAMPO DE SENHA COM TOGGLE ===== */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper input {
+    flex: 1;
+    padding-right: 44px; /* espaço para o botão */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 42px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    transition: color 0.2s ease;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.toggle-password:hover {
+    color: var(--accent-blue);
+}
+
 /* ==========================================================================
    LAYOUT DA APLICAÇÃO PRINCIPAL (SIDEBAR + CONTENT)
    ========================================================================== */

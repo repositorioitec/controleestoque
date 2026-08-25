@@ -44,7 +44,12 @@
                     </div>
                     <div class="form-group">
                         <label for="login-senha"><i class="fa-solid fa-key"></i> Senha</label>
-                        <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;">
+                        <div class="password-wrapper">
+                            <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;">
+                            <button type="button" class="toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
@@ -72,7 +77,12 @@
                     </div>
                     <div class="form-group">
                         <label for="reg-senha"><i class="fa-solid fa-lock"></i> Senha *</label>
-                        <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
+                        <div class="password-wrapper">
+                            <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
+                            <button type="button" class="toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="reg-unidade"><i class="fa-solid fa-building"></i> Unidade Operacional *</label>
@@ -932,6 +942,7 @@
                                         <th>Horas</th>
                                         <th>Status</th>
                                         <th>Validado</th>
+                                        <th>Registrado por</th>
                                         <th class="text-right">Ações</th>
                                     </tr>
                                 </thead>
@@ -1010,10 +1021,11 @@
                                         <th style="color: var(--accent-warning);">Laboratório</th>
                                         <th style="color: var(--accent-teal);">Evento</th>
                                         <th></th>
+                                        <th>Registrado por</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-estagios-validacao-body">
-                                    <tr><td colspan="10" class="text-center">Carregando dados...</td></tr>
+                                    <tr><td colspan="11" class="text-center">Carregando dados...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1747,6 +1759,20 @@
     <script>
         function abrirModalSobre() {
             document.getElementById('modal-sobre').classList.remove('hidden');
+        }
+
+        function toggleSenha(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+                btn.setAttribute('aria-label', 'Ocultar senha');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+                btn.setAttribute('aria-label', 'Mostrar senha');
+            }
         }
     </script>
     <script src="js/main.js"></script>
