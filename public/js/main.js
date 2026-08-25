@@ -1211,6 +1211,7 @@ function trocarUnidadeAtiva(unitId) {
             if (viewId === 'view-estagios-lancamento') carregarLancamentosEstagio();
             if (viewId === 'view-estagios-validacao') carregarValidacaoEstagios();
             if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
+            if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
         }
         showToast(unitId ? 'Filtro atualizado para a unidade selecionada.' : 'Visualizando estoque de todas as unidades permitidas.', 'info');
     }
@@ -1272,7 +1273,8 @@ function navegarParaView(viewId) {
             'view-transferencias': 'Transferência de Materiais',
             'view-estagios-lancamento': 'Lançamento de Horas (Estágios)',
             'view-estagios-validacao': 'Validação Coordenação (Estágios)',
-            'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno'
+            'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno',
+            'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade'
         };
         document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
 
@@ -1299,6 +1301,7 @@ function navegarParaView(viewId) {
         if (viewId === 'view-estagios-lancamento') carregarLancamentosEstagio();
         if (viewId === 'view-estagios-validacao') carregarValidacaoEstagios();
         if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
+        if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
     }
 }
 
@@ -2583,6 +2586,14 @@ async function carregarUsuarios() {
                 `;
             } else {
                 let menusPermJson = u.menus_permitidos ? JSON.stringify(u.menus_permitidos).replace(/"/g, '&quot;') : 'null';
+                const isAtivo = u.ativo !== false;
+                const btnInativar = isAtivo
+                    ? `<button class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, true)" title="Inativar Usuário">
+                           <i class="fa-solid fa-user-slash"></i> Inativar
+                       </button>`
+                    : `<button class="btn btn-sm" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, false)" title="Reativar Usuário">
+                           <i class="fa-solid fa-user-check"></i> Reativar
+                       </button>`;
                 acoesHtml = `
                     <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / Nível">
                         <i class="fa-solid fa-pen-to-square"></i> Editar
@@ -2590,6 +2601,7 @@ async function carregarUsuarios() {
                     <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
                         <i class="fa-solid fa-list-check"></i> Permissões
                     </button>
+                    ${btnInativar}
                     <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
                         <i class="fa-solid fa-trash"></i>
                     </button>
@@ -2607,10 +2619,11 @@ async function carregarUsuarios() {
                 `;
             }
 
+            const isAtivo = u.ativo !== false;
             return `
-                <tr>
+                <tr style="${isAtivo ? '' : 'opacity:0.55;'}">
                     <td>#${u.id_usuario}</td>
-                    <td><strong>${u.nome_usuario}</strong>${badgeSenha}</td>
+                    <td><strong>${u.nome_usuario}</strong>${badgeSenha}${ !isAtivo ? ' <span class="badge badge-danger" style="margin-left:5px;"><i class="fa-solid fa-ban"></i> Inativo</span>' : '' }</td>
                     <td><code>${u.usuario}</code></td>
                     <td><span class="badge ${u.nivel_acesso === 'Administrador' ? 'badge-info' : u.nivel_acesso === 'Supervisor' ? 'badge-warning' : 'badge-secondary'}">${u.nivel_acesso}</span></td>
                     <td>${unidades_texto}</td>
@@ -2653,6 +2666,34 @@ async function excluirUsuario(id_usuario) {
   }
 }
 
+async function toggleInativarUsuario(id_usuario, inativar) {
+    const acao = inativar ? 'INATIVAR' : 'REATIVAR';
+    const descricao = inativar
+        ? 'Tem certeza que deseja INATIVAR este usuário? Ele não conseguirá mais fazer login.'
+        : 'Tem certeza que deseja REATIVAR este usuário? Ele voltará a ter acesso ao sistema.';
+    if (!confirm(descricao)) return;
+
+    const endpoint = inativar
+        ? `/api/auth/users/${id_usuario}/inativar`
+        : `/api/auth/users/${id_usuario}/ativar`;
+
+    try {
+        const resultado = await safeFetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (resultado.success) {
+            showToast(resultado.message, 'success');
+            carregarUsuarios();
+        } else {
+            showToast(resultado.message || 'Falha na operação.', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Erro ao comunicar com o servidor.', 'error');
+    }
+}
 
 // Controla o checkbox "Todas as Unidades"
 function toggleTodasUnidades(checkbox) {
@@ -3780,6 +3821,21 @@ async function abrirModalLancamentoEstagio() {
     // Popula opções de unidades no modal
     await preencherSelectUnidadesModalEstagio();
 
+    // Popula opções de cursos dinamicamente de acordo com a pesquisa (em maiúsculo)
+    const selectCurso = document.getElementById('estagio-curso');
+    if (selectCurso) {
+        let cursos = [];
+        if (estagiosCache && estagiosCache.length > 0) {
+            cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+        }
+        let html = '<option value="">SELECIONE...</option>';
+        cursos.forEach(c => {
+            html += `<option value="${c}">${c}</option>`;
+        });
+        html += '<option value="OUTROS">OUTROS</option>';
+        selectCurso.innerHTML = html;
+    }
+
     // Define a unidade padrão fixa/selecionada
     const padraoUnidade = obterUnidadePadraoUsuario();
     const selectUnidade = document.getElementById('estagio-unidade');
@@ -3941,6 +3997,32 @@ async function editarLancamentoEstagio(id) {
 
     await preencherSelectUnidadesModalEstagio();
 
+    // Popula opções de cursos dinamicamente de acordo com a pesquisa (em maiúsculo)
+    const selectCurso = document.getElementById('estagio-curso');
+    if (selectCurso) {
+        let cursos = [];
+        if (estagiosCache && estagiosCache.length > 0) {
+            cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+        }
+        let html = '<option value="">SELECIONE...</option>';
+        cursos.forEach(c => {
+            html += `<option value="${c}">${c}</option>`;
+        });
+        html += '<option value="OUTROS">OUTROS</option>';
+        selectCurso.innerHTML = html;
+        
+        // Verifica se o curso do lançamento não está na lista principal e adiciona
+        if (l.curso) {
+            const cursoAtualUpper = l.curso.trim().toUpperCase();
+            if (!cursos.includes(cursoAtualUpper) && cursoAtualUpper !== 'OUTROS') {
+                selectCurso.innerHTML = `<option value="">SELECIONE...</option>` +
+                    `<option value="${cursoAtualUpper}">${cursoAtualUpper}</option>` +
+                    cursos.map(c => `<option value="${c}">${c}</option>`).join('') +
+                    `<option value="OUTROS">OUTROS</option>`;
+            }
+        }
+    }
+
     document.getElementById('estagio-id').value = l.id_lancamento;
     document.getElementById('estagio-data').value = l.data_lancamento;
     document.getElementById('estagio-status').value = l.status;
@@ -3970,7 +4052,7 @@ async function editarLancamentoEstagio(id) {
         }
     }
 
-    document.getElementById('estagio-curso').value = l.curso;
+    document.getElementById('estagio-curso').value = (l.curso || '').trim().toUpperCase();
     document.getElementById('estagio-turma').value = l.turma || '';
     document.getElementById('estagio-horas').value = l.horas_totais;
     document.getElementById('estagio-protocolo').value = l.protocolo_ew || '';
@@ -4043,7 +4125,15 @@ function atualizarFiltrosValidacaoEstagio() {
     if (elStatus) {
         elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
             statuses.map(s => `<option value="${s}">${s}</option>`).join('');
-        if (statuses.includes(statusAtual)) elStatus.value = statusAtual;
+            
+        if (elStatus.dataset.firstLoad === "true") {
+            elStatus.dataset.firstLoad = "false";
+            if (statuses.includes("EM ANDAMENTO")) {
+                elStatus.value = "EM ANDAMENTO";
+            }
+        } else {
+            if (statuses.includes(statusAtual)) elStatus.value = statusAtual;
+        }
     }
 
     if (cursos.includes(cursoAtual)) elCurso.value = cursoAtual;
@@ -4359,11 +4449,11 @@ function gerarRelatorioHorasAluno() {
                 <td>${l.turma || '-'}</td>
                 <td><span class="badge ${statusBadge}">${l.status}</span></td>
                 <td>${l.protocolo_ew || '-'}</td>
-                <td style="color: var(--accent-blue);">${hCampo}</td>
-                <td style="color: var(--accent-green);">${hCapacitacao}</td>
-                <td style="color: var(--accent-warning);">${hLaboratorio}</td>
-                <td style="color: var(--accent-teal);">${hEvento}</td>
-                <td><strong>${hTotal}</strong></td>
+                <td style="color: var(--accent-blue); text-align: center;">${hCampo}</td>
+                <td style="color: var(--accent-green); text-align: center;">${hCapacitacao}</td>
+                <td style="color: var(--accent-warning); text-align: center;">${hLaboratorio}</td>
+                <td style="color: var(--accent-teal); text-align: center;">${hEvento}</td>
+                <td style="text-align: center;"><strong>${hTotal}</strong></td>
             </tr>
         `;
     }).join('');
@@ -4373,11 +4463,11 @@ function gerarRelatorioHorasAluno() {
             <td colspan="4" style="text-align: right; padding-right: 12px;">
                 <i class="fa-solid fa-sigma"></i> TOTAL (${filtrados.length} lançamento${filtrados.length > 1 ? 's' : ''})
             </td>
-            <td style="color: var(--accent-blue);">${totalCampo}</td>
-            <td style="color: var(--accent-green);">${totalCapacitacao}</td>
-            <td style="color: var(--accent-warning);">${totalLaboratorio}</td>
-            <td style="color: var(--accent-teal);">${totalEvento}</td>
-            <td style="font-size: 16px;">${totalHoras} h</td>
+            <td style="color: var(--accent-blue); text-align: center; font-weight: 700;"><strong>${totalCampo}</strong></td>
+            <td style="color: var(--accent-green); text-align: center; font-weight: 700;"><strong>${totalCapacitacao}</strong></td>
+            <td style="color: var(--accent-warning); text-align: center; font-weight: 700;"><strong>${totalLaboratorio}</strong></td>
+            <td style="color: var(--accent-teal); text-align: center; font-weight: 700;"><strong>${totalEvento}</strong></td>
+            <td style="font-size: 16px; text-align: center; font-weight: 700;"><strong>${totalHoras} h</strong></td>
         </tr>
     `;
 }
@@ -4432,7 +4522,7 @@ function imprimirRelatorioHorasAluno() {
                         background-color: #1d4ed8;
                     }
                     h2 { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 8px; text-transform: uppercase; color: #0f172a; font-size: 20px; }
-                    .info-header { margin-bottom: 24px; font-size: 13px; text-align: center; color: #64748b; }
+                    .info-header { margin-bottom: 24px; font-size: 13px; text-align: left; color: #64748b; }
                     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 15px; }
                     th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
                     th { background-color: #f1f5f9; text-transform: uppercase; color: #334155; font-size: 11px; }
@@ -4449,6 +4539,221 @@ function imprimirRelatorioHorasAluno() {
                     <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
                 </div>
                 <h2>Relatório de Horas por Aluno</h2>
+                <div class="info-header">
+                    <div>Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
+                    <div>Impresso por: <strong>${currentUser ? (currentUser.nome_usuario || currentUser.usuario || '-') : '-'}</strong></div>
+                </div>
+                ${relatorioContent.innerHTML}
+            </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+}
+
+// ============================================================================
+// RELATÓRIO: ALUNOS POR UNIDADE
+// ============================================================================
+
+async function iniciarRelatorioAlunosUnidade() {
+    limparRelatorioAlunosUnidade();
+    try {
+        const res = await safeFetch('/api/estagios/lancamentos');
+        if (res.success && res.lancamentos) {
+            let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
+            estagiosCache = data;
+            preencherFiltrosRelatorioAlunosUnidade();
+        }
+    } catch (e) {
+        console.error("Erro ao carregar estágios para relatório:", e);
+    }
+}
+
+function preencherFiltrosRelatorioAlunosUnidade() {
+    const elUnidade = document.getElementById('relatorio-au-unidade');
+    const elCurso = document.getElementById('relatorio-au-curso');
+    const elStatus = document.getElementById('relatorio-au-status');
+
+    if (!elUnidade || !elCurso || !elStatus) return;
+
+    const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
+
+    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
+        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+    
+    elCurso.innerHTML = '<option value="">TODOS OS CURSOS</option>' + 
+        cursos.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
+        statuses.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function limparRelatorioAlunosUnidade() {
+    document.getElementById('relatorio-au-unidade').value = '';
+    document.getElementById('relatorio-au-curso').value = '';
+    document.getElementById('relatorio-au-horas-min').value = '';
+    document.getElementById('relatorio-au-horas-max').value = '';
+    document.getElementById('relatorio-au-status').value = '';
+    
+    document.getElementById('relatorio-au-resultado').style.display = 'none';
+    document.getElementById('relatorio-au-vazio').style.display = 'none';
+    document.getElementById('relatorio-au-inicial').style.display = 'block';
+    document.getElementById('btn-imprimir-au').style.display = 'none';
+    document.getElementById('table-relatorio-au-body').innerHTML = '';
+}
+
+function gerarRelatorioAlunosUnidade() {
+    const filtroUnidade = (document.getElementById('relatorio-au-unidade').value || '').trim().toUpperCase();
+    const filtroCurso = (document.getElementById('relatorio-au-curso').value || '').trim().toUpperCase();
+    const filtroHorasMin = parseFloat(document.getElementById('relatorio-au-horas-min').value);
+    const filtroHorasMax = parseFloat(document.getElementById('relatorio-au-horas-max').value);
+    const filtroStatus = (document.getElementById('relatorio-au-status').value || '').trim().toUpperCase();
+
+    const mapaAlunos = {};
+
+    estagiosCache.forEach(l => {
+        const aluno = (l.nome_aluno || '').trim().toUpperCase();
+        const unidade = (l.unidade || '').trim().toUpperCase();
+        const curso = (l.curso || '').trim().toUpperCase();
+        const turma = (l.turma || '').trim().toUpperCase();
+        const status = (l.status || '').trim().toUpperCase();
+        const horas = parseFloat(l.horas_totais) || 0;
+
+        if (filtroUnidade && unidade !== filtroUnidade) return;
+        if (filtroCurso && curso !== filtroCurso) return;
+        if (filtroStatus && status !== filtroStatus) return;
+
+        const key = `${aluno}|${unidade}|${curso}|${turma}|${status}`;
+        if (!mapaAlunos[key]) {
+            mapaAlunos[key] = {
+                aluno: aluno,
+                unidade: unidade,
+                curso: curso,
+                turma: turma,
+                status: status,
+                horas: 0
+            };
+        }
+        mapaAlunos[key].horas += horas;
+    });
+
+    const resultados = Object.values(mapaAlunos).filter(item => {
+        if (!isNaN(filtroHorasMin) && item.horas < filtroHorasMin) return false;
+        if (!isNaN(filtroHorasMax) && item.horas > filtroHorasMax) return false;
+        return true;
+    });
+
+    resultados.sort((a, b) => a.aluno.localeCompare(b.aluno));
+
+    document.getElementById('relatorio-au-inicial').style.display = 'none';
+
+    if (resultados.length === 0) {
+        document.getElementById('relatorio-au-vazio').style.display = 'block';
+        document.getElementById('relatorio-au-resultado').style.display = 'none';
+        document.getElementById('btn-imprimir-au').style.display = 'none';
+        return;
+    }
+
+    document.getElementById('relatorio-au-vazio').style.display = 'none';
+    document.getElementById('relatorio-au-resultado').style.display = 'block';
+    document.getElementById('btn-imprimir-au').style.display = 'inline-block';
+
+    const tbody = document.getElementById('table-relatorio-au-body');
+    let totalGeralHoras = 0;
+    
+    tbody.innerHTML = resultados.map(r => {
+        totalGeralHoras += r.horas;
+        let statusBadge = 'badge-secondary';
+        if (r.status === 'EM ANDAMENTO') statusBadge = 'badge-primary';
+        else if (r.status === 'CONCLUÍDO' || r.status === 'CONCLUIDO') statusBadge = 'badge-success';
+        else if (r.status === 'EVADIDO') statusBadge = 'badge-warning';
+        else if (r.status === 'CANCELADO') statusBadge = 'badge-danger';
+
+        return `
+            <tr>
+                <td><strong>${r.aluno}</strong></td>
+                <td>${r.unidade}</td>
+                <td>${r.curso}</td>
+                <td>${r.turma || '-'}</td>
+                <td><strong>${r.horas}</strong></td>
+                <td><span class="badge ${statusBadge}">${r.status}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    const tfoot = document.getElementById('table-relatorio-au-footer');
+    tfoot.innerHTML = `
+        <tr>
+            <td colspan="4" style="text-align: right; font-weight: bold;">TOTAL GERAL:</td>
+            <td colspan="2" style="font-weight: bold; font-size: 14px;">${totalGeralHoras} horas ( ${resultados.length} alunos )</td>
+        </tr>
+    `;
+}
+
+function imprimirRelatorioAlunosUnidade() {
+    const relatorioContent = document.getElementById('relatorio-au-resultado');
+    if (!relatorioContent || relatorioContent.style.display === 'none') return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Erro ao abrir janela de impressão. Verifique o bloqueio de pop-ups.');
+        return;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <title>Impressão - Relatório Alunos por Unidade</title>
+                <style>
+                    body { font-family: 'Inter', Arial, sans-serif; color: #333; padding: 20px; }
+                    .btn-imprimir-toolbar {
+                        display: flex;
+                        justify-content: flex-end;
+                        margin-bottom: 20px;
+                        gap: 10px;
+                    }
+                    .btn-print {
+                        background-color: #2563eb;
+                        color: white;
+                        border: none;
+                        padding: 10px 18px;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        transition: background 0.2s;
+                    }
+                    .btn-print:hover {
+                        background-color: #1d4ed8;
+                    }
+                    h2 { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 8px; text-transform: uppercase; color: #0f172a; font-size: 20px; }
+                    .info-header { margin-bottom: 24px; font-size: 13px; text-align: center; color: #64748b; }
+                    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 15px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+                    th { background-color: #f1f5f9; text-transform: uppercase; color: #334155; font-size: 11px; }
+                    .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; background: #e2e8f0; border: 1px solid #cbd5e1; }
+                    tfoot tr { background-color: #f8fafc; font-weight: bold; }
+                    @media print {
+                        .no-print { display: none !important; }
+                        body { -webkit-print-color-adjust: exact; padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="btn-imprimir-toolbar no-print">
+                    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+                </div>
+                <h2>Relatório de Alunos por Unidade</h2>
                 <div class="info-header">
                     Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
                 </div>

@@ -48,7 +48,8 @@ async function init_db() {
     await client.query(`
       ALTER TABLE tbl_usuarios 
       ADD COLUMN IF NOT EXISTS senha_pendente VARCHAR(100),
-      ADD COLUMN IF NOT EXISTS menus_permitidos JSONB DEFAULT NULL;
+      ADD COLUMN IF NOT EXISTS menus_permitidos JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE;
     `);
 
     await client.query(`
@@ -309,6 +310,9 @@ async function autenticar_usuario(usuario, senha) {
     if (status !== "Aprovado") {
       throw new Error("Sua conta aguarda aprovação do administrador.");
     }
+    if (row.ativo === false) {
+      throw new Error("Sua conta foi inativada pelo administrador. Entre em contato para reativação.");
+    }
     // Buscar unidades vinculadas
     const unidRes = await pool.query(`
       SELECT uu.id_unidade, un2.nome_unidade
@@ -347,7 +351,7 @@ async function cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso = "O
 
 async function listar_usuarios() {
   const res = await pool.query(`
-    SELECT u.id_usuario, u.usuario, u.nome_usuario, u.nivel_acesso, u.status_aprovacao, u.id_unidade, un.nome_unidade, u.senha_pendente, u.menus_permitidos,
+    SELECT u.id_usuario, u.usuario, u.nome_usuario, u.nivel_acesso, u.status_aprovacao, u.id_unidade, un.nome_unidade, u.senha_pendente, u.menus_permitidos, u.ativo,
            COALESCE(
              (SELECT json_agg(uc.id_categoria) 
               FROM tbl_usuario_categorias uc 
@@ -376,7 +380,8 @@ async function listar_usuarios() {
     categorias_acesso: r.categorias_acesso || [],
     unidades_acesso: r.unidades_acesso || [],
     senha_pendente: r.senha_pendente || null,
-    menus_permitidos: r.menus_permitidos
+    menus_permitidos: r.menus_permitidos,
+    ativo: r.ativo !== false
   }));
 }
 
@@ -444,6 +449,24 @@ async function rejeitar_usuario(id_usuario) {
   await pool.query(`
     UPDATE tbl_usuarios
     SET status_aprovacao = 'Rejeitado'
+    WHERE id_usuario = $1
+  `, [id_usuario]);
+  return true;
+}
+
+async function inativar_usuario(id_usuario) {
+  await pool.query(`
+    UPDATE tbl_usuarios
+    SET ativo = FALSE
+    WHERE id_usuario = $1
+  `, [id_usuario]);
+  return true;
+}
+
+async function ativar_usuario(id_usuario) {
+  await pool.query(`
+    UPDATE tbl_usuarios
+    SET ativo = TRUE
     WHERE id_usuario = $1
   `, [id_usuario]);
   return true;
@@ -1208,6 +1231,8 @@ module.exports = {
   atualizar_unidades_usuario,
   atualizar_menus_usuario,
   rejeitar_usuario,
+  inativar_usuario,
+  ativar_usuario,
   solicitar_troca_senha,
   aprovar_senha_pendente,
   rejeitar_senha_pendente,

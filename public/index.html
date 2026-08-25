@@ -174,6 +174,9 @@
                                     <li class="nav-item" data-target="view-estagios-relatorio-horas-aluno" data-menu-key="estagios-relatorio-horas-aluno">
                                         <a href="#"><i class="fa-solid fa-file-chart-column"></i> <span>Total de Horas por Aluno</span></a>
                                     </li>
+                                    <li class="nav-item" data-target="view-estagios-relatorio-alunos-unidade" data-menu-key="estagios-relatorio-alunos-unidade">
+                                        <a href="#"><i class="fa-solid fa-users-viewfinder"></i> <span>Alunos por Unidade</span></a>
+                                    </li>
                                 </ul>
                             </li>
                         </ul>
@@ -979,7 +982,7 @@
                             </div>
                             <div class="form-group" style="margin:0; flex: 1; min-width: 140px;">
                                 <label for="filter-validacao-status-estagio" style="font-size: 12px;"><i class="fa-solid fa-info-circle"></i> STATUS</label>
-                                <select id="filter-validacao-status-estagio" class="form-control" onchange="filtrarValidacaoEstagios()">
+                                <select id="filter-validacao-status-estagio" class="form-control" onchange="filtrarValidacaoEstagios()" data-first-load="true">
                                     <option value="">TODOS OS STATUS</option>
                                 </select>
                             </div>
@@ -988,7 +991,7 @@
                                 <select id="filter-validacao-status" class="form-control" onchange="filtrarValidacaoEstagios()">
                                     <option value="">TODAS</option>
                                     <option value="validado">VALIDADOS</option>
-                                    <option value="pendente">NÃO VALIDADOS (PENDENTES)</option>
+                                    <option value="pendente" selected>NÃO VALIDADOS (PENDENTES)</option>
                                 </select>
                             </div>
                         </div>
@@ -1066,11 +1069,11 @@
                                             <th>Turma</th>
                                             <th>Status</th>
                                             <th>Protocolo EW</th>
-                                            <th style="color: var(--accent-blue);">Campo</th>
-                                            <th style="color: var(--accent-green);">Capacitação</th>
-                                            <th style="color: var(--accent-warning);">Laboratório</th>
-                                            <th style="color: var(--accent-teal);">Evento</th>
-                                            <th>Total Horas</th>
+                                            <th style="color: var(--accent-blue); text-align: center;">Campo</th>
+                                            <th style="color: var(--accent-green); text-align: center;">Capacitação</th>
+                                            <th style="color: var(--accent-warning); text-align: center;">Laboratório</th>
+                                            <th style="color: var(--accent-teal); text-align: center;">Evento</th>
+                                            <th style="text-align: center;">Total Horas</th>
                                         </tr>
                                     </thead>
                                     <tbody id="table-relatorio-horas-aluno-body">
@@ -1089,6 +1092,89 @@
                         <div id="relatorio-horas-aluno-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">
                             <i class="fa-solid fa-magnifying-glass" style="font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.4;"></i>
                             Digite o nome do aluno acima e clique em Pesquisar para visualizar o relatório.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: RELATÓRIO DE ALUNOS POR UNIDADE -->
+                <section id="view-estagios-relatorio-alunos-unidade" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i class="fa-solid fa-users-viewfinder text-primary"></i> Relatório: Alunos por Unidade</h3>
+                                <small style="color: var(--text-muted);">Filtre os lançamentos por unidade, curso, horas e status</small>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 150px;">
+                                <label for="relatorio-au-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> UNIDADE</label>
+                                <select id="relatorio-au-unidade" class="form-control">
+                                    <option value="">TODAS AS UNIDADES</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 150px;">
+                                <label for="relatorio-au-curso" style="font-size: 12px;"><i class="fa-solid fa-graduation-cap"></i> CURSO</label>
+                                <select id="relatorio-au-curso" class="form-control">
+                                    <option value="">TODOS OS CURSOS</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 0.5; min-width: 90px;">
+                                <label for="relatorio-au-horas-min" style="font-size: 12px;"><i class="fa-solid fa-clock"></i> HORAS MIN</label>
+                                <input type="number" id="relatorio-au-horas-min" class="form-control" placeholder="0" min="0">
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 0.5; min-width: 90px;">
+                                <label for="relatorio-au-horas-max" style="font-size: 12px;"><i class="fa-solid fa-clock"></i> HORAS MAX</label>
+                                <input type="number" id="relatorio-au-horas-max" class="form-control" placeholder="1000" min="0">
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 130px;">
+                                <label for="relatorio-au-status" style="font-size: 12px;"><i class="fa-solid fa-tag"></i> STATUS</label>
+                                <select id="relatorio-au-status" class="form-control">
+                                    <option value="">TODOS OS STATUS</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" onclick="gerarRelatorioAlunosUnidade()">
+                                    <i class="fa-solid fa-search"></i> Pesquisar
+                                </button>
+                                <button class="btn btn-secondary" onclick="limparRelatorioAlunosUnidade()" style="margin-left: 8px;">
+                                    <i class="fa-solid fa-broom"></i> Limpar
+                                </button>
+                                <button class="btn btn-success" onclick="imprimirRelatorioAlunosUnidade()" id="btn-imprimir-au" style="margin-left: 8px; display: none;">
+                                    <i class="fa-solid fa-print"></i> Imprimir
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="relatorio-au-resultado" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="table-relatorio-au">
+                                    <thead>
+                                        <tr>
+                                            <th>Aluno(a)</th>
+                                            <th>Unidade</th>
+                                            <th>Curso</th>
+                                            <th>Turma</th>
+                                            <th>Total Horas</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-relatorio-au-body">
+                                    </tbody>
+                                    <tfoot id="table-relatorio-au-footer">
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div id="relatorio-au-vazio" style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">
+                            <i class="fa-solid fa-file-slash" style="font-size: 40px; margin-bottom: 12px; display: block;"></i>
+                            Nenhum lançamento encontrado para os filtros informados.
+                        </div>
+
+                        <div id="relatorio-au-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <i class="fa-solid fa-filter" style="font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.4;"></i>
+                            Selecione os filtros acima e clique em Pesquisar para visualizar o relatório.
                         </div>
                     </div>
                 </section>
@@ -1480,20 +1566,21 @@
                         <div class="form-group">
                             <label for="estagio-curso">Curso *</label>
                             <select id="estagio-curso" required>
-                                <option value="">Selecione...</option>
-                                <option value="Cuidador de Idoso">Cuidador de Idoso</option>
-                                <option value="Instrumentacao Cirurgica">Instrumentação Cirúrgica</option>
-                                <option value="Tecnico em Enfermagem">Técnico em Enfermagem</option>
-                                <option value="Tecnico em Estetica">Técnico em Estética</option>
-                                <option value="Tecnico em Farmacia">Técnico em Farmácia</option>
-                                <option value="Tecnico em Radiologia">Técnico em Radiologia</option>
-                                <option value="Especializacao em Mamografia">Especialização em Mamografia</option>
-                                <option value="Outros">Outros</option>
+                                <option value="">SELECIONE...</option>
+                                <option value="CUIDADOR DE IDOSO">CUIDADOR DE IDOSO</option>
+                                <option value="ESPECIALIZACAO EM MAMOGRAFIA">ESPECIALIZACAO EM MAMOGRAFIA</option>
+                                <option value="INSTRUMENTACAO CIRURGICA">INSTRUMENTACAO CIRURGICA</option>
+                                <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
+                                <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>
+                                <option value="TECNICO EM ESTETICA">TECNICO EM ESTETICA</option>
+                                <option value="TECNICO EM FARMACIA">TECNICO EM FARMACIA</option>
+                                <option value="TECNICO EM RADIOLOGIA">TECNICO EM RADIOLOGIA</option>
+                                <option value="OUTROS">OUTROS</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="estagio-turma">Turma</label>
-                            <input type="text" id="estagio-turma" placeholder="Ex: T01-M">
+                            <input type="text" id="estagio-turma" placeholder="Ex: T01-M" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '')">
                         </div>
                         <div class="form-group">
                             <label for="estagio-horas">Horas Totais</label>
@@ -1501,11 +1588,11 @@
                         </div>
                         <div class="form-group span-2">
                             <label for="estagio-protocolo">Protocolo EW</label>
-                            <input type="text" id="estagio-protocolo" placeholder="Código / Referência">
+                            <input type="text" id="estagio-protocolo" placeholder="Apenas Números" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                         </div>
                         <div class="form-group span-2">
                             <label for="estagio-observacoes">Observações</label>
-                            <textarea id="estagio-observacoes" rows="2" placeholder="Informações adicionais..."></textarea>
+                            <textarea id="estagio-observacoes" rows="2" placeholder="Informações adicionais..." style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></textarea>
                         </div>
                     </div>
                 </div>

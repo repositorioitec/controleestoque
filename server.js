@@ -170,6 +170,26 @@ app.post('/api/auth/users/:id_usuario/rejeitar', async (req, res) => {
   }
 });
 
+app.post('/api/auth/users/:id_usuario/inativar', async (req, res) => {
+  const id_usuario = parseInt(req.params.id_usuario);
+  try {
+    await database.inativar_usuario(id_usuario);
+    return res.json({ success: true, message: 'Usuário inativado com sucesso.' });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+app.post('/api/auth/users/:id_usuario/ativar', async (req, res) => {
+  const id_usuario = parseInt(req.params.id_usuario);
+  try {
+    await database.ativar_usuario(id_usuario);
+    return res.json({ success: true, message: 'Usuário reativado com sucesso.' });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
 app.post('/api/auth/users/solicitar-senha', async (req, res) => {
   const id_usuario = req.headers['x-user-id'] ? parseInt(req.headers['x-user-id']) : null;
   const { senha_atual, nova_senha } = req.body;
