@@ -982,7 +982,15 @@ async function gerar_relatorio_estoque(id_unidade = null, id_categoria = null, i
   }
 
   const sql = `
-    SELECT p.id_produto, p.codigo_barras, p.nome_produto, p.id_categoria, p.preco_custo, c.nome_categoria
+    SELECT p.id_produto, p.codigo_barras, p.nome_produto, p.id_categoria, p.preco_custo, c.nome_categoria,
+           COALESCE(
+             (SELECT m.valor_unitario 
+              FROM tbl_movimentacoes m 
+              WHERE m.id_produto = p.id_produto AND m.tipo_movimentacao = 'ENTRADA' 
+              ORDER BY m.data_movimentacao DESC, m.id_movimentacao DESC LIMIT 1),
+             p.preco_custo,
+             0
+           ) as preco_calculado
     FROM tbl_produtos p
     LEFT JOIN tbl_categorias c ON p.id_categoria = c.id_categoria
     ${where_clause}
@@ -996,7 +1004,7 @@ async function gerar_relatorio_estoque(id_unidade = null, id_categoria = null, i
     const estoque_atual = await calcular_estoque_produto(r.id_produto, id_unidade);
     if (!incluir_zerados && estoque_atual <= 0) continue;
     
-    const preco_custo = parseFloat(r.preco_custo) || 0;
+    const preco_custo = parseFloat(r.preco_calculado) || 0;
     const valor_total = estoque_atual * preco_custo;
     
     relatorio.push({
