@@ -1155,7 +1155,6 @@ function abrirPrimeiroMenuESubmenu() {
 
                         targetView = item.getAttribute('data-target');
                         targetNavItem = item;
-                        parentUlToOpen = ul;
                         break;
                     }
                 }
@@ -1173,10 +1172,7 @@ function abrirPrimeiroMenuESubmenu() {
         }
     }
 
-    // Abre o primeiro menu pai correspondente
-    if (parentUlToOpen) {
-        parentUlToOpen.style.display = 'block';
-    }
+    // Menus permanecem RECOLHIDOS ao iniciar — não abre o parentUlToOpen
 
     // Marca como active o primeiro submenu
     if (targetNavItem) {
@@ -1637,6 +1633,7 @@ async function salvarProduto(event) {
         id_categoria: document.getElementById('prod-categoria').value || null,
         id_unidade: document.getElementById('prod-unidade').value || null,
         estoque_minimo: document.getElementById('prod-minimo').value,
+        preco_custo: document.getElementById('prod-custo').value,
         preco_venda: document.getElementById('prod-venda').value,
         inativo: document.getElementById('prod-inativo') ? document.getElementById('prod-inativo').checked : false,
         id_usuario: currentUser ? currentUser.id_usuario : null
@@ -2544,6 +2541,8 @@ async function salvarFornecedor(event) {
 
 // --- USUÁRIOS E APROVAÇÃO ---
 
+let _usuariosCache = [];
+
 async function carregarUsuarios() {
     const result = await safeFetch('/api/auth/users');
 
@@ -2551,90 +2550,140 @@ async function carregarUsuarios() {
         // Atualiza o mapa de dados de usuário
         _userDataMap = {};
         result.users.forEach(u => { _userDataMap[u.id_usuario] = u; });
+        _usuariosCache = result.users;
 
-        const tbody = document.getElementById('table-usuarios-body');
-        tbody.innerHTML = result.users.map(u => {
-            let statusBadge = 'badge-success';
-            if (u.status_aprovacao === 'Pendente') statusBadge = 'badge-warning';
-            if (u.status_aprovacao === 'Rejeitado') statusBadge = 'badge-danger';
-
-            let badgeSenha = u.senha_pendente ? ' <span class="badge badge-warning" style="margin-left: 5px;" title="Troca de senha solicitada"><i class="fa-solid fa-key"></i> Pendente</span>' : '';
-
-            // Texto de unidades
-            let unidades_texto;
-            if (u.nivel_acesso === 'Administrador') {
-                unidades_texto = '<span style="color:var(--primary);font-weight:600;">Todas (Admin)</span>';
-            } else if (u.unidades_acesso && u.unidades_acesso.length > 0) {
-                unidades_texto = u.unidades_acesso.map(uu => uu.nome_unidade).join(', ');
-            } else {
-                unidades_texto = u.nome_unidade || 'Sem Unidade';
-            }
-
-            let acoesHtml = '';
-            if (u.status_aprovacao === 'Pendente') {
-                acoesHtml = `
-                    <button class="btn btn-sm btn-success" onclick="abrirModalUsuario(${u.id_usuario}, 'aprovar')" title="Aprovar Cadastro">
-                        <i class="fa-solid fa-check"></i> Aprovar
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="rejeitarUsuario(${u.id_usuario})" title="Rejeitar Cadastro">
-                        <i class="fa-solid fa-xmark"></i> Rejeitar
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                `;
-            } else {
-                let menusPermJson = u.menus_permitidos ? JSON.stringify(u.menus_permitidos).replace(/"/g, '&quot;') : 'null';
-                const isAtivo = u.ativo !== false;
-                const btnInativar = isAtivo
-                    ? `<button class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, true)" title="Inativar Usuário">
-                           <i class="fa-solid fa-user-slash"></i> Inativar
-                       </button>`
-                    : `<button class="btn btn-sm" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, false)" title="Reativar Usuário">
-                           <i class="fa-solid fa-user-check"></i> Reativar
-                       </button>`;
-                acoesHtml = `
-                    <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / Nível">
-                        <i class="fa-solid fa-pen-to-square"></i> Editar
-                    </button>
-                    <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
-                        <i class="fa-solid fa-list-check"></i> Permissões
-                    </button>
-                    ${btnInativar}
-                    <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                `;
-            }
-            
-            if (u.senha_pendente) {
-                acoesHtml += `
-                    <button class="btn btn-sm btn-success" onclick="aprovarSenhaPendente(${u.id_usuario})" title="Aprovar Nova Senha">
-                        <i class="fa-solid fa-key"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="rejeitarSenhaPendente(${u.id_usuario})" title="Rejeitar Nova Senha">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                `;
-            }
-
-            const isAtivo = u.ativo !== false;
-            return `
-                <tr style="${isAtivo ? '' : 'opacity:0.55;'}">
-                    <td>#${u.id_usuario}</td>
-                    <td><strong>${u.nome_usuario}</strong>${badgeSenha}${ !isAtivo ? ' <span class="badge badge-danger" style="margin-left:5px;"><i class="fa-solid fa-ban"></i> Inativo</span>' : '' }</td>
-                    <td><code>${u.usuario}</code></td>
-                    <td><span class="badge ${u.nivel_acesso === 'Administrador' ? 'badge-info' : u.nivel_acesso === 'Supervisor' ? 'badge-warning' : 'badge-secondary'}">${u.nivel_acesso}</span></td>
-                    <td>${unidades_texto}</td>
-                    <td><span class="badge ${statusBadge}">${u.status_aprovacao || 'Aprovado'}</span></td>
-                    <td class="text-right">${acoesHtml}</td>
-                </tr>
-            `;
-        }).join('');
+        renderizarTabelaUsuarios();
     } else {
         const tbody = document.getElementById('table-usuarios-body');
         tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
     }
+}
+
+function filtrarUsuariosNaTela() {
+    renderizarTabelaUsuarios();
+}
+
+function limparFiltroUsuarios() {
+    const form = document.getElementById('form-filter-usuarios');
+    if(form) form.reset();
+    filtrarUsuariosNaTela();
+}
+
+function renderizarTabelaUsuarios() {
+    const buscaNome = (document.getElementById('filter-usr-nome')?.value || '').toLowerCase().trim();
+    const buscaNivel = document.getElementById('filter-usr-nivel')?.value || '';
+    const buscaStatus = document.getElementById('filter-usr-status')?.value || '';
+
+    let filtrados = _usuariosCache || [];
+
+    if (buscaNome) {
+        filtrados = filtrados.filter(u => 
+            (u.nome_usuario && u.nome_usuario.toLowerCase().includes(buscaNome)) ||
+            (u.usuario && u.usuario.toLowerCase().includes(buscaNome))
+        );
+    }
+    
+    if (buscaNivel) {
+        filtrados = filtrados.filter(u => u.nivel_acesso === buscaNivel);
+    }
+
+    if (buscaStatus) {
+        filtrados = filtrados.filter(u => {
+            const isAtivo = u.ativo !== false;
+            if (buscaStatus === 'Aprovados') return (u.status_aprovacao === 'Aprovado' || !u.status_aprovacao) && isAtivo;
+            if (buscaStatus === 'Pendentes') return u.status_aprovacao === 'Pendente';
+            if (buscaStatus === 'Inativos') return !isAtivo;
+            if (buscaStatus === 'Rejeitados') return u.status_aprovacao === 'Rejeitado';
+            return true;
+        });
+    }
+
+    const tbody = document.getElementById('table-usuarios-body');
+    if (!tbody) return;
+
+    if (filtrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Nenhum usuário encontrado com os filtros selecionados.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtrados.map(u => {
+        let statusBadge = 'badge-success';
+        if (u.status_aprovacao === 'Pendente') statusBadge = 'badge-warning';
+        if (u.status_aprovacao === 'Rejeitado') statusBadge = 'badge-danger';
+
+        let badgeSenha = u.senha_pendente ? ' <span class="badge badge-warning" style="margin-left: 5px;" title="Troca de senha solicitada"><i class="fa-solid fa-key"></i> Pendente</span>' : '';
+
+        // Texto de unidades
+        let unidades_texto;
+        if (u.nivel_acesso === 'Administrador') {
+            unidades_texto = '<span style="color:var(--primary);font-weight:600;">Todas (Admin)</span>';
+        } else if (u.unidades_acesso && u.unidades_acesso.length > 0) {
+            unidades_texto = u.unidades_acesso.map(uu => uu.nome_unidade).join(', ');
+        } else {
+            unidades_texto = u.nome_unidade || 'Sem Unidade';
+        }
+
+        let acoesHtml = '';
+        if (u.status_aprovacao === 'Pendente') {
+            acoesHtml = `
+                <button class="btn btn-sm btn-success" onclick="abrirModalUsuario(${u.id_usuario}, 'aprovar')" title="Aprovar Cadastro">
+                    <i class="fa-solid fa-check"></i> Aprovar
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="rejeitarUsuario(${u.id_usuario})" title="Rejeitar Cadastro">
+                    <i class="fa-solid fa-xmark"></i> Rejeitar
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            `;
+        } else {
+            let menusPermJson = u.menus_permitidos ? JSON.stringify(u.menus_permitidos).replace(/"/g, '&quot;') : 'null';
+            const isAtivo = u.ativo !== false;
+            const btnInativar = isAtivo
+                ? `<button class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, true)" title="Inativar Usuário">
+                       <i class="fa-solid fa-user-slash"></i> Inativar
+                   </button>`
+                : `<button class="btn btn-sm" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, false)" title="Reativar Usuário">
+                       <i class="fa-solid fa-user-check"></i> Reativar
+                   </button>`;
+            acoesHtml = `
+                <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / Nível">
+                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                </button>
+                <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
+                    <i class="fa-solid fa-list-check"></i> Permissões
+                </button>
+                ${btnInativar}
+                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            `;
+        }
+        
+        if (u.senha_pendente) {
+            acoesHtml += `
+                <button class="btn btn-sm btn-success" onclick="aprovarSenhaPendente(${u.id_usuario})" title="Aprovar Nova Senha">
+                    <i class="fa-solid fa-key"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="rejeitarSenhaPendente(${u.id_usuario})" title="Rejeitar Nova Senha">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+        }
+
+        const isAtivo = u.ativo !== false;
+        return `
+            <tr style="${isAtivo ? '' : 'opacity:0.55;'}">
+                <td>#${u.id_usuario}</td>
+                <td><strong>${u.nome_usuario}</strong>${badgeSenha}${ !isAtivo ? ' <span class="badge badge-danger" style="margin-left:5px;"><i class="fa-solid fa-ban"></i> Inativo</span>' : '' }</td>
+                <td><code>${u.usuario}</code></td>
+                <td><span class="badge ${u.nivel_acesso === 'Administrador' ? 'badge-info' : u.nivel_acesso === 'Supervisor' ? 'badge-warning' : 'badge-secondary'}">${u.nivel_acesso}</span></td>
+                <td>${unidades_texto}</td>
+                <td><span class="badge ${statusBadge}">${u.status_aprovacao || 'Aprovado'}</span></td>
+                <td class="text-right">${acoesHtml}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 // -------------------------------------------------

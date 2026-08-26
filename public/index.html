@@ -698,6 +698,43 @@
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-users-gear"></i> Gestão de Usuários e Aprovações</h3>
                         </div>
+                        
+                        <!-- Filtros de Usuários -->
+                        <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-filter text-primary"></i> Filtros de Pesquisa
+                            </div>
+                            <form id="form-filter-usuarios" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
+                                <div class="form-group" style="margin:0;">
+                                    <label for="filter-usr-nome" style="font-size: 12px;">Nome / Login</label>
+                                    <input type="text" id="filter-usr-nome" class="form-control" placeholder="Buscar..." oninput="filtrarUsuariosNaTela()">
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label for="filter-usr-nivel" style="font-size: 12px;">Nível de Acesso</label>
+                                    <select id="filter-usr-nivel" class="form-control" onchange="filtrarUsuariosNaTela()">
+                                        <option value="">Todos</option>
+                                        <option value="Administrador">Administrador</option>
+                                        <option value="Supervisor">Supervisor</option>
+                                        <option value="Operador">Operador</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label for="filter-usr-status" style="font-size: 12px;">Status / Atividade</label>
+                                    <select id="filter-usr-status" class="form-control" onchange="filtrarUsuariosNaTela()">
+                                        <option value="">Todos</option>
+                                        <option value="Aprovados">Aprovados e Ativos</option>
+                                        <option value="Pendentes">Pendentes (Aprovação)</option>
+                                        <option value="Inativos">Inativos</option>
+                                        <option value="Rejeitados">Rejeitados</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="limparFiltroUsuarios()" title="Limpar Filtros" style="flex: 1;">
+                                        <i class="fa-solid fa-eraser"></i> Limpar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                         <div class="table-responsive">
                             <table class="table">
                                 <thead>

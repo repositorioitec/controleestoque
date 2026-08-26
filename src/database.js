@@ -713,6 +713,7 @@ async function salvar_produto(data) {
   const id_categoria = data.id_categoria ? parseInt(data.id_categoria) : null;
   const id_unidade = data.id_unidade ? parseInt(data.id_unidade) : null;
   const estoque_minimo = parseInt(data.estoque_minimo || 5);
+  const preco_custo = parseFloat(data.preco_custo || 0.0);
   const preco_venda = parseFloat(data.preco_venda || 0.0);
   const inativo = data.inativo === true || data.inativo === 'true';
   const id_usuario = data.id_usuario ? parseInt(data.id_usuario) : null;
@@ -721,17 +722,18 @@ async function salvar_produto(data) {
     await pool.query(`
       UPDATE tbl_produtos
       SET codigo_barras = $1, nome_produto = $2, id_categoria = $3,
-          estoque_minimo = $4, preco_venda = $5, id_unidade = $6, inativo = $8, id_usuario = COALESCE(id_usuario, $9)
-      WHERE id_produto = $7
-    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, id_unidade, id_produto, inativo, id_usuario]);
+          estoque_minimo = $4, preco_custo = $5, preco_venda = $6, id_unidade = $7, inativo = $9, id_usuario = COALESCE(id_usuario, $10)
+      WHERE id_produto = $8
+    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, id_unidade, id_produto, inativo, id_usuario]);
   } else {
     await pool.query(`
-      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, id_unidade, inativo, id_usuario)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_venda, id_unidade, inativo, id_usuario]);
+      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, id_unidade, inativo, id_usuario)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [codigo_barras, nome_produto, id_categoria, estoque_minimo, preco_custo, preco_venda, id_unidade, inativo, id_usuario]);
   }
   return true;
 }
+
 
 async function excluir_produto(id_produto) {
   await pool.query("DELETE FROM tbl_movimentacoes WHERE id_produto = $1", [id_produto]);
@@ -982,15 +984,7 @@ async function gerar_relatorio_estoque(id_unidade = null, id_categoria = null, i
   }
 
   const sql = `
-    SELECT p.id_produto, p.codigo_barras, p.nome_produto, p.id_categoria, p.preco_custo, c.nome_categoria,
-           COALESCE(
-             (SELECT m.valor_unitario 
-              FROM tbl_movimentacoes m 
-              WHERE m.id_produto = p.id_produto AND m.tipo_movimentacao = 'ENTRADA' 
-              ORDER BY m.data_movimentacao DESC, m.id_movimentacao DESC LIMIT 1),
-             p.preco_custo,
-             0
-           ) as preco_calculado
+    SELECT p.id_produto, p.codigo_barras, p.nome_produto, p.id_categoria, p.preco_custo, c.nome_categoria
     FROM tbl_produtos p
     LEFT JOIN tbl_categorias c ON p.id_categoria = c.id_categoria
     ${where_clause}
@@ -1004,7 +998,7 @@ async function gerar_relatorio_estoque(id_unidade = null, id_categoria = null, i
     const estoque_atual = await calcular_estoque_produto(r.id_produto, id_unidade);
     if (!incluir_zerados && estoque_atual <= 0) continue;
     
-    const preco_custo = parseFloat(r.preco_calculado) || 0;
+    const preco_custo = await obter_ultimo_custo_produto(r.id_produto);
     const valor_total = estoque_atual * preco_custo;
     
     relatorio.push({
@@ -1093,6 +1087,7 @@ async function gerar_relatorio_sugestao_compras(id_unidade = null, id_categoria 
   for (const r of res.rows) {
     const estoque_real = await calcular_estoque_produto(r.id_produto, id_unidade);
     const estoque_minimo = parseInt(r.estoque_minimo) || 0;
+    const preco_custo_calculado = await obter_ultimo_custo_produto(r.id_produto);
 
     let consumoSql, consumoParams;
     if (id_unidade) {
@@ -1120,7 +1115,7 @@ async function gerar_relatorio_sugestao_compras(id_unidade = null, id_categoria 
     const media_consumo = consumo_periodo / dias_periodo;
     const sugestao_pedido = Math.max(0, Math.ceil(media_consumo * dias_periodo + estoque_minimo - estoque_real));
 
-    const preco_custo = parseFloat(r.preco_custo) || 0;
+    const preco_custo = preco_custo_calculado;
     const valor_sugestao = sugestao_pedido > 0 ? sugestao_pedido * preco_custo : 0;
 
     relatorio.push({
