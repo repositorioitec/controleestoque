@@ -2842,7 +2842,8 @@ const TODOS_MENUS = [
     { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
     { key: 'estagios-validacao', label: 'Validação Coordenação' },
     { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
-    { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' }
+    { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
+    { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' }
 ];
 
 function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
@@ -2850,22 +2851,43 @@ function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
     document.getElementById('perm-menu-username').textContent = `- ${nome_usuario}`;
 
     const permitidos = menus_permitidos || [];
-    const isAdminUser = false; // Em uma aplicação real checaríamos se u.nivel_acesso === 'Administrador'
+
+    // Monta mapa de pai → filhos para cascata de checkboxes
+    const grupoAtual = { key: null };
+    const grupoDoItem = {};
+    TODOS_MENUS.forEach(m => {
+        if (m.isParent) {
+            grupoAtual.key = m.key;
+        } else if (grupoAtual.key) {
+            grupoDoItem[m.key] = grupoAtual.key;
+        }
+    });
 
     const container = document.getElementById('permissoes-menu-list');
     container.innerHTML = TODOS_MENUS.map(m => {
         // Se null/undefined (antes da feature), assume que pode ver (fallback).
-        // Se for admin, sempre marcado
         const isChecked = !menus_permitidos || permitidos.includes(m.key) ? 'checked' : '';
         const boldStyle = m.isParent ? 'font-weight: bold;' : 'margin-left: 15px;';
-        
+        const parentAttr = m.isParent ? `data-parent-key="${m.key}"` : '';
+        const groupAttr = grupoDoItem[m.key] ? `data-group="${grupoDoItem[m.key]}"` : '';
+
         return `
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; ${boldStyle}">
-                <input type="checkbox" name="menu-permission" value="${m.key}" ${isChecked}>
+                <input type="checkbox" name="menu-permission" value="${m.key}" ${isChecked} ${parentAttr} ${groupAttr}>
                 ${m.label}
             </label>
         `;
     }).join('');
+
+    // Cascata: ao marcar/desmarcar um pai, marca/desmarca todos os filhos do grupo
+    container.querySelectorAll('input[data-parent-key]').forEach(parentCb => {
+        parentCb.addEventListener('change', function () {
+            const key = this.getAttribute('data-parent-key');
+            container.querySelectorAll(`input[data-group="${key}"]`).forEach(child => {
+                child.checked = this.checked;
+            });
+        });
+    });
 
     document.getElementById('modal-permissoes-menu').classList.remove('hidden');
 }
