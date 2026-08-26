@@ -900,7 +900,7 @@
                                 <small style="color: var(--text-muted);">Registro de horas de estágio dos alunos</small>
                             </div>
                             <div class="action-buttons">
-                                <button class="btn btn-secondary" onclick="abrirModalImportarPlanilha()">
+                                <button class="btn btn-secondary admin-only" onclick="abrirModalImportarPlanilha()">
                                     <i class="fa-solid fa-file-import"></i> Importar Planilha
                                 </button>
                                 <button class="btn btn-primary" onclick="abrirModalLancamentoEstagio()">
@@ -1042,22 +1042,36 @@
                             </div>
                         </div>
 
-                        <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
-                            <div class="form-group" style="margin:0; flex: 1; min-width: 250px;">
-                                <label for="relatorio-search-aluno" style="font-size: 12px;"><i class="fa-solid fa-magnifying-glass"></i> NOME DO ALUNO</label>
-                                <input type="text" id="relatorio-search-aluno" class="form-control" placeholder="DIGITE O NOME PARA FILTRAR..." list="lista-alunos" style="text-transform: uppercase;" onkeyup="if(event.key==='Enter') gerarRelatorioHorasAluno()">
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            
+                            <div style="display: flex; flex-direction: column; gap: 4px; flex: 0 1 500px; min-width: 360px;">
+                                <label for="relatorio-search-aluno" style="font-size: 11px; margin: 0; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> NOME DO ALUNO</label>
+                                <input type="text" id="relatorio-search-aluno" class="form-control" placeholder="FILTRAR..." list="lista-alunos" style="text-transform: uppercase; height: 38px;" onkeyup="if(event.key==='Enter') gerarRelatorioHorasAluno()">
                             </div>
-                            <div>
-                                <button class="btn btn-primary" onclick="gerarRelatorioHorasAluno()">
-                                    <i class="fa-solid fa-search"></i> Pesquisar
-                                </button>
-                                <button class="btn btn-secondary" onclick="limparRelatorioHorasAluno()" style="margin-left: 8px;">
-                                    <i class="fa-solid fa-broom"></i> Limpar
-                                </button>
-                                <button class="btn btn-success" onclick="imprimirRelatorioHorasAluno()" id="btn-imprimir-horas" style="margin-left: 8px; display: none;">
-                                    <i class="fa-solid fa-print"></i> Imprimir / Salvar PDF
-                                </button>
+
+                            <button class="btn btn-primary" onclick="gerarRelatorioHorasAluno()" style="height: 38px; align-self: flex-end;">
+                                <i class="fa-solid fa-search"></i> Pesquisar
+                            </button>
+                            <button class="btn btn-secondary" onclick="limparRelatorioHorasAluno()" style="height: 38px; align-self: flex-end;">
+                                <i class="fa-solid fa-broom"></i> Limpar
+                            </button>
+                            <button class="btn btn-success" onclick="imprimirRelatorioHorasAluno()" id="btn-imprimir-horas" style="display: none; height: 38px; align-self: flex-end;">
+                                <i class="fa-solid fa-print"></i> Imprimir / Salvar PDF
+                            </button>
+
+                            <div id="container-alterar-status-todos" style="display: none; align-items: flex-end; gap: 8px; margin-left: auto;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="select-status-todos" style="font-size: 11px; margin: 0; color: var(--text-muted); font-weight: 600; white-space: nowrap;"><i class="fa-solid fa-edit"></i> ALTERAR TODOS:</label>
+                                    <select id="select-status-todos" class="form-control" style="height: 38px; font-size: 13px; padding: 0 12px; min-width: 150px;" onchange="alterarStatusTodosLancamentosRelatorio()">
+                                        <option value="">Selecione...</option>
+                                        <option value="Em andamento">Em andamento</option>
+                                        <option value="Concluído">Concluído</option>
+                                        <option value="Evadido">Evadido</option>
+                                        <option value="Cancelado">Cancelado</option>
+                                    </select>
+                                </div>
                             </div>
+
                         </div>
 
                         <div id="relatorio-horas-aluno-resultado" style="display: none;">
@@ -1748,7 +1762,7 @@
             </div>
             <div class="modal-body" style="padding: 30px 20px;">
                 <i class="fa-solid fa-boxes-stacked" style="font-size: 40px; color: var(--accent-blue); margin-bottom: 15px;"></i>
-                <h2 style="margin: 0; font-size: 24px; color: var(--text-main);">ITEC.2026.V.1.1</h2>
+                <h2 style="margin: 0; font-size: 24px; color: var(--text-main);">ITEC.2026.V.8.2</h2>
                 <p style="color: var(--text-muted); margin-top: 10px; font-size: 14px;">Sistema de Gestão de Estoque</p>
             </div>
             <div class="modal-footer" style="justify-content: center;">

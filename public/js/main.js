@@ -4399,12 +4399,16 @@ function gerarRelatorioHorasAluno() {
         document.getElementById('relatorio-horas-aluno-resultado').style.display = 'none';
         document.getElementById('relatorio-horas-aluno-vazio').style.display = 'block';
         document.getElementById('btn-imprimir-horas').style.display = 'none';
+        const containerAlterar = document.getElementById('container-alterar-status-todos');
+        if(containerAlterar) containerAlterar.style.display = 'none';
         return;
     }
     
     document.getElementById('relatorio-horas-aluno-vazio').style.display = 'none';
     document.getElementById('relatorio-horas-aluno-resultado').style.display = 'block';
     document.getElementById('btn-imprimir-horas').style.display = 'inline-block';
+    const containerAlterar = document.getElementById('container-alterar-status-todos');
+    if(containerAlterar) containerAlterar.style.display = 'flex';
 
     // Preenche o bloco de info do aluno (usa o primeiro registro encontrado)
     const primeiroReg = filtrados[0];
@@ -4453,7 +4457,11 @@ function gerarRelatorioHorasAluno() {
             <tr>
                 <td>${dataFormatada}</td>
                 <td>${l.turma || '-'}</td>
-                <td><span class="badge ${statusBadge}">${l.status}</span></td>
+                <td>
+                    <span class="badge ${statusBadge}" style="cursor: pointer;" onclick="alterarStatusLancamentoRelatorio(${l.id_lancamento})" title="Clique para alterar o status">
+                        ${l.status} <i class="fa-solid fa-pen" style="font-size: 10px; margin-left: 4px;"></i>
+                    </span>
+                </td>
                 <td>${l.protocolo_ew || '-'}</td>
                 <td style="color: var(--accent-blue); text-align: center;">${hCampo}</td>
                 <td style="color: var(--accent-green); text-align: center;">${hCapacitacao}</td>
@@ -4478,6 +4486,55 @@ function gerarRelatorioHorasAluno() {
     `;
 }
 
+async function alterarStatusLancamentoRelatorio(id) {
+    const original = estagiosCache.find(x => x.id_lancamento === id);
+    if (!original) return;
+
+    const novoStatus = prompt('Digite o novo status (Em andamento, Concluido, Evadido, Cancelado):', original.status);
+    if (!novoStatus) return;
+
+    const statusPermitidos = ['Em andamento', 'Concluido', 'Concluído', 'Evadido', 'Cancelado'];
+    const statusFormatado = statusPermitidos.find(s => s.toLowerCase() === novoStatus.toLowerCase().trim());
+
+    if (!statusFormatado) {
+        alert('Status inválido! Use apenas: Em andamento, Concluído, Evadido ou Cancelado.');
+        return;
+    }
+    
+    const statusFinal = (statusFormatado === 'Concluido') ? 'Concluído' : statusFormatado;
+
+    if (statusFinal === original.status || statusFormatado === original.status) return;
+
+    if (!confirm(`Deseja realmente alterar o status deste lançamento de "${original.status}" para "${statusFinal}"?`)) {
+        return;
+    }
+
+    const payload = { ...original, status: statusFinal };
+
+    try {
+        const res = await fetch('/api/estagios/lancamentos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': currentUser ? currentUser.id_usuario : '',
+                'X-User-Nivel': currentUser ? currentUser.nivel_acesso : '',
+                'X-User-Nome': currentUser ? currentUser.nome_usuario : ''
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Status atualizado com sucesso!', 'success');
+            original.status = statusFormatado;
+            gerarRelatorioHorasAluno(); // recarrega a tabela para refletir a alteração
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    } catch (e) {
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
 function limparRelatorioHorasAluno() {
     document.getElementById('relatorio-search-aluno').value = '';
     const inputProtocolo = document.getElementById('relatorio-search-protocolo');
@@ -4487,6 +4544,86 @@ function limparRelatorioHorasAluno() {
     document.getElementById('relatorio-horas-aluno-inicial').style.display = 'block';
     const btnImprimir = document.getElementById('btn-imprimir-horas');
     if (btnImprimir) btnImprimir.style.display = 'none';
+    const containerAlterar = document.getElementById('container-alterar-status-todos');
+    if (containerAlterar) containerAlterar.style.display = 'none';
+}
+
+async function alterarStatusTodosLancamentosRelatorio() {
+    const selectEl = document.getElementById('select-status-todos');
+    if (!selectEl) return;
+    
+    const novoStatus = selectEl.value;
+    if (!novoStatus) return; // Nada selecionado
+
+    const inputPesquisa = document.getElementById('relatorio-search-aluno');
+    if (!inputPesquisa) return;
+    const termo = (inputPesquisa.value || '').trim().toUpperCase();
+    const termoProtocolo = ((document.getElementById('relatorio-search-protocolo') || {}).value || '').trim().toUpperCase();
+
+    if (!termo && !termoProtocolo) {
+        selectEl.value = '';
+        return;
+    }
+
+    const filtrados = estagiosCache.filter(l => {
+        const matchAluno = !termo || (l.nome_aluno || '').trim().toUpperCase().includes(termo);
+        const matchProtocolo = !termoProtocolo || (l.protocolo_ew || '').trim().toUpperCase().includes(termoProtocolo);
+        return matchAluno && matchProtocolo;
+    });
+
+    if (filtrados.length === 0) {
+        selectEl.value = '';
+        return;
+    }
+
+    const statusFinal = (novoStatus === 'Concluido') ? 'Concluído' : novoStatus;
+
+    if (!confirm(`Deseja realmente alterar o status de TODOS os ${filtrados.length} lançamentos deste(a) aluno(a) para "${statusFinal}"?`)) {
+        selectEl.value = ''; // Reseta se cancelar
+        return;
+    }
+
+    let sucessos = 0;
+    let erros = 0;
+
+    for (const original of filtrados) {
+        if (original.status === statusFinal) {
+            sucessos++;
+            continue;
+        }
+
+        const payload = { ...original, status: statusFinal };
+        try {
+            const res = await fetch('/api/estagios/lancamentos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Id': currentUser ? currentUser.id_usuario : '',
+                    'X-User-Nivel': currentUser ? currentUser.nivel_acesso : '',
+                    'X-User-Nome': currentUser ? currentUser.nome_usuario : ''
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                sucessos++;
+                original.status = statusFinal;
+            } else {
+                erros++;
+            }
+        } catch (e) {
+            erros++;
+        }
+    }
+
+    if (erros > 0) {
+        alert(`Atualização concluída com erros. Sucessos: ${sucessos}, Erros: ${erros}`);
+    } else {
+        showToast(`Todos os ${sucessos} lançamentos foram atualizados para "${statusFinal}" com sucesso!`, 'success');
+    }
+    
+    selectEl.value = ''; // Reseta após salvar
+    gerarRelatorioHorasAluno();
 }
 
 function imprimirRelatorioHorasAluno() {

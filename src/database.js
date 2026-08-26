@@ -182,6 +182,13 @@ async function init_db() {
       ADD COLUMN IF NOT EXISTS nome_usuario_registro VARCHAR(150) DEFAULT NULL;
     `);
 
+    // Registra como "Legado" os lançamentos antigos que não possuem usuário
+    await client.query(`
+      UPDATE tbl_estagios_lancamentos
+      SET nome_usuario_registro = 'Legado'
+      WHERE nome_usuario_registro IS NULL;
+    `);
+
     // Atualiza variações de "Tecnico de Enfermagem" para "Tecnico em Enfermagem"
     await client.query(`
       UPDATE tbl_estagios_lancamentos
