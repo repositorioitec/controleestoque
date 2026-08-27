@@ -1207,6 +1207,7 @@ function trocarUnidadeAtiva(unitId) {
             if (viewId === 'view-estagios-validacao') carregarValidacaoEstagios();
             if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
             if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
+            if (viewId === 'view-estagios-relatorio-horas-validadas') iniciarRelatorioHorasValidadas();
         }
         showToast(unitId ? 'Filtro atualizado para a unidade selecionada.' : 'Visualizando estoque de todas as unidades permitidas.', 'info');
     }
@@ -1269,7 +1270,8 @@ function navegarParaView(viewId) {
             'view-estagios-lancamento': 'Lançamento de Horas (Estágios)',
             'view-estagios-validacao': 'Validação Coordenação (Estágios)',
             'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno',
-            'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade'
+            'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade',
+            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas'
         };
         document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
 
@@ -1297,6 +1299,7 @@ function navegarParaView(viewId) {
         if (viewId === 'view-estagios-validacao') carregarValidacaoEstagios();
         if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
         if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
+        if (viewId === 'view-estagios-relatorio-horas-validadas') iniciarRelatorioHorasValidadas();
     }
 }
 
@@ -2968,7 +2971,8 @@ const TODOS_MENUS = [
     { key: 'estagios-validacao', label: 'Validação Coordenação' },
     { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
     { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
-    { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' }
+    { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
+    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' }
 ];
 
 function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
@@ -4496,6 +4500,8 @@ async function validarLancamentoEstagio(id) {
                 estagiosCache[idx].horas_laboratorio = horas_laboratorio;
                 estagiosCache[idx].horas_evento      = horas_evento;
                 estagiosCache[idx].validado_coordenacao = true;
+                estagiosCache[idx].data_validacao = new Date().toISOString().slice(0, 10);
+                estagiosCache[idx].nome_usuario_validacao = currentUser?.nome_usuario || currentUser?.usuario || null;
             }
         } else {
             showToast('Erro: ' + data.message, 'error');
@@ -4783,6 +4789,21 @@ async function alterarStatusTodosLancamentosRelatorio() {
 
 function imprimirRelatorioHorasAluno() {
     const relatorioContent = document.getElementById('relatorio-horas-aluno-resultado').cloneNode(true);
+    const termoAluno = (document.getElementById('relatorio-search-aluno')?.value || '').trim().toUpperCase();
+    const termoProtocolo = (document.getElementById('relatorio-search-protocolo')?.value || '').trim().toUpperCase();
+    const alunoRelatorio = estagiosCache.find(l => {
+        const matchAluno = !termoAluno || (l.nome_aluno || '').trim().toUpperCase().includes(termoAluno);
+        const matchProtocolo = !termoProtocolo || (l.protocolo_ew || '').trim().toUpperCase().includes(termoProtocolo);
+        return matchAluno && matchProtocolo;
+    });
+    const nomeAluno = (alunoRelatorio?.nome_aluno || 'Aluno(a)')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    const responsavelSecretaria = (currentUser?.nome_usuario || currentUser?.usuario || 'Responsável Secretaria')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -4797,6 +4818,7 @@ function imprimirRelatorioHorasAluno() {
                 <meta charset="UTF-8">
                 <title>Relatório - Total de Horas por Aluno</title>
                 <style>
+                    @page { size: A4 landscape; margin: 12mm; }
                     body { font-family: 'Inter', Arial, sans-serif; padding: 25px; color: #1e293b; background: #fff; }
                     .btn-imprimir-toolbar {
                         display: flex;
@@ -4826,9 +4848,25 @@ function imprimirRelatorioHorasAluno() {
                     th { background-color: #f1f5f9; text-transform: uppercase; color: #334155; font-size: 11px; }
                     .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; background: #e2e8f0; }
                     tfoot tr { background-color: #f8fafc; font-weight: bold; }
+                    .assinaturas {
+                        display: flex;
+                        justify-content: center;
+                        gap: 90px;
+                        margin: 120px auto 0;
+                        width: 72%;
+                    }
+                    .assinatura {
+                        flex: 1;
+                        min-width: 220px;
+                        border-top: 1px solid #1e293b;
+                        padding-top: 7px;
+                        text-align: center;
+                        font-size: 12px;
+                        color: #334155;
+                    }
                     @media print {
                         .no-print { display: none !important; }
-                        body { -webkit-print-color-adjust: exact; padding: 0; }
+                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
                     }
                 </style>
             </head>
@@ -4842,10 +4880,100 @@ function imprimirRelatorioHorasAluno() {
                     <div>Impresso por: <strong>${currentUser ? (currentUser.nome_usuario || currentUser.usuario || '-') : '-'}</strong></div>
                 </div>
                 ${relatorioContent.innerHTML}
+                <div class="assinaturas">
+                    <div class="assinatura">${nomeAluno}</div>
+                    <div class="assinatura">${responsavelSecretaria}</div>
+                </div>
             </body>
         </html>
     `);
     
+    printWindow.document.close();
+    printWindow.focus();
+}
+
+// ============================================================================
+// RELATÓRIO: HORAS VALIDADAS
+// ============================================================================
+
+async function iniciarRelatorioHorasValidadas() {
+    try {
+        const res = await safeFetch('/api/estagios/lancamentos');
+        if (res.success && res.lancamentos) {
+            const unidadeSelecionada = getGlobalSelectedUnitName();
+            estagiosCache = unidadeSelecionada
+                ? res.lancamentos.filter(l => (l.unidade || '').trim().toUpperCase() === unidadeSelecionada.toUpperCase())
+                : res.lancamentos;
+            gerarRelatorioHorasValidadas();
+        }
+    } catch (e) {
+        console.error('Erro ao carregar as horas validadas:', e);
+    }
+}
+
+function limparRelatorioHorasValidadas() {
+    document.getElementById('relatorio-hv-data-inicio').value = '';
+    document.getElementById('relatorio-hv-data-fim').value = '';
+    gerarRelatorioHorasValidadas();
+}
+
+function gerarRelatorioHorasValidadas() {
+    const dataInicio = document.getElementById('relatorio-hv-data-inicio').value;
+    const dataFim = document.getElementById('relatorio-hv-data-fim').value;
+    const resultados = estagiosCache
+        .filter(l => l.validado_coordenacao === true)
+        .filter(l => !dataInicio || (l.data_validacao || '') >= dataInicio)
+        .filter(l => !dataFim || (l.data_validacao || '') <= dataFim)
+        .sort((a, b) => (b.data_validacao || '').localeCompare(a.data_validacao || '') ||
+            (b.horas_totais || 0) - (a.horas_totais || 0));
+
+    const resultadoEl = document.getElementById('relatorio-hv-resultado');
+    const vazioEl = document.getElementById('relatorio-hv-vazio');
+    const inicialEl = document.getElementById('relatorio-hv-inicial');
+    const btnImprimir = document.getElementById('btn-imprimir-hv');
+    const tbody = document.getElementById('table-relatorio-hv-body');
+    const tfoot = document.getElementById('table-relatorio-hv-footer');
+    inicialEl.style.display = 'none';
+
+    if (!resultados.length) {
+        resultadoEl.style.display = 'none';
+        vazioEl.style.display = 'block';
+        btnImprimir.style.display = 'none';
+        return;
+    }
+
+    const formatarData = data => data ? data.split('-').reverse().join('/') : '-';
+    let totalHoras = 0;
+    tbody.innerHTML = resultados.map(l => {
+        const horas = Math.round(parseFloat(l.horas_totais) || 0);
+        totalHoras += horas;
+        return `<tr><td><strong>${l.nome_aluno || '-'}</strong></td><td>${l.unidade || '-'}</td><td>${l.curso || '-'}</td><td>${l.turma || '-'}</td><td><strong>${horas}</strong></td><td>${formatarData(l.data_validacao)}</td><td>${l.nome_usuario_validacao || '-'}</td></tr>`;
+    }).join('');
+    tfoot.innerHTML = `<tr><td colspan="4" style="text-align:right; font-weight:bold;">TOTAL:</td><td colspan="3" style="font-weight:bold;">${totalHoras} horas (${resultados.length} lançamento${resultados.length > 1 ? 's' : ''})</td></tr>`;
+    vazioEl.style.display = 'none';
+    resultadoEl.style.display = 'block';
+    btnImprimir.style.display = 'inline-block';
+}
+
+function imprimirRelatorioHorasValidadas() {
+    const relatorio = document.getElementById('relatorio-hv-resultado');
+    if (!relatorio || relatorio.style.display === 'none') return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
+        return;
+    }
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório - Horas Validadas</title><style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: Arial, sans-serif; color: #1e293b; }
+        .no-print { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+        button { padding: 9px 16px; background:#2563eb; color:#fff; border:0; border-radius:5px; cursor:pointer; }
+        h2 { text-align:center; font-size:20px; border-bottom:2px solid #e2e8f0; padding-bottom:10px; }
+        table { width:100%; border-collapse:collapse; font-size:12px; }
+        th, td { border:1px solid #cbd5e1; padding:8px; text-align:left; }
+        th, tfoot { background:#f1f5f9; text-transform:uppercase; }
+        @media print { .no-print { display:none; } }
+    </style></head><body><div class="no-print"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div><h2>Relatório de Horas Validadas</h2><p>Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
 }
@@ -4948,7 +5076,7 @@ function gerarRelatorioAlunosUnidade() {
         return true;
     });
 
-    resultados.sort((a, b) => a.aluno.localeCompare(b.aluno));
+    resultados.sort((a, b) => b.horas - a.horas || a.aluno.localeCompare(b.aluno));
 
     document.getElementById('relatorio-au-inicial').style.display = 'none';
 

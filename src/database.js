@@ -191,7 +191,8 @@ async function init_db() {
     await client.query(`
       ALTER TABLE tbl_estagios_lancamentos
       ADD COLUMN IF NOT EXISTS nome_usuario_registro VARCHAR(150) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS nome_usuario_validacao VARCHAR(150) DEFAULT NULL;
+      ADD COLUMN IF NOT EXISTS nome_usuario_validacao VARCHAR(150) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS data_validacao TIMESTAMPTZ DEFAULT NULL;
     `);
 
     // Registra como "Legado" os lançamentos antigos que não possuem usuário
@@ -1275,7 +1276,7 @@ async function excluir_centro_custo(id_centro_custo) {
 
 async function listar_lancamentos_estagio() {
   const res = await pool.query(`
-    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao
+    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, to_char(data_validacao, 'YYYY-MM-DD') as data_validacao, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao
     FROM tbl_estagios_lancamentos
     ORDER BY id_lancamento DESC
   `);
@@ -1286,7 +1287,7 @@ async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status,
   if (id_lancamento) {
     await pool.query(`
       UPDATE tbl_estagios_lancamentos
-       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, horas_enf_cirurgica = $15, horas_enf_medica = $16, horas_saude_mulher = $17, horas_saude_mental = $18, horas_saude_publica = $19, horas_emergencia = $20, validado_coordenacao = $21, nome_usuario_validacao = COALESCE($22, nome_usuario_validacao)
+       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, horas_enf_cirurgica = $15, horas_enf_medica = $16, horas_saude_mulher = $17, horas_saude_mental = $18, horas_saude_publica = $19, horas_emergencia = $20, validado_coordenacao = $21, nome_usuario_validacao = COALESCE($22, nome_usuario_validacao), data_validacao = CASE WHEN $21 = TRUE AND data_validacao IS NULL THEN CURRENT_TIMESTAMP ELSE data_validacao END
        WHERE id_lancamento = $10
     `, [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao || false, nome_usuario_validacao || null]);
     return id_lancamento;
