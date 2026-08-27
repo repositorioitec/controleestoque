@@ -2021,6 +2021,9 @@ function imprimirRelatorioMovimentacoes() {
         .badge-warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
         .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
         @page { margin: 12mm; size: A4 landscape; }
+        .summary-box { background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; display: inline-block; }
+        .summary-box small { color: #059669; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+        .summary-box h4 { margin: 4px 0 0 0; font-size: 18px; color: #064e3b; }
     </style>
 </head>
 <body>
@@ -2216,7 +2219,6 @@ async function carregarCentrosCustoNoModal(valorAtual = null) {
     const selectCC = document.getElementById('mov-centro-custo');
     if (!selectCC) return;
 
-    // Usa o cache se já disponível, caso contrário busca da API
     let centros = centrosCustoCache;
     if (!centros || centros.length === 0) {
         const result = await safeFetch('/api/centros-custo');
@@ -2235,7 +2237,6 @@ async function carregarCentrosCustoNoModal(valorAtual = null) {
         `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`
     ).join('');
 
-    // Pré-seleciona o valor informado (edição) ou o primeiro cadastrado
     if (valorAtual) {
         selectCC.value = valorAtual;
     } else {
@@ -2244,7 +2245,6 @@ async function carregarCentrosCustoNoModal(valorAtual = null) {
 }
 
 async function atualizarProdutosPorUnidadeMovimentacao() {
-
     const movUnid = document.getElementById('mov-unidade').value;
     const selectProd = document.getElementById('mov-produto');
     document.getElementById('mov-saldo-info').classList.add('hidden');
@@ -2275,8 +2275,6 @@ function atualizarDadosProdutoMovimentacao() {
         document.getElementById('mov-saldo-qtd').textContent = prod.estoque_atual;
         document.getElementById('mov-saldo-info').classList.remove('hidden');
 
-        // Só altera o valor se não for edição (ou se for e o usuário mudar de produto)
-        // Aqui para não sobrescrever o valor da edição, verificamos se o valor está vazio
         const valorInput = document.getElementById('mov-valor');
         if (!editandoMovimentacaoId || document.activeElement === document.getElementById('mov-produto')) {
             if (tipo === 'ENTRADA') {
@@ -2346,7 +2344,7 @@ async function carregarCategoriasEFornecedores() {
         categoriasCache = dataCat.categorias;
         const selectProdCat = document.getElementById('prod-categoria');
         const selectFilterCat = document.getElementById('filter-produto-categoria');
-        
+
         const optionsHtml = categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
         if (selectProdCat) selectProdCat.innerHTML = '<option value="">Selecione...</option>' + optionsHtml;
         if (selectFilterCat) selectFilterCat.innerHTML = '<option value="">Todas as Categorias</option>' + optionsHtml;
@@ -2381,16 +2379,25 @@ async function carregarCadastrosGerais() {
 
     const dataForn = await safeFetch('/api/fornecedores');
     if (dataForn.success) {
+        window._fornecedoresCache = dataForn.fornecedores;
         const tbody = document.getElementById('table-fornecedores-body');
         if (tbody) {
-            tbody.innerHTML = dataForn.fornecedores.map(f => `
+            tbody.innerHTML = dataForn.fornecedores.map(f => {
+                const cidadeUf = (f.cidade && f.estado) ? `${f.cidade}/${f.estado}` : (f.cidade || f.estado || '-');
+                return `
                 <tr>
                     <td><strong>${f.nome_fornecedor}</strong></td>
+                    <td>${f.razao_reduzida || '-'}</td>
                     <td>${f.cnpj_cpf || '-'}</td>
                     <td>${f.telefone || '-'}</td>
-                    <td>${f.email || '-'}</td>
+                    <td>${cidadeUf}</td>
+                    <td class="text-right">
+                        <button class="btn btn-sm btn-secondary" title="Editar" onclick="editarFornecedor(${f.id_fornecedor})"><i class="fa-solid fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" title="Excluir" onclick="excluirFornecedor(${f.id_fornecedor})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
     }
 }
@@ -2515,17 +2522,92 @@ function abrirModalFornecedor() {
     document.getElementById('modal-fornecedor').classList.remove('hidden');
 }
 
+async function buscarEnderecoPorCep(cep) {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
+    
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+        const data = await response.json();
+        
+        if (!data.erro) {
+            document.getElementById('forn-endereco').value = data.logradouro || '';
+            document.getElementById('forn-bairro').value = data.bairro || '';
+            document.getElementById('forn-cidade').value = data.localidade || '';
+            document.getElementById('forn-estado').value = data.uf || '';
+            document.getElementById('forn-numero').focus();
+        } else {
+            showToast('CEP não encontrado.', 'error');
+        }
+    } catch (error) {
+        showToast('Erro ao buscar o CEP.', 'error');
+    }
+}
+
+async function editarFornecedor(id) {
+    if (!window._fornecedoresCache) return;
+    const f = window._fornecedoresCache.find(x => x.id_fornecedor === id);
+    if (!f) return;
+
+    document.getElementById('form-fornecedor').reset();
+    document.getElementById('forn-id').value = f.id_fornecedor;
+    document.getElementById('forn-nome').value = f.nome_fornecedor || '';
+    if (document.getElementById('forn-razao-reduzida')) document.getElementById('forn-razao-reduzida').value = f.razao_reduzida || '';
+    document.getElementById('forn-cnpj').value = f.cnpj_cpf || '';
+    document.getElementById('forn-tel').value = f.telefone || '';
+    document.getElementById('forn-email').value = f.email || '';
+    if (document.getElementById('forn-cep')) document.getElementById('forn-cep').value = f.cep || '';
+    if (document.getElementById('forn-endereco')) document.getElementById('forn-endereco').value = f.endereco || '';
+    if (document.getElementById('forn-numero')) document.getElementById('forn-numero').value = f.numero || '';
+    if (document.getElementById('forn-complemento')) document.getElementById('forn-complemento').value = f.complemento || '';
+    if (document.getElementById('forn-bairro')) document.getElementById('forn-bairro').value = f.bairro || '';
+    if (document.getElementById('forn-cidade')) document.getElementById('forn-cidade').value = f.cidade || '';
+    if (document.getElementById('forn-estado')) document.getElementById('forn-estado').value = f.estado || '';
+
+    document.getElementById('modal-fornecedor').classList.remove('hidden');
+}
+
+async function excluirFornecedor(id) {
+    if (confirm('Tem certeza que deseja excluir este fornecedor?')) {
+        const result = await safeFetch(`/api/fornecedores/${id}`, {
+            method: 'DELETE'
+        });
+        if (result.success) {
+            showToast(result.message, 'success');
+            carregarCadastrosGerais();
+        } else {
+            showToast(result.message, 'error');
+        }
+    }
+}
+
 async function salvarFornecedor(event) {
     event.preventDefault();
     const payload = {
         nome_fornecedor: document.getElementById('forn-nome').value.trim(),
+        razao_reduzida: document.getElementById('forn-razao-reduzida') ? document.getElementById('forn-razao-reduzida').value.trim() : '',
         cnpj_cpf: document.getElementById('forn-cnpj').value.trim(),
         telefone: document.getElementById('forn-tel').value.trim(),
-        email: document.getElementById('forn-email').value.trim()
+        email: document.getElementById('forn-email').value.trim(),
+        cep: document.getElementById('forn-cep') ? document.getElementById('forn-cep').value.trim() : '',
+        endereco: document.getElementById('forn-endereco') ? document.getElementById('forn-endereco').value.trim() : '',
+        numero: document.getElementById('forn-numero') ? document.getElementById('forn-numero').value.trim() : '',
+        complemento: document.getElementById('forn-complemento') ? document.getElementById('forn-complemento').value.trim() : '',
+        bairro: document.getElementById('forn-bairro') ? document.getElementById('forn-bairro').value.trim() : '',
+        cidade: document.getElementById('forn-cidade') ? document.getElementById('forn-cidade').value.trim() : '',
+        estado: document.getElementById('forn-estado') ? document.getElementById('forn-estado').value.trim() : ''
     };
 
-    const result = await safeFetch('/api/fornecedores', {
-        method: 'POST',
+    const id = document.getElementById('forn-id') ? document.getElementById('forn-id').value : '';
+    let url = '/api/fornecedores';
+    let method = 'POST';
+    if (id) {
+        url += `/${id}`;
+        method = 'PUT';
+    }
+
+    const result = await safeFetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
@@ -2541,21 +2623,15 @@ async function salvarFornecedor(event) {
 
 // --- USUÁRIOS E APROVAÇÃO ---
 
-let _usuariosCache = [];
-
 async function carregarUsuarios() {
     const result = await safeFetch('/api/auth/users');
 
     if (result.success) {
-        // Atualiza o mapa de dados de usuário
-        _userDataMap = {};
-        result.users.forEach(u => { _userDataMap[u.id_usuario] = u; });
-        _usuariosCache = result.users;
-
+        window._usuariosCache = result.users;
         renderizarTabelaUsuarios();
     } else {
         const tbody = document.getElementById('table-usuarios-body');
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
     }
 }
 
@@ -3304,6 +3380,7 @@ function imprimirRelatorioEstoque() {
     filtrosTexto.push(`Produtos zerados: <strong>${incluirZerados ? 'Incluídos' : 'Ocultos'}</strong>`);
     
     const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros específicos (Exibindo estoque atual geral)';
+    const valorTotalEstoque = document.getElementById('report-estoque-total-val')?.innerText || 'R$ 0,00';
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -3340,6 +3417,11 @@ function imprimirRelatorioEstoque() {
 
     <div class="filter-box">
         🔍 <strong>Filtros Aplicados:</strong> ${filtrosHtml}
+    </div>
+
+    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; display: inline-block;">
+        <small style="color: #059669; font-weight: 600; text-transform: uppercase; font-size: 11px;">Valor Total em Estoque</small>
+        <h4 style="margin: 4px 0 0 0; font-size: 18px; color: #064e3b;">${valorTotalEstoque}</h4>
     </div>
 
     <table>
@@ -4337,6 +4419,7 @@ function filtrarValidacaoEstagios() {
                     </button>
                 </td>
                 <td><small style="color: var(--text-muted);">${l.nome_usuario_registro || '-'}</small></td>
+                <td><small style="color: var(--text-muted);">${l.nome_usuario_validacao || '-'}</small></td>
             </tr>
         `;
     }).join('');
@@ -4384,7 +4467,8 @@ async function validarLancamentoEstagio(id) {
         horas_capacitacao,
         horas_laboratorio,
         horas_evento,
-        validado_coordenacao: true
+        validado_coordenacao: true,
+        nome_usuario_validacao: currentUser ? currentUser.nome_usuario : null
     };
 
     try {

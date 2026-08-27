@@ -86,6 +86,18 @@ async function init_db() {
     `);
 
     await client.query(`
+      ALTER TABLE tbl_fornecedores 
+      ADD COLUMN IF NOT EXISTS razao_reduzida VARCHAR(150),
+      ADD COLUMN IF NOT EXISTS cep VARCHAR(10),
+      ADD COLUMN IF NOT EXISTS endereco VARCHAR(150),
+      ADD COLUMN IF NOT EXISTS numero VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS complemento VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS bairro VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS cidade VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS estado VARCHAR(2);
+    `).catch(err => console.error("Aviso ao adicionar colunas tbl_fornecedores:", err.message));
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS tbl_produtos (
           id_produto SERIAL PRIMARY KEY,
           codigo_barras VARCHAR(50),
@@ -129,7 +141,6 @@ async function init_db() {
       ALTER TABLE tbl_movimentacoes 
       ADD COLUMN IF NOT EXISTS numero_nf VARCHAR(50) DEFAULT NULL;
     `);
-
 
     await client.query(`
       ALTER TABLE tbl_produtos 
@@ -179,7 +190,8 @@ async function init_db() {
 
     await client.query(`
       ALTER TABLE tbl_estagios_lancamentos
-      ADD COLUMN IF NOT EXISTS nome_usuario_registro VARCHAR(150) DEFAULT NULL;
+      ADD COLUMN IF NOT EXISTS nome_usuario_registro VARCHAR(150) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS nome_usuario_validacao VARCHAR(150) DEFAULT NULL;
     `);
 
     // Registra como "Legado" os lançamentos antigos que não possuem usuário
@@ -529,21 +541,81 @@ async function cadastrar_categoria(nome_categoria) {
 }
 
 async function listar_fornecedores() {
-  const res = await pool.query("SELECT id_fornecedor, nome_fornecedor, cnpj_cpf, telefone, email FROM tbl_fornecedores ORDER BY nome_fornecedor ASC");
+  const res = await pool.query("SELECT id_fornecedor, nome_fornecedor, razao_reduzida, cnpj_cpf, telefone, email, cep, endereco, numero, complemento, bairro, cidade, estado FROM tbl_fornecedores ORDER BY nome_fornecedor ASC");
   return res.rows.map(r => ({
     id_fornecedor: r.id_fornecedor,
     nome_fornecedor: r.nome_fornecedor,
+    razao_reduzida: r.razao_reduzida || "",
     cnpj_cpf: r.cnpj_cpf,
     telefone: r.telefone,
-    email: r.email
+    email: r.email,
+    cep: r.cep || "",
+    endereco: r.endereco || "",
+    numero: r.numero || "",
+    complemento: r.complemento || "",
+    bairro: r.bairro || "",
+    cidade: r.cidade || "",
+    estado: r.estado || ""
   }));
 }
 
-async function cadastrar_fornecedor(nome, cnpj_cpf = "", telefone = "", email = "") {
+async function cadastrar_fornecedor(data) {
+  // Se recebermos os parâmetros separadamente por causa de código antigo, compatibilizar:
+  let obj = data;
+  if (typeof data === "string") {
+    obj = {
+      nome_fornecedor: arguments[0],
+      cnpj_cpf: arguments[1] || "",
+      telefone: arguments[2] || "",
+      email: arguments[3] || ""
+    };
+  }
+  
+  const nome = (obj.nome_fornecedor || "").trim();
+  const razao_reduzida = (obj.razao_reduzida || "").trim();
+  const cnpj_cpf = (obj.cnpj_cpf || "").trim();
+  const telefone = (obj.telefone || "").trim();
+  const email = (obj.email || "").trim();
+  const cep = (obj.cep || "").trim();
+  const endereco = (obj.endereco || "").trim();
+  const numero = (obj.numero || "").trim();
+  const complemento = (obj.complemento || "").trim();
+  const bairro = (obj.bairro || "").trim();
+  const cidade = (obj.cidade || "").trim();
+  const estado = (obj.estado || "").trim();
+
   await pool.query(`
-    INSERT INTO tbl_fornecedores (nome_fornecedor, cnpj_cpf, telefone, email)
-    VALUES ($1, $2, $3, $4)
-  `, [nome, cnpj_cpf, telefone, email]);
+    INSERT INTO tbl_fornecedores (nome_fornecedor, razao_reduzida, cnpj_cpf, telefone, email, cep, endereco, numero, complemento, bairro, cidade, estado)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+  `, [nome, razao_reduzida, cnpj_cpf, telefone, email, cep, endereco, numero, complemento, bairro, cidade, estado]);
+  return true;
+}
+
+async function atualizar_fornecedor(id_fornecedor, data) {
+  const nome = (data.nome_fornecedor || "").trim();
+  const razao_reduzida = (data.razao_reduzida || "").trim();
+  const cnpj_cpf = (data.cnpj_cpf || "").trim();
+  const telefone = (data.telefone || "").trim();
+  const email = (data.email || "").trim();
+  const cep = (data.cep || "").trim();
+  const endereco = (data.endereco || "").trim();
+  const numero = (data.numero || "").trim();
+  const complemento = (data.complemento || "").trim();
+  const bairro = (data.bairro || "").trim();
+  const cidade = (data.cidade || "").trim();
+  const estado = (data.estado || "").trim();
+
+  await pool.query(`
+    UPDATE tbl_fornecedores 
+    SET nome_fornecedor = $1, razao_reduzida = $2, cnpj_cpf = $3, telefone = $4, email = $5, 
+        cep = $6, endereco = $7, numero = $8, complemento = $9, bairro = $10, cidade = $11, estado = $12
+    WHERE id_fornecedor = $13
+  `, [nome, razao_reduzida, cnpj_cpf, telefone, email, cep, endereco, numero, complemento, bairro, cidade, estado, id_fornecedor]);
+  return true;
+}
+
+async function excluir_fornecedor(id_fornecedor) {
+  await pool.query("DELETE FROM tbl_fornecedores WHERE id_fornecedor = $1", [id_fornecedor]);
   return true;
 }
 
@@ -611,7 +683,7 @@ async function listar_produtos(filtro_busca = "", id_categoria = null, id_unidad
   let paramCount = 1;
 
   if (filtro_busca) {
-    sql += ` AND (p.nome_produto ILIKE $${paramCount} OR p.codigo_barras ILIKE $${paramCount+1})`;
+    sql += ` AND (p.nome_produto ILIKE $${paramCount} OR p.codigo_barras ILIKE $${paramCount + 1})`;
     params.push(`%${filtro_busca}%`, `%${filtro_busca}%`);
     paramCount += 2;
   }
@@ -644,15 +716,15 @@ async function listar_produtos(filtro_busca = "", id_categoria = null, id_unidad
   }
 
   sql += " ORDER BY p.nome_produto ASC";
-  
+
   const res = await pool.query(sql, params);
   const produtos = [];
-  
+
   for (const r of res.rows) {
     const estoque_atual = await calcular_estoque_produto(r.id_produto, id_unidade);
     const preco_custo = await obter_ultimo_custo_produto(r.id_produto);
     const estoque_min = r.estoque_minimo || 0;
-    
+
     let status = "Normal";
     if (estoque_atual <= 0) status = "Zerado";
     else if (estoque_atual <= estoque_min) status = "Baixo";
@@ -685,7 +757,7 @@ async function obter_produto_por_id(id_produto, id_unidade = null) {
     FROM tbl_produtos
     WHERE id_produto = $1
   `, [id_produto]);
-  
+
   const r = res.rows[0];
   if (!r) return null;
 
@@ -743,10 +815,10 @@ async function excluir_produto(id_produto) {
 
 async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao = "", data_movimentacao = null, id_unidade = null, id_fornecedor = null, id_usuario = null, numero_nf = null, id_centro_custo = null) {
   if (!id_produto) throw new Error("Selecione um produto para registrar a movimentação.");
-  
+
   const tipo = tipo_movimentacao.toUpperCase();
   if (tipo !== "ENTRADA" && tipo !== "SAIDA") throw new Error("Tipo de movimentação inválido! Use ENTRADA ou SAIDA.");
-  
+
   const qtd = parseInt(quantidade);
   if (qtd <= 0) throw new Error("A quantidade deve ser maior que zero!");
 
@@ -773,24 +845,24 @@ async function registrar_transferencia(id_produto, quantidade, id_unidade_origem
   if (!id_produto) throw new Error("Selecione um produto para transferir.");
   if (!id_unidade_origem || !id_unidade_destino) throw new Error("Unidades de origem e destino são obrigatórias.");
   if (parseInt(id_unidade_origem) === parseInt(id_unidade_destino)) throw new Error("A unidade de origem e destino não podem ser iguais.");
-  
+
   const qtd = parseInt(quantidade);
   if (qtd <= 0) throw new Error("A quantidade deve ser maior que zero!");
-
   const estoque_atual = await calcular_estoque_produto(id_produto, id_unidade_origem);
   if (qtd > estoque_atual) {
     throw new Error(`Estoque insuficiente na unidade de origem! Saldo disponível: ${estoque_atual}. Tentativa de transferência: ${qtd}.`);
   }
 
+
+
   const dataMov = new Date().toISOString();
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Buscar valor unitário (custo)
     const res = await client.query(`
-      SELECT valor_unitario
       FROM tbl_movimentacoes
       WHERE id_produto = $1 AND UPPER(tipo_movimentacao) = 'ENTRADA' AND valor_unitario > 0
       ORDER BY data_movimentacao DESC, id_movimentacao DESC
@@ -930,11 +1002,11 @@ async function obter_dados_dashboard(id_unidade = null, id_usuario = null, nivel
   const produtosAll = await listar_produtos("", null, id_unidade, false, id_usuario, nivel_acesso);
   const produtos = produtosAll.filter(p => !p.inativo);
   const total_produtos = produtos.length;
-  
+
   const total_estoque_itens = produtos.reduce((acc, p) => acc + p.estoque_atual, 0);
   const valor_total_custo = produtos.reduce((acc, p) => p.estoque_atual > 0 ? acc + (p.estoque_atual * p.preco_custo) : acc, 0);
   const valor_total_venda = produtos.reduce((acc, p) => p.estoque_atual > 0 ? acc + (p.estoque_atual * p.preco_venda) : acc, 0);
-  
+
   const produtos_baixo_estoque = produtos.filter(p => p.status_estoque === "Baixo" || p.status_estoque === "Zerado");
   const movimentacoes_recentes = await listar_movimentacoes(10, id_unidade, null, null, null, null, id_usuario, nivel_acesso);
 
@@ -992,15 +1064,15 @@ async function gerar_relatorio_estoque(id_unidade = null, id_categoria = null, i
   `;
 
   const res = await pool.query(sql, params);
-  
+
   const relatorio = [];
   for (const r of res.rows) {
     const estoque_atual = await calcular_estoque_produto(r.id_produto, id_unidade);
     if (!incluir_zerados && estoque_atual <= 0) continue;
-    
+
     const preco_custo = await obter_ultimo_custo_produto(r.id_produto);
     const valor_total = estoque_atual * preco_custo;
-    
+
     relatorio.push({
       id_produto: r.id_produto,
       codigo_barras: r.codigo_barras || "",
@@ -1203,26 +1275,26 @@ async function excluir_centro_custo(id_centro_custo) {
 
 async function listar_lancamentos_estagio() {
   const res = await pool.query(`
-    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro
+    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao
     FROM tbl_estagios_lancamentos
     ORDER BY id_lancamento DESC
   `);
   return res.rows;
 }
 
-async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro) {
+async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao) {
   if (id_lancamento) {
     await pool.query(`
       UPDATE tbl_estagios_lancamentos
-       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, horas_enf_cirurgica = $15, horas_enf_medica = $16, horas_saude_mulher = $17, horas_saude_mental = $18, horas_saude_publica = $19, horas_emergencia = $20, validado_coordenacao = $21
+       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, horas_enf_cirurgica = $15, horas_enf_medica = $16, horas_saude_mulher = $17, horas_saude_mental = $18, horas_saude_publica = $19, horas_emergencia = $20, validado_coordenacao = $21, nome_usuario_validacao = COALESCE($22, nome_usuario_validacao)
        WHERE id_lancamento = $10
-    `, [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao || false]);
+    `, [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao || false, nome_usuario_validacao || null]);
     return id_lancamento;
   } else {
     const res = await pool.query(
-      `INSERT INTO tbl_estagios_lancamentos (data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING id_lancamento`,
-      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo || 0, horas_capacitacao || 0, horas_laboratorio || 0, horas_evento || 0, horas_enf_cirurgica || 0, horas_enf_medica || 0, horas_saude_mulher || 0, horas_saude_mental || 0, horas_saude_publica || 0, horas_emergencia || 0, validado_coordenacao || false, nome_usuario_registro || null]
+      `INSERT INTO tbl_estagios_lancamentos (data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) RETURNING id_lancamento`,
+      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo || 0, horas_capacitacao || 0, horas_laboratorio || 0, horas_evento || 0, horas_enf_cirurgica || 0, horas_enf_medica || 0, horas_saude_mulher || 0, horas_saude_mental || 0, horas_saude_publica || 0, horas_emergencia || 0, validado_coordenacao || false, nome_usuario_registro || null, nome_usuario_validacao || null]
     );
     return res.rows[0].id_lancamento;
   }
@@ -1255,6 +1327,8 @@ module.exports = {
   cadastrar_categoria,
   listar_fornecedores,
   cadastrar_fornecedor,
+  atualizar_fornecedor,
+  excluir_fornecedor,
   listar_produtos,
 
   obter_produto_por_id,
