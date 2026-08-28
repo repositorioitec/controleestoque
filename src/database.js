@@ -49,7 +49,8 @@ async function init_db() {
       ALTER TABLE tbl_usuarios 
       ADD COLUMN IF NOT EXISTS senha_pendente VARCHAR(100),
       ADD COLUMN IF NOT EXISTS menus_permitidos JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE;
+      ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS avatar_base64 TEXT DEFAULT NULL;
     `);
 
     await client.query(`
@@ -320,7 +321,7 @@ async function atualizar_unidade(id_unidade, nome_unidade, endereco = "", cnpj =
 
 async function autenticar_usuario(usuario, senha) {
   const res = await pool.query(`
-    SELECT u.id_usuario, u.usuario, u.senha, u.nome_usuario, u.nivel_acesso, u.id_unidade, u.status_aprovacao, un.nome_unidade, u.menus_permitidos
+    SELECT u.id_usuario, u.usuario, u.senha, u.nome_usuario, u.nivel_acesso, u.id_unidade, u.status_aprovacao, un.nome_unidade, u.menus_permitidos, u.avatar_base64
     FROM tbl_usuarios u
     LEFT JOIN tbl_unidades_operacionais un ON u.id_unidade = un.id_unidade
     WHERE (
@@ -356,6 +357,7 @@ async function autenticar_usuario(usuario, senha) {
       status_aprovacao: status,
       nome_unidade: row.nome_unidade || "Não Atrelado",
       menus_permitidos: row.menus_permitidos,
+      avatar_base64: row.avatar_base64,
       unidades_acesso
     };
   }
@@ -376,7 +378,7 @@ async function cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso = "O
 
 async function listar_usuarios() {
   const res = await pool.query(`
-    SELECT u.id_usuario, u.usuario, u.nome_usuario, u.nivel_acesso, u.status_aprovacao, u.id_unidade, un.nome_unidade, u.senha_pendente, u.menus_permitidos, u.ativo,
+    SELECT u.id_usuario, u.usuario, u.nome_usuario, u.nivel_acesso, u.status_aprovacao, u.id_unidade, un.nome_unidade, u.senha_pendente, u.menus_permitidos, u.ativo, u.avatar_base64,
            COALESCE(
              (SELECT json_agg(uc.id_categoria) 
               FROM tbl_usuario_categorias uc 
@@ -406,8 +408,14 @@ async function listar_usuarios() {
     unidades_acesso: r.unidades_acesso || [],
     senha_pendente: r.senha_pendente || null,
     menus_permitidos: r.menus_permitidos,
+    avatar_base64: r.avatar_base64,
     ativo: r.ativo !== false
   }));
+}
+
+async function atualizar_avatar_usuario(id_usuario, avatar_base64) {
+  await pool.query('UPDATE tbl_usuarios SET avatar_base64 = $1 WHERE id_usuario = $2', [avatar_base64, id_usuario]);
+  return true;
 }
 
 async function atualizar_categorias_usuario(id_usuario, categorias_acesso) {
@@ -1314,6 +1322,7 @@ module.exports = {
   autenticar_usuario,
   cadastrar_usuario,
   listar_usuarios,
+  atualizar_avatar_usuario,
   aprovar_usuario,
   atualizar_usuario,
   atualizar_unidades_usuario,

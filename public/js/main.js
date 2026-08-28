@@ -1011,15 +1011,36 @@ function handleAvatarUpload(event) {
     }
 }
 
-function confirmarAvatarUpload() {
+async function confirmarAvatarUpload() {
     if (pendingAvatarBase64 && currentUser) {
-        localStorage.setItem('user_avatar_' + currentUser.id_usuario, pendingAvatarBase64);
-        document.getElementById('user-avatar-img').src = pendingAvatarBase64;
-        document.getElementById('user-avatar-img').style.display = 'block';
-        document.getElementById('user-avatar-icon').style.display = 'none';
-        fecharModal('modal-avatar-preview');
-        pendingAvatarBase64 = null;
+        try {
+            const result = await safeFetch(`/api/auth/users/${currentUser.id_usuario}/avatar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ avatar_base64: pendingAvatarBase64 })
+            });
+            if (!result.success) throw new Error(result.message);
+            localStorage.setItem('user_avatar_' + currentUser.id_usuario, pendingAvatarBase64);
+            currentUser.avatar_base64 = pendingAvatarBase64;
+            document.getElementById('user-avatar-img').src = pendingAvatarBase64;
+            document.getElementById('user-avatar-img').style.display = 'block';
+            document.getElementById('user-avatar-icon').style.display = 'none';
+            fecharModal('modal-avatar-preview');
+            pendingAvatarBase64 = null;
+            showToast('Foto de perfil atualizada.', 'success');
+        } catch (e) {
+            showToast('Não foi possível salvar a foto de perfil.', 'error');
+        }
     }
+}
+
+function abrirFotoUsuario(idUsuario) {
+    const usuario = (_usuariosCache || []).find(u => u.id_usuario === idUsuario);
+    const avatar = usuario?.avatar_base64 || localStorage.getItem('user_avatar_' + idUsuario);
+    if (!usuario || !avatar) return;
+    document.getElementById('foto-usuario-nome').textContent = usuario.nome_usuario || 'Foto do usuário';
+    document.getElementById('foto-usuario-ampliada').src = avatar;
+    document.getElementById('modal-foto-usuario').classList.remove('hidden');
 }
 
 async function iniciarAplicacao() {
@@ -1029,7 +1050,7 @@ async function iniciarAplicacao() {
     document.getElementById('user-display-name').textContent = currentUser.nome_usuario;
     document.getElementById('user-display-role').textContent = currentUser.nivel_acesso;
     
-    const savedAvatar = localStorage.getItem('user_avatar_' + currentUser.id_usuario);
+    const savedAvatar = currentUser.avatar_base64 || localStorage.getItem('user_avatar_' + currentUser.id_usuario);
     const imgEl = document.getElementById('user-avatar-img');
     const iconEl = document.getElementById('user-avatar-icon');
     if (savedAvatar && imgEl && iconEl) {
@@ -2634,7 +2655,7 @@ async function carregarUsuarios() {
         renderizarTabelaUsuarios();
     } else {
         const tbody = document.getElementById('table-usuarios-body');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
     }
 }
 
@@ -2681,7 +2702,7 @@ function renderizarTabelaUsuarios() {
     if (!tbody) return;
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Nenhum usuário encontrado com os filtros selecionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Nenhum usuário encontrado com os filtros selecionados.</td></tr>`;
         return;
     }
 
@@ -2751,9 +2772,14 @@ function renderizarTabelaUsuarios() {
         }
 
         const isAtivo = u.ativo !== false;
+        const avatar = u.avatar_base64 || localStorage.getItem('user_avatar_' + u.id_usuario);
+        const fotoHtml = avatar
+            ? `<button type="button" onclick="abrirFotoUsuario(${u.id_usuario})" title="Visualizar foto" style="width:38px; height:38px; padding:0; border:1px solid var(--accent-blue); border-radius:50%; overflow:hidden; cursor:pointer; background:transparent; vertical-align:middle;"><img src="${avatar}" alt="Foto de ${u.nome_usuario}" style="width:100%; height:100%; object-fit:cover;"></button>`
+            : `<span title="Sem foto" style="display:inline-flex; width:38px; height:38px; align-items:center; justify-content:center; border-radius:50%; background:rgba(148,163,184,0.16); color:var(--text-muted);"><i class="fa-solid fa-user"></i></span>`;
         return `
             <tr style="${isAtivo ? '' : 'opacity:0.55;'}">
                 <td>#${u.id_usuario}</td>
+                <td>${fotoHtml}</td>
                 <td><strong>${u.nome_usuario}</strong>${badgeSenha}${ !isAtivo ? ' <span class="badge badge-danger" style="margin-left:5px;"><i class="fa-solid fa-ban"></i> Inativo</span>' : '' }</td>
                 <td><code>${u.usuario}</code></td>
                 <td><span class="badge ${u.nivel_acesso === 'Administrador' ? 'badge-info' : u.nivel_acesso === 'Supervisor' ? 'badge-warning' : 'badge-secondary'}">${u.nivel_acesso}</span></td>
@@ -3973,6 +3999,7 @@ async function abrirModalLancamentoEstagio() {
     document.getElementById('estagio-id').value = '';
     document.getElementById('modal-estagio-title').innerText = 'Novo Lançamento de Horas';
     document.getElementById('estagio-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('estagio-status').value = 'Em andamento';
 
     // Popula opções de unidades no modal
     await preencherSelectUnidadesModalEstagio();
@@ -4034,7 +4061,7 @@ async function salvarLancamentoEstagio(event) {
     const payload = {
         id_lancamento: id || null,
         data_lancamento: document.getElementById('estagio-data').value,
-        status: document.getElementById('estagio-status').value,
+        status: 'Em andamento',
         nome_aluno: (document.getElementById('estagio-aluno').value || '').trim().toUpperCase(),
         unidade: unidadeValor,
         curso: document.getElementById('estagio-curso').value,
@@ -4187,7 +4214,7 @@ async function editarLancamentoEstagio(id) {
 
     document.getElementById('estagio-id').value = l.id_lancamento;
     document.getElementById('estagio-data').value = l.data_lancamento;
-    document.getElementById('estagio-status').value = l.status;
+    document.getElementById('estagio-status').value = 'Em andamento';
     document.getElementById('estagio-aluno').value = l.nome_aluno;
     
     const selectUnidade = document.getElementById('estagio-unidade');
@@ -4548,11 +4575,14 @@ function gerarRelatorioHorasAluno() {
         return;
     }
 
-    const filtrados = estagiosCache.filter(l => {
-        const matchAluno = !termo || (l.nome_aluno || '').trim().toUpperCase().includes(termo);
-        const matchProtocolo = !termoProtocolo || (l.protocolo_ew || '').trim().toUpperCase().includes(termoProtocolo);
-        return matchAluno && matchProtocolo;
-    });
+    const filtrados = estagiosCache
+        .filter(l => {
+            const matchAluno = !termo || (l.nome_aluno || '').trim().toUpperCase().includes(termo);
+            const matchProtocolo = !termoProtocolo || (l.protocolo_ew || '').trim().toUpperCase().includes(termoProtocolo);
+            return matchAluno && matchProtocolo;
+        })
+        .sort((a, b) => (b.data_lancamento || '').localeCompare(a.data_lancamento || '') ||
+            (b.id_lancamento || 0) - (a.id_lancamento || 0));
     
     document.getElementById('relatorio-horas-aluno-inicial').style.display = 'none';
     
@@ -5032,6 +5062,7 @@ function limparRelatorioAlunosUnidade() {
     document.getElementById('relatorio-au-vazio').style.display = 'none';
     document.getElementById('relatorio-au-inicial').style.display = 'block';
     document.getElementById('btn-imprimir-au').style.display = 'none';
+    document.getElementById('btn-exportar-au').style.display = 'none';
     document.getElementById('table-relatorio-au-body').innerHTML = '';
 }
 
@@ -5084,12 +5115,14 @@ function gerarRelatorioAlunosUnidade() {
         document.getElementById('relatorio-au-vazio').style.display = 'block';
         document.getElementById('relatorio-au-resultado').style.display = 'none';
         document.getElementById('btn-imprimir-au').style.display = 'none';
+        document.getElementById('btn-exportar-au').style.display = 'none';
         return;
     }
 
     document.getElementById('relatorio-au-vazio').style.display = 'none';
     document.getElementById('relatorio-au-resultado').style.display = 'block';
     document.getElementById('btn-imprimir-au').style.display = 'inline-block';
+    document.getElementById('btn-exportar-au').style.display = 'inline-block';
 
     const tbody = document.getElementById('table-relatorio-au-body');
     let totalGeralHoras = 0;
@@ -5178,6 +5211,7 @@ function imprimirRelatorioAlunosUnidade() {
             <body>
                 <div class="btn-imprimir-toolbar no-print">
                     <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+                    <button class="btn-print" onclick="window.opener.exportarRelatorioAlunosUnidadeExcel()">📊 Baixar Excel</button>
                 </div>
                 <h2>Relatório de Alunos por Unidade</h2>
                 <div class="info-header">
@@ -5190,4 +5224,19 @@ function imprimirRelatorioAlunosUnidade() {
     
     printWindow.document.close();
     printWindow.focus();
+}
+
+function exportarRelatorioAlunosUnidadeExcel() {
+    const tabela = document.getElementById('table-relatorio-au');
+    if (!tabela) return;
+
+    const conteudo = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><table>${tabela.innerHTML}</table></body></html>`;
+    const arquivo = new Blob(['\ufeff', conteudo], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(arquivo);
+    link.download = `relatorio-alunos-por-unidade-${new Date().toISOString().slice(0, 10)}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
 }

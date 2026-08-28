@@ -93,6 +93,20 @@ app.get('/api/auth/users', async (req, res) => {
   }
 });
 
+app.post('/api/auth/users/:id_usuario/avatar', async (req, res) => {
+  const id_usuario = parseInt(req.params.id_usuario);
+  const avatar_base64 = req.body.avatar_base64;
+  if (!id_usuario || typeof avatar_base64 !== 'string' || !avatar_base64.startsWith('data:image/')) {
+    return res.status(400).json({ success: false, message: 'Imagem de perfil inválida.' });
+  }
+  try {
+    await database.atualizar_avatar_usuario(id_usuario, avatar_base64);
+    return res.json({ success: true, message: 'Foto de perfil atualizada.' });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
 app.post('/api/auth/users/:id_usuario/aprovar', async (req, res) => {
   const id_usuario = parseInt(req.params.id_usuario);
   const nivel_acesso = req.body.nivel_acesso || 'Operador';
