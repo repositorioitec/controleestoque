@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -194,6 +194,7 @@
                             </li>
                         </ul>
                     </li>
+                    <li class="nav-item" data-target="view-documentos" data-menu-key="documentos"><a href="#"><i class="fa-solid fa-file-pdf"></i> <span>Documentos</span></a></li>
                     <li class="nav-item admin-only" data-target="view-usuarios">
                         <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários</span></a>
                     </li>
@@ -698,6 +699,45 @@
                 </section>
 
                 <!-- VIEW 5: USUÁRIOS (SOMENTE ADMIN) -->
+                <!-- VIEW DOCUMENTOS -->
+                <section id="view-documentos" class="app-view">
+                    <div class="view-header">
+                        <h2><i class="fa-solid fa-file-pdf text-primary"></i> Biblioteca de Documentos</h2>
+                        <button class="btn btn-primary" onclick="abrirModalUploadDocumento()">
+                            <i class="fa-solid fa-upload"></i> Incluir Documento
+                        </button>
+                    </div>
+
+                    <div class="filters-bar" style="margin-bottom: 20px;">
+                        <div class="filter-group" style="flex: 1;">
+                            <label for="filtro-documento-curso">CURSO *</label>
+                            <select id="filtro-documento-curso" class="form-control" onchange="filtrarDocumentos()">
+                                <option value="">SELECIONE...</option>
+                                <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
+                                <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>
+                                <option value="TECNICO EM RADIOLOGIA">TECNICO EM RADIOLOGIA</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Curso</th>
+                                    <th>Tipo de Documento</th>
+                                    <th>Nome do Arquivo</th>
+                                    <th>Data de Inclusão</th>
+                                    <th class="text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-documentos-body">
+                                <tr><td colspan="5" class="text-center text-muted">Selecione um curso para ver os documentos.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
                 <section id="view-usuarios" class="app-view">
                     <div class="panel">
                         <div class="panel-header">
@@ -1788,6 +1828,28 @@
 
     <script>
         // Verifica status do banco de dados e atualiza o ícone
+        
+        function verificarStatusBancoHover() {
+            const badge = document.getElementById('db-status-badge');
+            if (!badge) return;
+            badge.title = 'Buscando última atualização...';
+            fetch('/api/db-last-update')
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(data => {
+                    badge.classList.remove('disconnected');
+                    badge.title = 'Banco de Dados: Conectado.\nÚltima Atualização: ' + new Date(data.time).toLocaleString();
+                })
+                .catch(() => {
+                    badge.classList.add('disconnected');
+                    badge.title = 'Banco de Dados: Desconectado';
+                });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const badge = document.getElementById('db-status-badge');
+            if (badge) {
+                badge.addEventListener('mouseenter', verificarStatusBancoHover);
+            }
+        });
         function verificarStatusBanco() {
             const badge = document.getElementById('db-status-badge');
             if (!badge) return;
@@ -1881,6 +1943,69 @@
             </div>
         </div>
     </div>
+    <!-- MODAL UPLOAD DOCUMENTO -->
+    <div id="modal-upload-documento" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Incluir Documento</h3>
+                <button class="modal-close" onclick="fecharModal('modal-upload-documento')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-upload-documento" class="form-grid">
+                    <div class="form-group" style="grid-column: span 12;">
+                        <label for="upload-doc-curso">Curso *</label>
+                        <select id="upload-doc-curso" class="form-control" required>
+                            <option value="">SELECIONE...</option>
+                            <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
+                            <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>
+                            <option value="TECNICO EM RADIOLOGIA">TECNICO EM RADIOLOGIA</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column: span 12;">
+                        <label for="upload-doc-tipo">Tipo de Documento *</label>
+                        <select id="upload-doc-tipo" class="form-control" required>
+                            <option value="">SELECIONE...</option>
+                            <option value="Termo de Compromisso">Termo de Compromisso</option>
+                            <option value="Ficha de estágio">Ficha de estágio</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column: span 12;">
+                        <label for="upload-doc-arquivo">Arquivo PDF *</label>
+                        <input type="file" id="upload-doc-arquivo" class="form-control" accept="application/pdf" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="fecharModal('modal-upload-documento')">Cancelar</button>
+                <button class="btn btn-primary" onclick="salvarDocumento()">Salvar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL VISUALIZAR DOCUMENTO -->
+    <div id="modal-visualizar-documento" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 900px; height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h3 id="visualizar-doc-titulo">Visualizar Documento</h3>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-outline" id="btn-imprimir-doc-modal"><i class="fa-solid fa-print"></i> Imprimir</button>
+                    <button class="modal-close" onclick="fecharModal('modal-visualizar-documento')">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" style="flex: 1; padding: 0;">
+                <iframe id="iframe-visualizar-doc" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL SOBRE -->
+    <div id="modal-sobre" class="modal-overlay hidden">
+        <div class="modal-content modal-sm" style="max-width: 350px; text-align: center;">
+            <div class="modal-header">
+                <h3>Sobre</h3>
+                <button class="modal-close" onclick="fecharModal('modal-sobre')">&times;</button>
+            </div>
     <!-- MODAL SOBRE -->
     <div id="modal-sobre" class="modal-overlay hidden">
         <div class="modal-content modal-sm" style="max-width: 350px; text-align: center;">
@@ -1917,6 +2042,11 @@
             }
         }
     </script>
-    <script src="js/main.js"></script>
+    <script src="js/main.js?v=2"></script>
 </body>
 </html>
+
+
+
+
+

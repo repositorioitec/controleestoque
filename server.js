@@ -314,6 +314,15 @@ app.delete('/api/centros-custo/:id', async (req, res) => {
   }
 });
 
+app.get('/api/db-last-update', async (req, res) => {
+  try {
+    const time = await database.get_last_db_update();
+    return res.json({ success: true, time: time });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
 // --- API DE DASHBOARD ---
 
 app.get('/api/dashboard', async (req, res) => {
@@ -671,6 +680,49 @@ app.delete('/api/estagios/lancamentos/:id', async (req, res) => {
     return res.json({ success: true, message: 'Lançamento excluído com sucesso!' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+// --- API DE DOCUMENTOS (TEMPLATES PDF) ---
+app.get('/api/documentos', async (req, res) => {
+  try {
+    const { curso } = req.query;
+    const documentos = await database.listar_documentos(curso);
+    return res.json({ success: true, documentos });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/documentos/:id/arquivo', async (req, res) => {
+  try {
+    const doc = await database.obter_arquivo_documento(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, message: 'Documento não encontrado.' });
+    return res.json({ success: true, documento: doc });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.post('/api/documentos', async (req, res) => {
+  try {
+    const { curso, tipo_documento, nome_arquivo, arquivo_base64 } = req.body;
+    if (!curso || !tipo_documento || !arquivo_base64 || !nome_arquivo) {
+      return res.status(400).json({ success: false, message: 'Todos os campos são obrigatórios.' });
+    }
+    const id = await database.salvar_documento(curso, tipo_documento, nome_arquivo, arquivo_base64);
+    return res.json({ success: true, id_documento: id, message: 'Documento salvo com sucesso!' });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+app.delete('/api/documentos/:id', async (req, res) => {
+  try {
+    await database.excluir_documento(req.params.id);
+    return res.json({ success: true, message: 'Documento excluído com sucesso!' });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 });
 

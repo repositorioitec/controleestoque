@@ -1133,15 +1133,24 @@
     <!-- JS Application Script -->
     <script src="js/main.js"></script>
     <script>
-        // Verifica status do banco de dados e atualiza o ícone
+        // Verifica status do banco de dados e exibe última atualização no tooltip
         function verificarStatusBanco() {
             const badge = document.getElementById('db-status-badge');
             if (!badge) return;
-            fetch('/api/dashboard')
+            fetch('/api/db-info')
                 .then(r => r.ok ? r.json() : Promise.reject())
-                .then(() => {
+                .then(data => {
                     badge.classList.remove('disconnected');
-                    badge.title = 'Banco de Dados: Conectado';
+                    if (data.ultima_atualizacao) {
+                        const dt = new Date(data.ultima_atualizacao);
+                        const formatado = dt.toLocaleString('pt-BR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        });
+                        badge.title = `Banco de Dados: Conectado\nÚltima atualização: ${formatado}`;
+                    } else {
+                        badge.title = 'Banco de Dados: Conectado';
+                    }
                 })
                 .catch(() => {
                     badge.classList.add('disconnected');

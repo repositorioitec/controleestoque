@@ -1,6 +1,6 @@
-/* ==========================================================================
-   LÓGICA PRINCIPAL JAVASCRIPT - CONTROLE DE ESTOQUE
-   Suporte Híbrido: Servidor Flask API / GitHub Pages (LocalStorage DB)
+﻿/* ==========================================================================
+   LÃƒâ€œGICA PRINCIPAL JAVASCRIPT - CONTROLE DE ESTOQUE
+   Suporte HÃƒÂ­brido: Servidor Flask API / GitHub Pages (LocalStorage DB)
    ========================================================================== */
 
 let currentUser = null;
@@ -9,9 +9,25 @@ let produtosCache = [];
 let categoriasCache = [];
 let unidadesCache = [];
 let movimentacoesCache = [];
-let _userDataMap = {}; // mapa id_usuario -> dados completos do usuário
+let _userDataMap = {}; // mapa id_usuario -> dados completos do usuÃƒÂ¡rio
 
-// --- HELPERS DE NÍVEL DE ACESSO ---
+window.onerror = function(message, source, lineno, colno, error) {
+    if (typeof showToast === 'function') {
+        showToast('Erro Global: ' + message, 'error');
+    } else {
+        alert('Erro Global: ' + message);
+    }
+};
+
+window.onunhandledrejection = function(event) {
+    if (typeof showToast === 'function') {
+        showToast('Erro Async: ' + (event.reason ? event.reason.message || event.reason : 'Desconhecido'), 'error');
+    } else {
+        alert('Erro Async: ' + event.reason);
+    }
+};
+
+// --- HELPERS DE NÃƒÂVEL DE ACESSO ---
 function isAdmin() {
     return currentUser && currentUser.nivel_acesso === 'Administrador';
 }
@@ -19,7 +35,7 @@ function isSupervisor() {
     return currentUser && (currentUser.nivel_acesso === 'Supervisor' || currentUser.nivel_acesso === 'Administrador');
 }
 
-// --- MOTOR LOCALDB PARA GITHUB PAGES (CLIENT-SIDE ESTÁTICO) ---
+// --- MOTOR LOCALDB PARA GITHUB PAGES (CLIENT-SIDE ESTÃƒÂTICO) ---
 const LocalDB = {
     init() {
         if (!localStorage.getItem('gh_unidades')) {
@@ -43,9 +59,9 @@ const LocalDB = {
         }
         if (!localStorage.getItem('gh_categorias')) {
             localStorage.setItem('gh_categorias', JSON.stringify([
-                { id_categoria: 1, nome_categoria: "Eletrônicos" },
-                { id_categoria: 2, nome_categoria: "Escritório" },
-                { id_categoria: 3, nome_categoria: "Informática" }
+                { id_categoria: 1, nome_categoria: "EletrÃƒÂ´nicos" },
+                { id_categoria: 2, nome_categoria: "EscritÃƒÂ³rio" },
+                { id_categoria: 3, nome_categoria: "InformÃƒÂ¡tica" }
             ]));
         }
         if (!localStorage.getItem('gh_fornecedores')) {
@@ -55,7 +71,7 @@ const LocalDB = {
         }
         if (!localStorage.getItem('gh_produtos')) {
             localStorage.setItem('gh_produtos', JSON.stringify([
-                { id_produto: 1, codigo_barras: "7891234567890", nome_produto: "Mouse Sem Fio USB", id_categoria: 3, nome_categoria: "Informática", estoque_minimo: 5, preco_venda: 49.90, data_cadastro: "2026-07-25 10:00:00", id_unidade: 1, nome_unidade: "Unidade Matriz" }
+                { id_produto: 1, codigo_barras: "7891234567890", nome_produto: "Mouse Sem Fio USB", id_categoria: 3, nome_categoria: "InformÃƒÂ¡tica", estoque_minimo: 5, preco_venda: 49.90, data_cadastro: "2026-07-25 10:00:00", id_unidade: 1, nome_unidade: "Unidade Matriz" }
             ]));
         }
         if (!localStorage.getItem('gh_movimentacoes')) {
@@ -120,7 +136,7 @@ const LocalDB = {
                 return isUserMatch && u.senha === body.senha;
             });
             if (!user) return { success: false, message: 'E-mail ou senha incorretos!' };
-            if (user.status_aprovacao !== 'Aprovado') return { success: false, message: 'Sua conta aguarda aprovação do administrador.' };
+            if (user.status_aprovacao !== 'Aprovado') return { success: false, message: 'Sua conta aguarda aprovaÃƒÂ§ÃƒÂ£o do administrador.' };
             return { success: true, message: `Bem-vindo, ${user.nome_usuario}!`, user };
         }
 
@@ -129,7 +145,7 @@ const LocalDB = {
             const users = this.get('usuarios');
             const units = this.get('unidades');
             const inputUser = (body.usuario || '').toLowerCase();
-            if (users.find(u => u.usuario.toLowerCase() === inputUser)) return { success: false, message: 'Este e-mail já está cadastrado no sistema!' };
+            if (users.find(u => u.usuario.toLowerCase() === inputUser)) return { success: false, message: 'Este e-mail jÃƒÂ¡ estÃƒÂ¡ cadastrado no sistema!' };
             const unitObj = body.id_unidade ? units.find(x => x.id_unidade == body.id_unidade) : (units.length > 0 ? units[0] : null);
             const newUser = {
                 id_usuario: Date.now(),
@@ -139,11 +155,11 @@ const LocalDB = {
                 nivel_acesso: 'Operador',
                 id_unidade: unitObj ? unitObj.id_unidade : null,
                 status_aprovacao: 'Pendente',
-                nome_unidade: unitObj ? unitObj.nome_unidade : 'Não Atrelado'
+                nome_unidade: unitObj ? unitObj.nome_unidade : 'NÃƒÂ£o Atrelado'
             };
             users.push(newUser);
             this.set('usuarios', users);
-            return { success: true, message: 'Cadastro realizado com sucesso! Aguarde aprovação do administrador.' };
+            return { success: true, message: 'Cadastro realizado com sucesso! Aguarde aprovaÃƒÂ§ÃƒÂ£o do administrador.' };
         }
 
         // GET USERS
@@ -164,7 +180,7 @@ const LocalDB = {
                 const unitObj = units.find(x => x.id_unidade == body.id_unidade);
                 u.nome_unidade = unitObj ? unitObj.nome_unidade : 'Sem Unidade';
                 this.set('usuarios', users);
-                return { success: true, message: 'Usuário aprovado com sucesso!' };
+                return { success: true, message: 'UsuÃƒÂ¡rio aprovado com sucesso!' };
             }
         }
 
@@ -180,7 +196,7 @@ const LocalDB = {
                 const unitObj = units.find(x => x.id_unidade == body.id_unidade);
                 u.nome_unidade = unitObj ? unitObj.nome_unidade : 'Sem Unidade';
                 this.set('usuarios', users);
-                return { success: true, message: 'Unidade operacional do usuário atualizada!' };
+                return { success: true, message: 'Unidade operacional do usuÃƒÂ¡rio atualizada!' };
             }
         }
 
@@ -192,9 +208,9 @@ const LocalDB = {
             if (u) {
                 u.menus_permitidos = body.menus;
                 this.set('usuarios', users);
-                return { success: true, message: 'Permissões de menu atualizadas!' };
+                return { success: true, message: 'PermissÃƒÂµes de menu atualizadas!' };
             }
-            return { success: false, message: 'Usuário não encontrado.' };
+            return { success: false, message: 'UsuÃƒÂ¡rio nÃƒÂ£o encontrado.' };
         }
 
         // REJEITAR USER
@@ -214,11 +230,11 @@ const LocalDB = {
             const idUsuario = options.headers ? options.headers['X-User-Id'] : null;
             const users = this.get('usuarios');
             const u = users.find(x => x.id_usuario == idUsuario);
-            if (!u) return { success: false, message: 'Usuário não encontrado.' };
+            if (!u) return { success: false, message: 'UsuÃƒÂ¡rio nÃƒÂ£o encontrado.' };
             if (u.senha !== body.senha_atual) return { success: false, message: 'Senha atual incorreta.' };
             u.senha_pendente = body.nova_senha;
             this.set('usuarios', users);
-            return { success: true, message: 'Troca de senha solicitada com sucesso! Aguarde aprovação do administrador.' };
+            return { success: true, message: 'Troca de senha solicitada com sucesso! Aguarde aprovaÃƒÂ§ÃƒÂ£o do administrador.' };
         }
 
         // APROVAR TROCA DE SENHA
@@ -243,12 +259,12 @@ const LocalDB = {
             if (u) {
                 u.senha_pendente = null;
                 this.set('usuarios', users);
-                return { success: true, message: 'Solicitação de troca de senha rejeitada.' };
+                return { success: true, message: 'SolicitaÃƒÂ§ÃƒÂ£o de troca de senha rejeitada.' };
             }
-            return { success: false, message: 'Usuário não encontrado.' };
+            return { success: false, message: 'UsuÃƒÂ¡rio nÃƒÂ£o encontrado.' };
         }
 
-        // --- ESTÁGIOS ---
+        // --- ESTÃƒÂGIOS ---
         if (path === '/api/estagios/lancamentos') {
             const lancamentos = this.get('estagios_lancamentos');
             if (method === 'GET') {
@@ -302,7 +318,7 @@ const LocalDB = {
                     });
                 }
                 this.set('estagios_lancamentos', lancamentos);
-                return { success: true, message: 'Lançamento salvo com sucesso!' };
+                return { success: true, message: 'LanÃƒÂ§amento salvo com sucesso!' };
             }
         }
         if (path.match(/\/api\/estagios\/lancamentos\/\d+/) && method === 'DELETE') {
@@ -310,7 +326,7 @@ const LocalDB = {
             let lancamentos = this.get('estagios_lancamentos');
             lancamentos = lancamentos.filter(x => x.id_lancamento != id);
             this.set('estagios_lancamentos', lancamentos);
-            return { success: true, message: 'Lançamento excluído com sucesso!' };
+            return { success: true, message: 'LanÃƒÂ§amento excluÃƒÂ­do com sucesso!' };
         }
 
         // UNIDADES
@@ -383,7 +399,7 @@ const LocalDB = {
             const id = path.split('/')[3];
             const centros = this.get('centros_custo').filter(x => x.id_centro_custo != id);
             this.set('centros_custo', centros);
-            return { success: true, message: 'Centro de Custo excluído com sucesso!' };
+            return { success: true, message: 'Centro de Custo excluÃƒÂ­do com sucesso!' };
         }
 
         // PRODUTOS GET
@@ -417,7 +433,7 @@ const LocalDB = {
             const id = path.split('/')[3];
             const unidId = params.get('id_unidade');
             const p = this.get('produtos').find(x => x.id_produto == id);
-            if (!p) return { success: false, message: 'Produto não encontrado.' };
+            if (!p) return { success: false, message: 'Produto nÃƒÂ£o encontrado.' };
             const estAtual = this.calcularEstoqueProduto(p.id_produto, unidId);
             return { success: true, produto: { ...p, estoque_atual: estAtual } };
         }
@@ -458,20 +474,20 @@ const LocalDB = {
             let movs = this.get('movimentacoes').filter(x => x.id_produto != id);
             this.set('produtos', prods);
             this.set('movimentacoes', movs);
-            return { success: true, message: 'Produto excluído.' };
+            return { success: true, message: 'Produto excluÃƒÂ­do.' };
         }
 
-        // PATCH PREÇO
+        // PATCH PREÃƒâ€¡O
         if (path.match(/\/api\/produtos\/\d+\/preco/) && method === 'PATCH') {
             const id = parseInt(path.split('/')[3]);
             const { campo, valor } = body;
-            if (!['preco_custo', 'preco_venda'].includes(campo)) return { success: false, message: 'Campo inválido.' };
+            if (!['preco_custo', 'preco_venda'].includes(campo)) return { success: false, message: 'Campo invÃƒÂ¡lido.' };
             const prods = this.get('produtos');
             const prod = prods.find(p => p.id_produto == id);
-            if (!prod) return { success: false, message: 'Produto não encontrado.' };
+            if (!prod) return { success: false, message: 'Produto nÃƒÂ£o encontrado.' };
             prod[campo] = parseFloat(valor) || 0;
             this.set('produtos', prods);
-            return { success: true, message: 'Preço atualizado com sucesso!' };
+            return { success: true, message: 'PreÃƒÂ§o atualizado com sucesso!' };
         }
 
         // MOVIMENTACOES GET
@@ -507,12 +523,12 @@ const LocalDB = {
             const forns = this.get('fornecedores');
 
             const prod = prods.find(p => p.id_produto == body.id_produto);
-            if (!prod) return { success: false, message: 'Produto não encontrado.' };
+            if (!prod) return { success: false, message: 'Produto nÃƒÂ£o encontrado.' };
 
             if (body.tipo_movimentacao === 'SAIDA') {
                 const estAtual = this.calcularEstoqueProduto(body.id_produto, body.id_unidade);
                 if (parseInt(body.quantidade) > estAtual) {
-                    return { success: false, message: `Estoque insuficiente! Saldo disponível: ${estAtual} unidade(s).` };
+                    return { success: false, message: `Estoque insuficiente! Saldo disponÃƒÂ­vel: ${estAtual} unidade(s).` };
                 }
             }
 
@@ -535,7 +551,7 @@ const LocalDB = {
             });
 
             this.set('movimentacoes', movs);
-            return { success: true, message: 'Movimentação registrada com sucesso!' };
+            return { success: true, message: 'MovimentaÃƒÂ§ÃƒÂ£o registrada com sucesso!' };
         }
 
         // TRANSFERENCIA POST
@@ -545,10 +561,10 @@ const LocalDB = {
             const units = this.get('unidades');
 
             const prod = prods.find(p => p.id_produto == body.id_produto);
-            if (!prod) return { success: false, message: 'Produto não encontrado.' };
+            if (!prod) return { success: false, message: 'Produto nÃƒÂ£o encontrado.' };
 
             if (parseInt(body.id_unidade_origem) === parseInt(body.id_unidade_destino)) {
-                return { success: false, message: 'Unidades de origem e destino não podem ser iguais.' };
+                return { success: false, message: 'Unidades de origem e destino nÃƒÂ£o podem ser iguais.' };
             }
 
             const estAtual = this.calcularEstoqueProduto(body.id_produto, body.id_unidade_origem);
@@ -577,7 +593,7 @@ const LocalDB = {
                 quantidade: qtd,
                 valor_unitario: precoCusto,
                 data_movimentacao: dt,
-                observacao: `Transferência para: ${unitDestino ? unitDestino.nome_unidade : 'Outra Unidade'}`,
+                observacao: `TransferÃƒÂªncia para: ${unitDestino ? unitDestino.nome_unidade : 'Outra Unidade'}`,
                 id_unidade: parseInt(body.id_unidade_origem),
                 nome_unidade: unitOrigem ? unitOrigem.nome_unidade : 'Sem Unidade',
                 id_fornecedor: null,
@@ -592,7 +608,7 @@ const LocalDB = {
                 quantidade: qtd,
                 valor_unitario: precoCusto,
                 data_movimentacao: dt,
-                observacao: `Transferência de: ${unitOrigem ? unitOrigem.nome_unidade : 'Outra Unidade'}`,
+                observacao: `TransferÃƒÂªncia de: ${unitOrigem ? unitOrigem.nome_unidade : 'Outra Unidade'}`,
                 id_unidade: parseInt(body.id_unidade_destino),
                 nome_unidade: unitDestino ? unitDestino.nome_unidade : 'Sem Unidade',
                 id_fornecedor: null,
@@ -600,23 +616,23 @@ const LocalDB = {
             });
 
             this.set('movimentacoes', movs);
-            return { success: true, message: 'Transferência registrada com sucesso!' };
+            return { success: true, message: 'TransferÃƒÂªncia registrada com sucesso!' };
         }
 
-        // MOVIMENTAÇÕES SINGLE GET
+        // MOVIMENTAÃƒâ€¡Ãƒâ€¢ES SINGLE GET
         if (path.match(/\/api\/movimentacoes\/\d+$/) && method === 'GET') {
             const id = path.split('/')[3];
             const m = this.get('movimentacoes').find(x => x.id_movimentacao == id);
-            if (!m) return { success: false, message: 'Movimentação não encontrada.' };
+            if (!m) return { success: false, message: 'MovimentaÃƒÂ§ÃƒÂ£o nÃƒÂ£o encontrada.' };
             return { success: true, movimentacao: m };
         }
 
-        // MOVIMENTAÇÕES PUT
+        // MOVIMENTAÃƒâ€¡Ãƒâ€¢ES PUT
         if (path.match(/\/api\/movimentacoes\/\d+$/) && method === 'PUT') {
             const id = path.split('/')[3];
             const movs = this.get('movimentacoes');
             const m = movs.find(x => x.id_movimentacao == id);
-            if (!m) return { success: false, message: 'Movimentação não encontrada.' };
+            if (!m) return { success: false, message: 'MovimentaÃƒÂ§ÃƒÂ£o nÃƒÂ£o encontrada.' };
 
             const prods = this.get('produtos');
             const units = this.get('unidades');
@@ -640,17 +656,17 @@ const LocalDB = {
             });
 
             this.set('movimentacoes', movs);
-            return { success: true, message: 'Movimentação atualizada com sucesso!' };
+            return { success: true, message: 'MovimentaÃƒÂ§ÃƒÂ£o atualizada com sucesso!' };
         }
 
-        // MOVIMENTAÇÕES DELETE
+        // MOVIMENTAÃƒâ€¡Ãƒâ€¢ES DELETE
         if (path.match(/\/api\/movimentacoes\/\d+$/) && method === 'DELETE') {
             let movs = this.get('movimentacoes');
             const idx = movs.findIndex(x => x.id_movimentacao == path.split('/')[3]);
-            if (idx === -1) return { success: false, message: 'Movimentação não encontrada.' };
+            if (idx === -1) return { success: false, message: 'MovimentaÃƒÂ§ÃƒÂ£o nÃƒÂ£o encontrada.' };
             movs.splice(idx, 1);
             this.set('movimentacoes', movs);
-            return { success: true, message: 'Movimentação excluída com sucesso!' };
+            return { success: true, message: 'MovimentaÃƒÂ§ÃƒÂ£o excluÃƒÂ­da com sucesso!' };
         }
 
         // DASHBOARD
@@ -679,7 +695,7 @@ const LocalDB = {
             };
         }
 
-        // RELATÓRIO DE ESTOQUES
+        // RELATÃƒâ€œRIO DE ESTOQUES
         if (path === '/api/relatorios/estoque') {
             const unidId = params.get('id_unidade');
             const catId = params.get('id_categoria');
@@ -718,7 +734,7 @@ const LocalDB = {
             return { success: true, data: relatorio };
         }
 
-        // RELATÓRIO DE SUGESTÃO DE COMPRAS
+        // RELATÃƒâ€œRIO DE SUGESTÃƒÆ’O DE COMPRAS
         if (path === '/api/relatorios/sugestao-compras') {
             const unidId = params.get('id_unidade');
             const catId = params.get('id_categoria');
@@ -783,13 +799,13 @@ const LocalDB = {
             return { success: true, data: relatorio };
         }
 
-        return { success: false, message: 'Rota não encontrada' };
+        return { success: false, message: 'Rota nÃƒÂ£o encontrada' };
     }
 };
 
-// Funçao auxiliar para realizar chamadas API ou redirecionar para LocalDB no GitHub Pages
+// FunÃƒÂ§ao auxiliar para realizar chamadas API ou redirecionar para LocalDB no GitHub Pages
 async function safeFetch(url, options = {}) {
-    // Se estiver rodando estático no GitHub Pages
+    // Se estiver rodando estÃƒÂ¡tico no GitHub Pages
     if (window.location.hostname.includes('github.io')) {
         return LocalDB.dispatch(url, options);
     }
@@ -808,22 +824,22 @@ async function safeFetch(url, options = {}) {
         }
 
         const res = await fetch(fetchUrl, options);
-        if (res.status === 404) throw new Error("API não encontrada, alternando para LocalDB");
+        if (res.status === 404) throw new Error("API nÃƒÂ£o encontrada, alternando para LocalDB");
         return await res.json();
     } catch (e) {
-        // Fallback automático se o servidor não estiver respondendo
-        console.warn("Servidor offline ou inacessível. Usando LocalDB offline fallback.");
+        // Fallback automÃƒÂ¡tico se o servidor nÃƒÂ£o estiver respondendo
+        console.warn("Servidor offline ou inacessÃƒÂ­vel. Usando LocalDB offline fallback.");
         return LocalDB.dispatch(url, options);
     }
 }
 
-// Inicialização da aplicação ao carregar a página
+// InicializaÃƒÂ§ÃƒÂ£o da aplicaÃƒÂ§ÃƒÂ£o ao carregar a pÃƒÂ¡gina
 document.addEventListener('DOMContentLoaded', () => {
     checarSessaoUsuario();
     configurarNavegacao();
 });
 
-// --- AUTENTICAÇÃO E SESSÃO ---
+// --- AUTENTICAÃƒâ€¡ÃƒÆ’O E SESSÃƒÆ’O ---
 
 const SESSION_KEY = 'stock_user';
 
@@ -849,7 +865,7 @@ function clearSessionUser() {
 }
 
 function checarSessaoUsuario() {
-    // Não remover localStorage aqui — login.html salva lá
+    // NÃƒÂ£o remover localStorage aqui Ã¢â‚¬â€ login.html salva lÃƒÂ¡
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('action') === 'login' || urlParams.get('logout') === 'true') {
@@ -980,7 +996,7 @@ function handleLogout() {
 function resetInatividadeTimer() {
     clearTimeout(inatividadeTimer);
     inatividadeTimer = setTimeout(() => {
-        showToast('Sessão expirou por inatividade.', 'info');
+        showToast('SessÃƒÂ£o expirou por inatividade.', 'info');
         handleLogout();
     }, INATIVIDADE_MS);
 }
@@ -1029,7 +1045,7 @@ async function confirmarAvatarUpload() {
             pendingAvatarBase64 = null;
             showToast('Foto de perfil atualizada.', 'success');
         } catch (e) {
-            showToast('Não foi possível salvar a foto de perfil.', 'error');
+            showToast('NÃƒÂ£o foi possÃƒÂ­vel salvar a foto de perfil.', 'error');
         }
     }
 }
@@ -1038,7 +1054,7 @@ function abrirFotoUsuario(idUsuario) {
     const usuario = (_usuariosCache || []).find(u => u.id_usuario === idUsuario);
     const avatar = usuario?.avatar_base64 || localStorage.getItem('user_avatar_' + idUsuario);
     if (!usuario || !avatar) return;
-    document.getElementById('foto-usuario-nome').textContent = usuario.nome_usuario || 'Foto do usuário';
+    document.getElementById('foto-usuario-nome').textContent = usuario.nome_usuario || 'Foto do usuÃƒÂ¡rio';
     document.getElementById('foto-usuario-ampliada').src = avatar;
     document.getElementById('modal-foto-usuario').classList.remove('hidden');
 }
@@ -1076,7 +1092,7 @@ async function iniciarAplicacao() {
         const dataU = await safeFetch('/api/unidades');
         if (dataU.success) {
             unidadesCache = dataU.unidades;
-            selectGlobal.innerHTML = '<option value="">Todas as Unidades (Visão Global)</option>' +
+            selectGlobal.innerHTML = '<option value="">Todas as Unidades (VisÃƒÂ£o Global)</option>' +
                 unidadesCache.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
             
             const savedAdminUnit = localStorage.getItem('admin_selected_unit') || '';
@@ -1087,7 +1103,7 @@ async function iniciarAplicacao() {
     } else {
         const unidades_usuario = currentUser.unidades_acesso || [];
         if (unidades_usuario.length > 1) {
-            // Usuário com múltiplas unidades pode trocar entre elas
+            // UsuÃƒÂ¡rio com mÃƒÂºltiplas unidades pode trocar entre elas
             selectGlobal.innerHTML = '<option value="">Todas as Minhas Unidades</option>' +
                 unidades_usuario.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
             selectGlobal.disabled = false;
@@ -1135,7 +1151,7 @@ async function iniciarAplicacao() {
 
     carregarCategoriasEFornecedores();
     
-    // Abre automaticamente o primeiro menu pai e navega para o primeiro submenu disponível
+    // Abre automaticamente o primeiro menu pai e navega para o primeiro submenu disponÃƒÂ­vel
     abrirPrimeiroMenuESubmenu();
 }
 
@@ -1163,11 +1179,11 @@ function abrirPrimeiroMenuESubmenu() {
 
     for (const p of parentMenus) {
         const parentLi = document.querySelector(`li[data-menu-key="${p.parentKey}"]`);
-        // Verifica se o menu pai está visível/permitido
+        // Verifica se o menu pai estÃƒÂ¡ visÃƒÂ­vel/permitido
         if (parentLi && parentLi.style.display !== 'none') {
             const ul = document.getElementById(p.ulId);
             if (ul) {
-                // Procura o primeiro submenu visível com data-target
+                // Procura o primeiro submenu visÃƒÂ­vel com data-target
                 const subItems = ul.querySelectorAll('li[data-target]');
                 for (const item of subItems) {
                     if (item.style.display !== 'none') {
@@ -1184,7 +1200,7 @@ function abrirPrimeiroMenuESubmenu() {
         if (targetView) break;
     }
 
-    // Fallback se não for menu pai (ex: Administrador direto em Usuários)
+    // Fallback se nÃƒÂ£o for menu pai (ex: Administrador direto em UsuÃƒÂ¡rios)
     if (!targetView) {
         const anyVisibleItem = document.querySelector('.sidebar-nav li[data-target]:not([style*="display: none"])');
         if (anyVisibleItem) {
@@ -1193,7 +1209,7 @@ function abrirPrimeiroMenuESubmenu() {
         }
     }
 
-    // Menus permanecem RECOLHIDOS ao iniciar — não abre o parentUlToOpen
+    // Menus permanecem RECOLHIDOS ao iniciar Ã¢â‚¬â€ nÃƒÂ£o abre o parentUlToOpen
 
     // Marca como active o primeiro submenu
     if (targetNavItem) {
@@ -1243,7 +1259,7 @@ function getGlobalSelectedUnitName() {
     return null;
 }
 
-// --- NAVEGAÇÃO ENTRE TELAS ---
+// --- NAVEGAÃƒâ€¡ÃƒÆ’O ENTRE TELAS ---
 
 function configurarNavegacao() {
     const navItems = document.querySelectorAll('.sidebar-nav li');
@@ -1253,7 +1269,7 @@ function configurarNavegacao() {
             const targetViewId = item.getAttribute('data-target');
             if (targetViewId) {
                 if (item.classList.contains('admin-only') && !isAdmin()) {
-                    showToast('Apenas administradores podem acessar esta seção.', 'warning');
+                    showToast('Apenas administradores podem acessar esta seÃƒÂ§ÃƒÂ£o.', 'warning');
                     return;
                 }
                 if (item.classList.contains('supervisor-only') && !isSupervisor()) {
@@ -1278,23 +1294,23 @@ function navegarParaView(viewId) {
 
         const titles = {
             'view-dashboard': 'Dashboard de Estoque',
-            'view-produtos': 'Cadastro e Gestão de Produtos',
-            'view-movimentacoes': 'Movimentação de Entradas e Saídas',
+            'view-produtos': 'Cadastro e GestÃƒÂ£o de Produtos',
+            'view-movimentacoes': 'MovimentaÃƒÂ§ÃƒÂ£o de Entradas e SaÃƒÂ­das',
             'view-cadastros-centros': 'Cadastro de Centros de Custo',
             'view-cadastros-unidades': 'Cadastro de Unidades Operacionais',
             'view-cadastros-categorias': 'Cadastro de Categorias',
             'view-cadastros-fornecedores': 'Cadastro de Fornecedores',
-            'view-usuarios': 'Usuários e Aprovações',
-            'view-relatorios-estoque': 'Relatório de Estoque Atual',
-            'view-relatorios-sugestao-compras': 'Sugestão de Compras',
-            'view-transferencias': 'Transferência de Materiais',
-            'view-estagios-lancamento': 'Lançamento de Horas (Estágios)',
-            'view-estagios-validacao': 'Validação Coordenação (Estágios)',
-            'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno',
-            'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade',
-            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas'
+            'view-usuarios': 'UsuÃƒÂ¡rios e AprovaÃƒÂ§ÃƒÂµes',
+            'view-relatorios-estoque': 'RelatÃƒÂ³rio de Estoque Atual',
+            'view-relatorios-sugestao-compras': 'SugestÃƒÂ£o de Compras',
+            'view-transferencias': 'TransferÃƒÂªncia de Materiais',
+            'view-estagios-lancamento': 'LanÃƒÂ§amento de Horas (EstÃƒÂ¡gios)',
+            'view-estagios-validacao': 'ValidaÃƒÂ§ÃƒÂ£o CoordenaÃƒÂ§ÃƒÂ£o (EstÃƒÂ¡gios)',
+            'view-estagios-relatorio-horas-aluno': 'RelatÃƒÂ³rio: Total de Horas por Aluno',
+            'view-estagios-relatorio-alunos-unidade': 'RelatÃƒÂ³rio: Alunos por Unidade',
+            'view-estagios-relatorio-horas-validadas': 'RelatÃƒÂ³rio: Horas Validadas'
         };
-        document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
+        document.getElementById('page-title').textContent = titles[viewId] || 'GestÃƒÂ£o Operacional';
 
         if (viewId === 'view-dashboard') carregarDashboard();
         if (viewId === 'view-produtos') carregarProdutos();
@@ -1344,7 +1360,7 @@ async function carregarDashboard() {
 
             const tbodyBaixo = document.getElementById('table-baixo-estoque');
             if (data.produtos_baixo_estoque.length === 0) {
-                tbodyBaixo.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum produto em nível crítico de estoque!</td></tr>';
+                tbodyBaixo.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum produto em nÃƒÂ­vel crÃƒÂ­tico de estoque!</td></tr>';
             } else {
                 tbodyBaixo.innerHTML = data.produtos_baixo_estoque.map(p => `
                     <tr>
@@ -1358,7 +1374,7 @@ async function carregarDashboard() {
 
             const tbodyMovs = document.getElementById('table-dash-movs');
             if (data.movimentacoes_recentes.length === 0) {
-                tbodyMovs.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhuma movimentação registrada.</td></tr>';
+                tbodyMovs.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhuma movimentaÃƒÂ§ÃƒÂ£o registrada.</td></tr>';
             } else {
                 tbodyMovs.innerHTML = data.movimentacoes_recentes.map(m => `
                     <tr>
@@ -1452,7 +1468,7 @@ async function salvarUnidade(event) {
     }
 }
 
-// --- GESTÃO DE PRODUTOS ---
+// --- GESTÃƒÆ’O DE PRODUTOS ---
 
 async function carregarProdutos() {
     const busca = (document.getElementById('filter-produto-busca')?.value || '');
@@ -1529,7 +1545,7 @@ function renderizarTabelaProdutos(produtos) {
 }
 
 function editarPrecoCelula(td, id_produto, campo) {
-    // Evitar dupla ativação
+    // Evitar dupla ativaÃƒÂ§ÃƒÂ£o
     if (td.querySelector('input')) return;
 
     const span = td.querySelector('span');
@@ -1552,7 +1568,7 @@ function editarPrecoCelula(td, id_produto, campo) {
     const confirmar = async () => {
         const novoValor = parseFloat(input.value);
         if (isNaN(novoValor) || novoValor < 0) {
-            showToast('Valor inválido.', 'error');
+            showToast('Valor invÃƒÂ¡lido.', 'error');
             td.innerHTML = `<span title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed ${cor};" data-valor="${valorAtual}">${formatarMoeda(valorAtual)}</span>`;
             td.ondblclick = () => editarPrecoCelula(td, id_produto, campo);
             return;
@@ -1567,13 +1583,13 @@ function editarPrecoCelula(td, id_produto, campo) {
             body: JSON.stringify({ campo, valor: novoValor })
         });
         if (result.success) {
-            showToast(`Preço atualizado: ${formatarMoeda(novoValor)}`, 'success');
+            showToast(`PreÃƒÂ§o atualizado: ${formatarMoeda(novoValor)}`, 'success');
             // Atualizar cache local
             const prod = produtosCache.find(p => p.id_produto == id_produto);
             if (prod) prod[campo] = novoValor;
             carregarDashboard();
         } else {
-            showToast(result.message || 'Erro ao salvar preço.', 'error');
+            showToast(result.message || 'Erro ao salvar preÃƒÂ§o.', 'error');
             td.querySelector('span').textContent = formatarMoeda(valorAtual);
             td.querySelector('span').dataset.valor = valorAtual;
         }
@@ -1609,7 +1625,7 @@ async function abrirModalProduto(id_produto = null) {
     const dataU = await safeFetch('/api/unidades');
     if (dataU.success && dataU.unidades) {
         const selectU = document.getElementById('prod-unidade');
-        selectU.innerHTML = '<option value="">Todas / Padrão</option>' +
+        selectU.innerHTML = '<option value="">Todas / PadrÃƒÂ£o</option>' +
             dataU.unidades.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
         if (!id_produto) {
             const defaultUnit = selectedUnitId || (currentUser ? currentUser.id_unidade : null) || (dataU.unidades.length > 0 ? dataU.unidades[0].id_unidade : null);
@@ -1680,7 +1696,7 @@ async function salvarProduto(event) {
 }
 
 async function excluirProduto(id_produto) {
-    if (!confirm('Tem certeza que deseja excluir este produto e todo seu histórico?')) return;
+    if (!confirm('Tem certeza que deseja excluir este produto e todo seu histÃƒÂ³rico?')) return;
 
     const result = await safeFetch(`/api/produtos/${id_produto}`, { method: 'DELETE' });
 
@@ -1694,7 +1710,7 @@ async function excluirProduto(id_produto) {
 }
 
 function excluirMovimentacao(id_movimentacao) {
-    if (!confirm('Tem certeza que deseja excluir esta movimentação?')) return;
+    if (!confirm('Tem certeza que deseja excluir esta movimentaÃƒÂ§ÃƒÂ£o?')) return;
     safeFetch(`/api/movimentacoes/${id_movimentacao}`, { method: 'DELETE' })
         .then(res => {
             if (res.success) {
@@ -1706,7 +1722,7 @@ function excluirMovimentacao(id_movimentacao) {
             }
         });
 }
-// --- MOVIMENTAÇÕES DE ESTOQUE ---
+// --- MOVIMENTAÃƒâ€¡Ãƒâ€¢ES DE ESTOQUE ---
 
 function getFormattedLocalDateTime() {
     const now = new Date();
@@ -1749,7 +1765,7 @@ async function preencherOpcoesFiltrosMovimentacoes() {
     if (dataCC.success && dataCC.centros && selectCC) {
         const valAtual = selectCC.value;
         selectCC.innerHTML = '<option value="">Todos os Centros</option>' +
-            dataCC.centros.map(c => `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`).join('');
+            dataCC.centros.map(c => `<option value="${c.id_centro_custo}">${c.codigo} Ã¢â‚¬â€ ${c.nome}</option>`).join('');
         if (valAtual) selectCC.value = valAtual;
     }
 }
@@ -1810,7 +1826,7 @@ async function filtrarProdutosPorCategoria() {
 async function submitTransferencia(event) {
     event.preventDefault();
     if (!selectedUnitId) {
-        showToast('Você precisa selecionar uma Unidade Origem no menu do topo.', 'warning');
+        showToast('VocÃƒÂª precisa selecionar uma Unidade Origem no menu do topo.', 'warning');
         return;
     }
     
@@ -1820,7 +1836,7 @@ async function submitTransferencia(event) {
     const observacao = document.getElementById('transf-observacao') ? document.getElementById('transf-observacao').value.trim() : '';
     
     if (!id_produto || !id_unidade_destino || !quantidade) {
-        showToast('Preencha todos os campos obrigatórios.', 'warning');
+        showToast('Preencha todos os campos obrigatÃƒÂ³rios.', 'warning');
         return;
     }
     
@@ -1859,7 +1875,7 @@ async function carregarHistoricoTransferencias() {
     const result = await safeFetch(url);
 
     if (!result.success || !result.movimentacoes) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Erro ao carregar transferências.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Erro ao carregar transferÃƒÂªncias.</td></tr>';
         return;
     }
 
@@ -1868,15 +1884,15 @@ async function carregarHistoricoTransferencias() {
     );
 
     if (movs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhuma transferência encontrada.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Nenhuma transferÃƒÂªncia encontrada.</td></tr>';
         return;
     }
 
     tbody.innerHTML = movs.map(m => {
         const isSaida = m.tipo_movimentacao === 'SAIDA';
         const badgeClass = isSaida ? 'badge-warning' : 'badge-success';
-        const badgeLabel = isSaida ? '<i class="fa-solid fa-arrow-right"></i> Saída' : '<i class="fa-solid fa-arrow-left"></i> Entrada';
-        // Extrai a observação personalizada após " | "
+        const badgeLabel = isSaida ? '<i class="fa-solid fa-arrow-right"></i> SaÃƒÂ­da' : '<i class="fa-solid fa-arrow-left"></i> Entrada';
+        // Extrai a observaÃƒÂ§ÃƒÂ£o personalizada apÃƒÂ³s " | "
         const obsPartes = (m.observacao || '').split(' | ');
         const obsPersonalizada = obsPartes.length > 1 ? obsPartes.slice(1).join(' | ') : '';
         return `
@@ -1941,16 +1957,16 @@ async function carregarMovimentacoes() {
         const elSalQtd = document.getElementById('report-saldo-qtd');
         const elSalVal = document.getElementById('report-saldo-val');
 
-        if (elEntQtd) elEntQtd.textContent = `${entradasQtd} pçs`;
+        if (elEntQtd) elEntQtd.textContent = `${entradasQtd} pÃƒÂ§s`;
         if (elEntVal) elEntVal.textContent = formatarMoeda(entradasVal);
-        if (elSaiQtd) elSaiQtd.textContent = `${saidasQtd} pçs`;
+        if (elSaiQtd) elSaiQtd.textContent = `${saidasQtd} pÃƒÂ§s`;
         if (elSaiVal) elSaiVal.textContent = formatarMoeda(saidasVal);
-        if (elSalQtd) elSalQtd.textContent = `${saldoQtd} pçs`;
+        if (elSalQtd) elSalQtd.textContent = `${saldoQtd} pÃƒÂ§s`;
         if (elSalVal) elSalVal.textContent = formatarMoeda(saldoVal);
 
         const tbody = document.getElementById('table-movimentacoes-body');
         if (movs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Nenhuma movimentação encontrada para os filtros selecionados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Nenhuma movimentaÃƒÂ§ÃƒÂ£o encontrada para os filtros selecionados.</td></tr>';
             return;
         }
 
@@ -1997,13 +2013,13 @@ function imprimirRelatorioMovimentacoes() {
     const selectProduto = document.getElementById('filter-mov-produto');
     const nomeProduto = selectProduto && selectProduto.selectedIndex >= 0 ? selectProduto.options[selectProduto.selectedIndex].text : 'Todos os Produtos';
     const selectTipo = document.getElementById('filter-mov-tipo');
-    const nomeTipo = selectTipo && selectTipo.selectedIndex >= 0 ? selectTipo.options[selectTipo.selectedIndex].text : 'Entrada & Saída';
+    const nomeTipo = selectTipo && selectTipo.selectedIndex >= 0 ? selectTipo.options[selectTipo.selectedIndex].text : 'Entrada & SaÃƒÂ­da';
 
-    const totalEntradasQtd = document.getElementById('report-total-entradas-qtd')?.innerText || '0 pçs';
+    const totalEntradasQtd = document.getElementById('report-total-entradas-qtd')?.innerText || '0 pÃƒÂ§s';
     const totalEntradasVal = document.getElementById('report-total-entradas-val')?.innerText || 'R$ 0,00';
-    const totalSaidasQtd = document.getElementById('report-total-saidas-qtd')?.innerText || '0 pçs';
+    const totalSaidasQtd = document.getElementById('report-total-saidas-qtd')?.innerText || '0 pÃƒÂ§s';
     const totalSaidasVal = document.getElementById('report-total-saidas-val')?.innerText || 'R$ 0,00';
-    const saldoQtd = document.getElementById('report-saldo-qtd')?.innerText || '0 pçs';
+    const saldoQtd = document.getElementById('report-saldo-qtd')?.innerText || '0 pÃƒÂ§s';
     const saldoVal = document.getElementById('report-saldo-val')?.innerText || 'R$ 0,00';
 
     const tbody = document.getElementById('table-movimentacoes-body')?.innerHTML || '';
@@ -2014,14 +2030,14 @@ function imprimirRelatorioMovimentacoes() {
     if (dataFim) filtrosTexto.push(`Data Final: <strong>${dataFim.split('-').reverse().join('/')}</strong>`);
     if (nomeUnidade && nomeUnidade !== 'Todas as Unidades') filtrosTexto.push(`Unidade: <strong>${nomeUnidade}</strong>`);
     if (nomeProduto && nomeProduto !== 'Todos os Produtos') filtrosTexto.push(`Produto: <strong>${nomeProduto}</strong>`);
-    if (nomeTipo && nomeTipo !== 'Entrada & Saída') filtrosTexto.push(`Tipo: <strong>${nomeTipo}</strong>`);
-    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros específicos (Exibindo todas as movimentações)';
+    if (nomeTipo && nomeTipo !== 'Entrada & SaÃƒÂ­da') filtrosTexto.push(`Tipo: <strong>${nomeTipo}</strong>`);
+    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros especÃƒÂ­ficos (Exibindo todas as movimentaÃƒÂ§ÃƒÂµes)';
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Relatório de Movimentações de Estoque - ITEC</title>
+    <title>RelatÃƒÂ³rio de MovimentaÃƒÂ§ÃƒÂµes de Estoque - ITEC</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #1e293b; background: #ffffff; margin: 0; }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; }
@@ -2053,17 +2069,17 @@ function imprimirRelatorioMovimentacoes() {
 <body>
     <div class="header">
         <div>
-            <h1>📋 Relatório de Movimentações de Estoque</h1>
+            <h1>Ã°Å¸â€œâ€¹ RelatÃƒÂ³rio de MovimentaÃƒÂ§ÃƒÂµes de Estoque</h1>
             <small style="color: #64748b;">Sistema de Controle de Estoques - ITEC</small>
         </div>
         <div class="meta">
             <strong>Gerado em:</strong> ${now}<br>
-            <strong>Usuário:</strong> ${currentUser ? currentUser.nome_usuario : 'Sistema'}
+            <strong>UsuÃƒÂ¡rio:</strong> ${currentUser ? currentUser.nome_usuario : 'Sistema'}
         </div>
     </div>
 
     <div class="filter-box">
-        🔍 <strong>Filtros Aplicados:</strong> ${filtrosHtml}
+        Ã°Å¸â€Â <strong>Filtros Aplicados:</strong> ${filtrosHtml}
     </div>
 
     <div class="kpi-grid">
@@ -2073,12 +2089,12 @@ function imprimirRelatorioMovimentacoes() {
             <span>${totalEntradasVal}</span>
         </div>
         <div class="kpi-card amber">
-            <small style="color: #b45309;">Total Saídas</small>
+            <small style="color: #b45309;">Total SaÃƒÂ­das</small>
             <h4>${totalSaidasQtd}</h4>
             <span>${totalSaidasVal}</span>
         </div>
         <div class="kpi-card blue">
-            <small style="color: #1d4ed8;">Saldo Líquido Período</small>
+            <small style="color: #1d4ed8;">Saldo LÃƒÂ­quido PerÃƒÂ­odo</small>
             <h4>${saldoQtd}</h4>
             <span>${saldoVal}</span>
         </div>
@@ -2094,10 +2110,10 @@ function imprimirRelatorioMovimentacoes() {
                 <th>Fornecedor</th>
                 <th>Tipo</th>
                 <th>Quantidade</th>
-                <th>Valor Unitário (R$)</th>
+                <th>Valor UnitÃƒÂ¡rio (R$)</th>
                 <th>Total (R$)</th>
-                <th>Usuário</th>
-                <th>Observação</th>
+                <th>UsuÃƒÂ¡rio</th>
+                <th>ObservaÃƒÂ§ÃƒÂ£o</th>
             </tr>
         </thead>
         <tbody>
@@ -2125,23 +2141,23 @@ let editandoMovimentacaoId = null;
 async function abrirModalMovimentacao(param) {
     document.getElementById('form-movimentacao').reset();
     
-    // Se for string ('ENTRADA' ou 'SAIDA'), é um novo registro
+    // Se for string ('ENTRADA' ou 'SAIDA'), ÃƒÂ© um novo registro
     if (typeof param === 'string') {
         editandoMovimentacaoId = null;
         document.getElementById('mov-tipo').value = param;
         document.getElementById('mov-data').value = getFormattedLocalDateTime();
-        document.getElementById('modal-movimentacao-title').textContent = param === 'ENTRADA' ? 'Registrar Nova ENTRADA de Estoque' : 'Registrar Nova SAÍDA de Estoque';
+        document.getElementById('modal-movimentacao-title').textContent = param === 'ENTRADA' ? 'Registrar Nova ENTRADA de Estoque' : 'Registrar Nova SAÃƒÂDA de Estoque';
         
         const btnSubmit = document.getElementById('btn-submit-mov');
         btnSubmit.className = param === 'ENTRADA' ? 'btn btn-primary' : 'btn btn-warning';
-        btnSubmit.innerHTML = param === 'ENTRADA' ? '<i class="fa-solid fa-circle-plus"></i> Confirmar Entrada' : '<i class="fa-solid fa-circle-minus"></i> Confirmar Saída';
+        btnSubmit.innerHTML = param === 'ENTRADA' ? '<i class="fa-solid fa-circle-plus"></i> Confirmar Entrada' : '<i class="fa-solid fa-circle-minus"></i> Confirmar SaÃƒÂ­da';
     } 
-    // Se for número, é edição
+    // Se for nÃƒÂºmero, ÃƒÂ© ediÃƒÂ§ÃƒÂ£o
     else if (typeof param === 'number') {
         editandoMovimentacaoId = param;
         const mov = movimentacoesCache.find(m => m.id_movimentacao == param);
         if (!mov) {
-            showToast('Movimentação não encontrada no cache local.', 'error');
+            showToast('MovimentaÃƒÂ§ÃƒÂ£o nÃƒÂ£o encontrada no cache local.', 'error');
             return;
         }
 
@@ -2159,7 +2175,7 @@ async function abrirModalMovimentacao(param) {
         
         const btnSubmit = document.getElementById('btn-submit-mov');
         btnSubmit.className = 'btn btn-info';
-        btnSubmit.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar Alterações';
+        btnSubmit.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Salvar AlteraÃƒÂ§ÃƒÂµes';
     }
 
     const tipoAtual = document.getElementById('mov-tipo').value;
@@ -2175,13 +2191,13 @@ async function abrirModalMovimentacao(param) {
         if (groupForn) groupForn.style.display = '';
         if (groupNF) groupNF.style.display = '';
         if (groupCC) groupCC.style.display = 'none';
-        if (valorLabel) valorLabel.textContent = 'Preço de Custo Unitário (R$)';
+        if (valorLabel) valorLabel.textContent = 'PreÃƒÂ§o de Custo UnitÃƒÂ¡rio (R$)';
     } else {
         if (groupForn) groupForn.style.display = 'none';
         if (groupNF) groupNF.style.display = 'none';
         if (groupCC) groupCC.style.display = '';
-        if (valorLabel) valorLabel.textContent = 'Preço de Venda Unitário (R$)';
-        // Carrega centros de custo e pré-seleciona o primeiro
+        if (valorLabel) valorLabel.textContent = 'PreÃƒÂ§o de Venda UnitÃƒÂ¡rio (R$)';
+        // Carrega centros de custo e prÃƒÂ©-seleciona o primeiro
         await carregarCentrosCustoNoModal();
     }
 
@@ -2196,7 +2212,7 @@ async function abrirModalMovimentacao(param) {
         
         let targetUnit = selectedUnitId || (currentUser ? currentUser.id_unidade : null) || (unidadesCache.length > 0 ? unidadesCache[0].id_unidade : null);
         
-        // Se for edição, forçar a unidade da movimentação
+        // Se for ediÃƒÂ§ÃƒÂ£o, forÃƒÂ§ar a unidade da movimentaÃƒÂ§ÃƒÂ£o
         if (editandoMovimentacaoId) {
             const mov = movimentacoesCache.find(m => m.id_movimentacao == editandoMovimentacaoId);
             if (mov) targetUnit = mov.id_unidade;
@@ -2208,7 +2224,7 @@ async function abrirModalMovimentacao(param) {
 
         await atualizarProdutosPorUnidadeMovimentacao();
 
-        // Se for edição, setar o produto, qtd, valor, etc
+        // Se for ediÃƒÂ§ÃƒÂ£o, setar o produto, qtd, valor, etc
         if (editandoMovimentacaoId) {
             const mov = movimentacoesCache.find(m => m.id_movimentacao == editandoMovimentacaoId);
             if (mov) {
@@ -2225,11 +2241,11 @@ async function abrirModalMovimentacao(param) {
                     document.getElementById('mov-fornecedor').value = mov.id_fornecedor;
                 }
 
-                // Restaura centro de custo se for edição de SAÍDA
+                // Restaura centro de custo se for ediÃƒÂ§ÃƒÂ£o de SAÃƒÂDA
                 if (mov.tipo_movimentacao === 'SAIDA' && mov.id_centro_custo && document.getElementById('mov-centro-custo')) {
                     await carregarCentrosCustoNoModal(mov.id_centro_custo);
                 } else if (mov.tipo_movimentacao === 'SAIDA') {
-                    // Caso não haja centro salvo, ainda assim garante que o select esteja populado
+                    // Caso nÃƒÂ£o haja centro salvo, ainda assim garante que o select esteja populado
                     await carregarCentrosCustoNoModal();
                 }
 
@@ -2258,7 +2274,7 @@ async function carregarCentrosCustoNoModal(valorAtual = null) {
     }
 
     selectCC.innerHTML = centros.map(c =>
-        `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`
+        `<option value="${c.id_centro_custo}">${c.codigo} Ã¢â‚¬â€ ${c.nome}</option>`
     ).join('');
 
     if (valorAtual) {
@@ -2315,7 +2331,7 @@ async function salvarMovimentacao(event) {
     const movUnid = document.getElementById('mov-unidade').value;
 
     if (!movUnid) {
-        showToast('Selecione uma Unidade Operacional para esta movimentação.', 'warning');
+        showToast('Selecione uma Unidade Operacional para esta movimentaÃƒÂ§ÃƒÂ£o.', 'warning');
         return;
     }
 
@@ -2561,7 +2577,7 @@ async function buscarEnderecoPorCep(cep) {
             document.getElementById('forn-estado').value = data.uf || '';
             document.getElementById('forn-numero').focus();
         } else {
-            showToast('CEP não encontrado.', 'error');
+            showToast('CEP nÃƒÂ£o encontrado.', 'error');
         }
     } catch (error) {
         showToast('Erro ao buscar o CEP.', 'error');
@@ -2645,7 +2661,7 @@ async function salvarFornecedor(event) {
     }
 }
 
-// --- USUÁRIOS E APROVAÇÃO ---
+// --- USUÃƒÂRIOS E APROVAÃƒâ€¡ÃƒÆ’O ---
 
 async function carregarUsuarios() {
     const result = await safeFetch('/api/auth/users');
@@ -2655,7 +2671,7 @@ async function carregarUsuarios() {
         renderizarTabelaUsuarios();
     } else {
         const tbody = document.getElementById('table-usuarios-body');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuÃƒÂ¡rios: ${result.message}</td></tr>`;
     }
 }
 
@@ -2702,7 +2718,7 @@ function renderizarTabelaUsuarios() {
     if (!tbody) return;
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Nenhum usuário encontrado com os filtros selecionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Nenhum usuÃƒÂ¡rio encontrado com os filtros selecionados.</td></tr>`;
         return;
     }
 
@@ -2732,7 +2748,7 @@ function renderizarTabelaUsuarios() {
                 <button class="btn btn-sm btn-danger" onclick="rejeitarUsuario(${u.id_usuario})" title="Rejeitar Cadastro">
                     <i class="fa-solid fa-xmark"></i> Rejeitar
                 </button>
-                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
+                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir UsuÃƒÂ¡rio">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             `;
@@ -2740,21 +2756,21 @@ function renderizarTabelaUsuarios() {
             let menusPermJson = u.menus_permitidos ? JSON.stringify(u.menus_permitidos).replace(/"/g, '&quot;') : 'null';
             const isAtivo = u.ativo !== false;
             const btnInativar = isAtivo
-                ? `<button class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, true)" title="Inativar Usuário">
+                ? `<button class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, true)" title="Inativar UsuÃƒÂ¡rio">
                        <i class="fa-solid fa-user-slash"></i> Inativar
                    </button>`
-                : `<button class="btn btn-sm" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, false)" title="Reativar Usuário">
+                : `<button class="btn btn-sm" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, false)" title="Reativar UsuÃƒÂ¡rio">
                        <i class="fa-solid fa-user-check"></i> Reativar
                    </button>`;
             acoesHtml = `
-                <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / Nível">
+                <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / NÃƒÂ­vel">
                     <i class="fa-solid fa-pen-to-square"></i> Editar
                 </button>
-                <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
-                    <i class="fa-solid fa-list-check"></i> Permissões
+                <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="PermissÃƒÂµes de Menu">
+                    <i class="fa-solid fa-list-check"></i> PermissÃƒÂµes
                 </button>
                 ${btnInativar}
-                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
+                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir UsuÃƒÂ¡rio">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             `;
@@ -2792,11 +2808,11 @@ function renderizarTabelaUsuarios() {
 }
 
 // -------------------------------------------------
-// Função para excluir usuário (DELETE)
+// FunÃƒÂ§ÃƒÂ£o para excluir usuÃƒÂ¡rio (DELETE)
 // -------------------------------------------------
 async function excluirUsuario(id_usuario) {
-  // Pergunta de confirmação ao usuário
-  if (!confirm('Tem certeza que deseja EXCLUIR este usuário?')) {
+  // Pergunta de confirmaÃƒÂ§ÃƒÂ£o ao usuÃƒÂ¡rio
+  if (!confirm('Tem certeza que deseja EXCLUIR este usuÃƒÂ¡rio?')) {
     return;
   }
 
@@ -2807,11 +2823,11 @@ async function excluirUsuario(id_usuario) {
     });
 
     if (resultado.success) {
-      showToast('Usuário excluído com sucesso.', 'success');
-      // Atualiza a lista de usuários
+      showToast('UsuÃƒÂ¡rio excluÃƒÂ­do com sucesso.', 'success');
+      // Atualiza a lista de usuÃƒÂ¡rios
       carregarUsuarios();
     } else {
-      showToast(resultado.message || 'Falha ao excluir o usuário.', 'error');
+      showToast(resultado.message || 'Falha ao excluir o usuÃƒÂ¡rio.', 'error');
     }
   } catch (err) {
     console.error(err);
@@ -2822,8 +2838,8 @@ async function excluirUsuario(id_usuario) {
 async function toggleInativarUsuario(id_usuario, inativar) {
     const acao = inativar ? 'INATIVAR' : 'REATIVAR';
     const descricao = inativar
-        ? 'Tem certeza que deseja INATIVAR este usuário? Ele não conseguirá mais fazer login.'
-        : 'Tem certeza que deseja REATIVAR este usuário? Ele voltará a ter acesso ao sistema.';
+        ? 'Tem certeza que deseja INATIVAR este usuÃƒÂ¡rio? Ele nÃƒÂ£o conseguirÃƒÂ¡ mais fazer login.'
+        : 'Tem certeza que deseja REATIVAR este usuÃƒÂ¡rio? Ele voltarÃƒÂ¡ a ter acesso ao sistema.';
     if (!confirm(descricao)) return;
 
     const endpoint = inativar
@@ -2840,7 +2856,7 @@ async function toggleInativarUsuario(id_usuario, inativar) {
             showToast(resultado.message, 'success');
             carregarUsuarios();
         } else {
-            showToast(resultado.message || 'Falha na operação.', 'error');
+            showToast(resultado.message || 'Falha na operaÃƒÂ§ÃƒÂ£o.', 'error');
         }
     } catch (err) {
         console.error(err);
@@ -2868,7 +2884,7 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
     document.getElementById('aprovar-user-nome').textContent = nome_usuario;
     document.getElementById('aprovar-user-modo').value = modo;
 
-    const title = modo === 'aprovar' ? 'Aprovar e Vincular Usuário' : 'Editar Unidade e Nível de Acesso';
+    const title = modo === 'aprovar' ? 'Aprovar e Vincular UsuÃƒÂ¡rio' : 'Editar Unidade e NÃƒÂ­vel de Acesso';
     document.getElementById('modal-user-title').textContent = title;
 
     // Carregar unidades
@@ -2995,10 +3011,11 @@ const TODOS_MENUS = [
     { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
     { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
     { key: 'estagios-validacao', label: 'Validação Coordenação' },
-    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
+    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)' },
     { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
     { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
-    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' }
+    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' },
+    { key: 'documentos', label: 'Documentos' }
 ];
 
 function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
@@ -3007,7 +3024,7 @@ function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
 
     const permitidos = menus_permitidos || [];
 
-    // Monta mapa de pai → filhos para cascata de checkboxes
+    // Monta mapa de pai Ã¢â€ â€™ filhos para cascata de checkboxes
     const grupoAtual = { key: null };
     const grupoDoItem = {};
     TODOS_MENUS.forEach(m => {
@@ -3063,14 +3080,14 @@ async function salvarPermissoesMenu(event) {
     if (result.success) {
         showToast(result.message, 'success');
         fecharModal('modal-permissoes-menu');
-        carregarUsuarios(); // recarregar a lista para pegar as permissões novas
+        carregarUsuarios(); // recarregar a lista para pegar as permissÃƒÂµes novas
     } else {
         showToast(result.message, 'error');
     }
 }
 
 async function rejeitarUsuario(id_usuario) {
-    if (!confirm('Deseja rejeitar este usuário?')) return;
+    if (!confirm('Deseja rejeitar este usuÃƒÂ¡rio?')) return;
 
     const result = await safeFetch(`/api/auth/users/${id_usuario}/rejeitar`, { method: 'POST' });
 
@@ -3082,7 +3099,7 @@ async function rejeitarUsuario(id_usuario) {
     }
 }
 
-// Funções de Troca de Senha
+// FunÃƒÂ§ÃƒÂµes de Troca de Senha
 function abrirModalTrocarSenha() {
     document.getElementById('form-trocar-senha').reset();
     document.getElementById('modal-trocar-senha').classList.remove('hidden');
@@ -3108,7 +3125,7 @@ async function solicitarTrocaSenha(event) {
 }
 
 async function aprovarSenhaPendente(id_usuario) {
-    if (!confirm('Deseja aprovar a nova senha deste usuário? A antiga deixará de funcionar.')) return;
+    if (!confirm('Deseja aprovar a nova senha deste usuÃƒÂ¡rio? A antiga deixarÃƒÂ¡ de funcionar.')) return;
     const result = await safeFetch(`/api/auth/users/${id_usuario}/aprovar-senha`, { method: 'POST' });
     if (result.success) {
         showToast(result.message, 'success');
@@ -3119,7 +3136,7 @@ async function aprovarSenhaPendente(id_usuario) {
 }
 
 async function rejeitarSenhaPendente(id_usuario) {
-    if (!confirm('Deseja rejeitar a solicitação de nova senha?')) return;
+    if (!confirm('Deseja rejeitar a solicitaÃƒÂ§ÃƒÂ£o de nova senha?')) return;
     const result = await safeFetch(`/api/auth/users/${id_usuario}/rejeitar-senha`, { method: 'POST' });
     if (result.success) {
         showToast(result.message, 'success');
@@ -3129,7 +3146,7 @@ async function rejeitarSenhaPendente(id_usuario) {
     }
 }
 
-// --- UTILITÁRIOS ---
+// --- UTILITÃƒÂRIOS ---
 
 function fecharModal(modalId) {
     document.getElementById(modalId).classList.add('hidden');
@@ -3182,7 +3199,7 @@ function showToast(mensagem, tipo = 'success') {
     }, 4000);
 }
 
-// --- RELATÓRIO DE ESTOQUE BAIXO ---
+// --- RELATÃƒâ€œRIO DE ESTOQUE BAIXO ---
 
 async function abrirRelatorioEstoqueBaixo() {
     document.getElementById('modal-relatorio-estoque').classList.remove('hidden');
@@ -3209,13 +3226,13 @@ async function abrirRelatorioEstoqueBaixo() {
         : 'Todas as Unidades';
     const agora = new Date().toLocaleDateString('pt-BR');
     infoEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> &nbsp;
-        <strong>${baixos.length} produto(s)</strong> com estoque abaixo do mínimo &nbsp;|&nbsp;
+        <strong>${baixos.length} produto(s)</strong> com estoque abaixo do mÃƒÂ­nimo &nbsp;|&nbsp;
         Unidade: <strong>${unidadeLabel}</strong> &nbsp;|&nbsp;
         Gerado em: <strong>${agora}</strong>`;
 
     const tbody = document.getElementById('table-relatorio-body');
     if (baixos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:24px;">✅ Nenhum produto com estoque baixo!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:24px;">Ã¢Å“â€¦ Nenhum produto com estoque baixo!</td></tr>';
         return;
     }
 
@@ -3243,7 +3260,7 @@ function imprimirRelatorioEstoque() {
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Relatório de Estoque Baixo</title>
+    <title>RelatÃƒÂ³rio de Estoque Baixo</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
         h1 { font-size: 20px; margin-bottom: 4px; }
@@ -3259,7 +3276,7 @@ function imprimirRelatorioEstoque() {
     </style>
 </head>
 <body>
-    <h1>⚠️ Relatório de Estoque Baixo</h1>
+    <h1>Ã¢Å¡Â Ã¯Â¸Â RelatÃƒÂ³rio de Estoque Baixo</h1>
     <div class="info">${info}</div>
     <table>
         ${thead}
@@ -3281,7 +3298,7 @@ function imprimirRelatorioEstoque() {
     }
 }
 
-// --- RELATÓRIO DE ESTOQUE ---
+// --- RELATÃƒâ€œRIO DE ESTOQUE ---
 
 async function preencherOpcoesFiltrosRelatorioEstoque() {
     const sUnidade = document.getElementById('filter-rel-est-unidade');
@@ -3338,7 +3355,7 @@ async function carregarRelatorioEstoque() {
     if (!tbody) return;
 
     try {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Carregando dados do relatório...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Carregando dados do relatÃƒÂ³rio...</td></tr>';
         const res = await safeFetch(url);
         
         if (res.success) {
@@ -3371,12 +3388,12 @@ async function carregarRelatorioEstoque() {
                 </tr>
             `).join('');
         } else {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar relatório.</td></tr>';
-            showToast(res.message || 'Erro ao carregar relatório', 'error');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar relatÃƒÂ³rio.</td></tr>';
+            showToast(res.message || 'Erro ao carregar relatÃƒÂ³rio', 'error');
         }
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro de conexão ao carregar relatório.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro de conexÃƒÂ£o ao carregar relatÃƒÂ³rio.</td></tr>';
     }
 }
 
@@ -3407,16 +3424,16 @@ function imprimirRelatorioEstoque() {
     let filtrosTexto = [];
     if (nomeUnidade && nomeUnidade !== 'Todas as Unidades') filtrosTexto.push(`Unidade: <strong>${nomeUnidade}</strong>`);
     if (nomeCategoria && nomeCategoria !== 'Todas as Categorias') filtrosTexto.push(`Categoria: <strong>${nomeCategoria}</strong>`);
-    filtrosTexto.push(`Produtos zerados: <strong>${incluirZerados ? 'Incluídos' : 'Ocultos'}</strong>`);
+    filtrosTexto.push(`Produtos zerados: <strong>${incluirZerados ? 'IncluÃƒÂ­dos' : 'Ocultos'}</strong>`);
     
-    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros específicos (Exibindo estoque atual geral)';
+    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros especÃƒÂ­ficos (Exibindo estoque atual geral)';
     const valorTotalEstoque = document.getElementById('report-estoque-total-val')?.innerText || 'R$ 0,00';
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Relatório de Estoque Atual</title>
+    <title>RelatÃƒÂ³rio de Estoque Atual</title>
     <style>
         body { font-family: 'Inter', Arial, sans-serif; padding: 20px; color: #333; }
         .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; border-bottom: 2px solid #0284c7; padding-bottom: 10px; }
@@ -3436,17 +3453,17 @@ function imprimirRelatorioEstoque() {
 <body>
     <div class="header">
         <div>
-            <h1>📋 Relatório de Estoque Atual</h1>
+            <h1>Ã°Å¸â€œâ€¹ RelatÃƒÂ³rio de Estoque Atual</h1>
             <small style="color: #64748b;">Sistema de Controle de Estoques - ITEC</small>
         </div>
         <div class="meta">
             <strong>Gerado em:</strong> ${now}<br>
-            <strong>Usuário:</strong> ${currentUser ? currentUser.nome_usuario : 'Sistema'}
+            <strong>UsuÃƒÂ¡rio:</strong> ${currentUser ? currentUser.nome_usuario : 'Sistema'}
         </div>
     </div>
 
     <div class="filter-box">
-        🔍 <strong>Filtros Aplicados:</strong> ${filtrosHtml}
+        Ã°Å¸â€Â <strong>Filtros Aplicados:</strong> ${filtrosHtml}
     </div>
 
     <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; display: inline-block;">
@@ -3462,7 +3479,7 @@ function imprimirRelatorioEstoque() {
                 <th>Categoria</th>
                 <th>Unidade</th>
                 <th>Saldo Atual</th>
-                <th>Preço Unit. (Últ. Entrada)</th>
+                <th>PreÃƒÂ§o Unit. (ÃƒÅ¡lt. Entrada)</th>
                 <th>Valor Total</th>
             </tr>
         </thead>
@@ -3486,7 +3503,7 @@ function imprimirRelatorioEstoque() {
     }
 }
 
-// --- RELATÓRIO DE SUGESTÃO DE COMPRAS ---
+// --- RELATÃƒâ€œRIO DE SUGESTÃƒÆ’O DE COMPRAS ---
 
 function definirPeriodoPadraoSugestaoCompras() {
     const inputInicio = document.getElementById('filter-rel-sug-inicio');
@@ -3563,7 +3580,7 @@ async function carregarRelatorioSugestaoCompras() {
     if (!tbody) return;
 
     try {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Carregando dados do relatório...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Carregando dados do relatÃƒÂ³rio...</td></tr>';
         const res = await safeFetch(url);
 
         if (res.success) {
@@ -3572,7 +3589,7 @@ async function carregarRelatorioSugestaoCompras() {
 
             if (dados.length === 0) {
                 const msg = ocultarZero && res.data.length > 0
-                    ? 'Nenhum produto com sugestão de pedido acima de zero. <a href="#" onclick="document.getElementById(\'filter-rel-sug-ocultar-zero\').click(); return false;">Mostrar todos</a>'
+                    ? 'Nenhum produto com sugestÃƒÂ£o de pedido acima de zero. <a href="#" onclick="document.getElementById(\'filter-rel-sug-ocultar-zero\').click(); return false;">Mostrar todos</a>'
                     : 'Nenhum produto encontrado para os filtros selecionados.';
                 tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">${msg}</td></tr>`;
                 const kpiTotal = document.getElementById('kpi-total-sugerido-compras');
@@ -3601,12 +3618,12 @@ async function carregarRelatorioSugestaoCompras() {
                 </tr>
             `}).join('');
         } else {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro ao carregar relatório.</td></tr>';
-            showToast(res.message || 'Erro ao carregar relatório', 'error');
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro ao carregar relatÃƒÂ³rio.</td></tr>';
+            showToast(res.message || 'Erro ao carregar relatÃƒÂ³rio', 'error');
         }
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro de conexão ao carregar relatório.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro de conexÃƒÂ£o ao carregar relatÃƒÂ³rio.</td></tr>';
     }
 }
 
@@ -3617,7 +3634,7 @@ function aplicarFiltrosRelatorioSugestaoCompras(event) {
 
 function limparFiltrosRelatorioSugestaoCompras() {
     document.getElementById('form-filter-relatorio-sugestao').reset();
-    // Restaurar o toggle ao padrão (ocultar sugestão zero)
+    // Restaurar o toggle ao padrÃƒÂ£o (ocultar sugestÃƒÂ£o zero)
     const toggleZero = document.getElementById('filter-rel-sug-ocultar-zero');
     if (toggleZero) toggleZero.checked = true;
     if (currentUser && currentUser.nivel_acesso === 'Administrador' && selectedUnitId) {
@@ -3641,10 +3658,10 @@ function imprimirRelatorioSugestaoCompras() {
     const now = new Date().toLocaleDateString('pt-BR');
 
     let filtrosTexto = [];
-    if (dataInicio && dataFim) filtrosTexto.push(`Período: <strong>${dataInicio.split('-').reverse().join('/')} a ${dataFim.split('-').reverse().join('/')}</strong>`);
+    if (dataInicio && dataFim) filtrosTexto.push(`PerÃƒÂ­odo: <strong>${dataInicio.split('-').reverse().join('/')} a ${dataFim.split('-').reverse().join('/')}</strong>`);
     if (nomeUnidade && nomeUnidade !== 'Todas as Unidades') filtrosTexto.push(`Unidade: <strong>${nomeUnidade}</strong>`);
     if (nomeCategoria && nomeCategoria !== 'Todas as Categorias') filtrosTexto.push(`Categoria: <strong>${nomeCategoria}</strong>`);
-    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros específicos';
+    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros especÃƒÂ­ficos';
 
     const totalSugeridoEl = document.getElementById('kpi-total-sugerido-compras');
     const totalSugeridoTexto = totalSugeridoEl ? totalSugeridoEl.textContent : 'R$ 0,00';
@@ -3653,7 +3670,7 @@ function imprimirRelatorioSugestaoCompras() {
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Sugestão de Compras</title>
+    <title>SugestÃƒÂ£o de Compras</title>
     <style>
         body { font-family: 'Inter', Arial, sans-serif; padding: 20px; color: #333; }
         .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; border-bottom: 2px solid #0284c7; padding-bottom: 10px; }
@@ -3669,7 +3686,7 @@ function imprimirRelatorioSugestaoCompras() {
 <body>
     <div class="header">
         <div>
-            <h1>Sugestão de Compras</h1>
+            <h1>SugestÃƒÂ£o de Compras</h1>
             <div class="meta">
                 ${filtrosHtml}<br>
                 Gerado em: ${new Date().toLocaleString()}
@@ -3689,9 +3706,9 @@ function imprimirRelatorioSugestaoCompras() {
                 <th>Categoria</th>
                 <th>Unidade</th>
                 <th>Estoque Atual</th>
-                <th>Estoque Mínimo</th>
+                <th>Estoque MÃƒÂ­nimo</th>
                 <th>A Comprar</th>
-                <th>Custo Médio</th>
+                <th>Custo MÃƒÂ©dio</th>
                 <th>Subtotal</th>
             </tr>
         </thead>
@@ -3705,7 +3722,7 @@ function imprimirRelatorioSugestaoCompras() {
     
     // Fallback se printWindow falhar
     if (!printWindow) {
-        showToast('Erro ao abrir janela de impressão. Verifique se há bloqueio de pop-ups.', 'error');
+        showToast('Erro ao abrir janela de impressÃƒÂ£o. Verifique se hÃƒÂ¡ bloqueio de pop-ups.', 'error');
         return;
     }
 
@@ -3721,7 +3738,7 @@ function imprimirRelatorioSugestaoCompras() {
 }
 
 // ============================================================================
-// IMPORTAÇÃO DE PLANILHA DE ESTÁGIOS
+// IMPORTAÃƒâ€¡ÃƒÆ’O DE PLANILHA DE ESTÃƒÂGIOS
 // ============================================================================
 
 let _planilhaArquivo = null;
@@ -3794,14 +3811,14 @@ async function confirmarImportacaoPlanilha() {
             const nome_aluno = String(normalizar(row, 'Alunos') || normalizar(row, 'Aluno') || '').trim();
             const unidade = String(normalizar(row, 'Unidade') || '').trim();
             let curso = String(normalizar(row, 'Curso') || '').trim();
-            if (curso.toLowerCase() === 'tecnico de enfermagem' || curso.toLowerCase() === 'técnico de enfermagem') {
+            if (curso.toLowerCase() === 'tecnico de enfermagem' || curso.toLowerCase() === 'tÃƒÂ©cnico de enfermagem') {
                 curso = 'Tecnico em Enfermagem';
             }
             const turma = String(normalizar(row, 'Turma') || '').trim() || null;
             const status = String(normalizar(row, 'Status') || 'Em andamento').trim();
             const horas_totais = parseFloat(normalizar(row, 'Horas') || normalizar(row, 'Horas Totais')) || 0;
             const protocolo_ew = String(normalizar(row, 'Protocolo') || normalizar(row, 'Protocolo EW') || '').trim() || null;
-            const observacoes = String(normalizar(row, 'Observacoes') || normalizar(row, 'Observações') || '').trim() || null;
+            const observacoes = String(normalizar(row, 'Observacoes') || normalizar(row, 'ObservaÃƒÂ§ÃƒÂµes') || '').trim() || null;
 
             let data_lancamento = normalizar(row, 'Data');
             if (data_lancamento instanceof Date) {
@@ -3865,7 +3882,7 @@ async function confirmarImportacaoPlanilha() {
 }
 
 // ============================================================================
-// NOVO CÓDIGO - ABA DE ESTÁGIOS
+// NOVO CÃƒâ€œDIGO - ABA DE ESTÃƒÂGIOS
 // ============================================================================
 
 let estagiosCache = [];
@@ -3874,25 +3891,21 @@ async function carregarLancamentosEstagio() {
     const tbody = document.getElementById('table-estagios-lancamentos-body');
     if (!tbody) return;
     
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Carregando estágios...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Carregando estÃƒÂ¡gios...</td></tr>';
     
     try {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
-            const globalUnit = getGlobalSelectedUnitName();
-            if (globalUnit) {
-                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
-            }
             estagiosCache = data;
             atualizarFiltrosLancamentosEstagio();
             atualizarDatalistAlunos();
             renderEstagios(estagiosCache);
         } else {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nenhum estágio encontrado.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nenhum estÃƒÂ¡gio encontrado.</td></tr>';
         }
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Erro ao carregar estágios.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Erro ao carregar estÃƒÂ¡gios.</td></tr>';
         console.error(e);
     }
 }
@@ -3911,25 +3924,25 @@ function atualizarFiltrosLancamentosEstagio() {
     const unidadeAtual = (elUnidade.value || '').toUpperCase();
     const statusAtual = elStatus ? (elStatus.value || '').toUpperCase() : '';
 
-    // Extrai valores únicos em MAIÚSCULO
+    // Extrai valores ÃƒÂºnicos em MAIÃƒÅ¡SCULO
     const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
     const turmas = [...new Set(estagiosCache.map(l => (l.turma || '').trim().toUpperCase()).filter(Boolean))].sort();
     const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
     const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
 
-    // Atualiza opções Curso
+    // Atualiza opÃƒÂ§ÃƒÂµes Curso
     elCurso.innerHTML = '<option value="">TODOS OS CURSOS</option>' + 
         cursos.map(c => `<option value="${c}">${c}</option>`).join('');
     
-    // Atualiza opções Turma
+    // Atualiza opÃƒÂ§ÃƒÂµes Turma
     elTurma.innerHTML = '<option value="">TODAS AS TURMAS</option>' + 
         turmas.map(t => `<option value="${t}">${t}</option>`).join('');
 
-    // Atualiza opções Unidade
+    // Atualiza opÃƒÂ§ÃƒÂµes Unidade
     elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
         unidades.map(u => `<option value="${u}">${u}</option>`).join('');
 
-    // Atualiza opções Status
+    // Atualiza opÃƒÂ§ÃƒÂµes Status
     if (elStatus) {
         elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
             statuses.map(s => `<option value="${s}">${s}</option>`).join('');
@@ -3943,7 +3956,7 @@ function atualizarFiltrosLancamentosEstagio() {
 }
 
 function obterUnidadePadraoUsuario() {
-    // 1. Se houver unidade selecionada no topo da página (select global)
+    // 1. Se houver unidade selecionada no topo da pÃƒÂ¡gina (select global)
     const selectGlobal = document.getElementById('select-global-unidade');
     if (selectGlobal && selectGlobal.value) {
         const unitId = selectGlobal.value;
@@ -3957,7 +3970,7 @@ function obterUnidadePadraoUsuario() {
         if (uObj && uObj.nome_unidade) return uObj.nome_unidade;
     }
 
-    // 3. Se o usuário tiver unidade permitida no cadastro
+    // 3. Se o usuÃƒÂ¡rio tiver unidade permitida no cadastro
     if (currentUser && currentUser.nome_unidade) {
         return currentUser.nome_unidade;
     }
@@ -3976,7 +3989,7 @@ async function preencherSelectUnidadesModalEstagio() {
         }
     }
 
-    // Coleta todas as unidades do sistema e dos lançamentos
+    // Coleta todas as unidades do sistema e dos lanÃƒÂ§amentos
     const setUnidades = new Set();
     unidadesCache.forEach(u => {
         if (u.nome_unidade) setUnidades.add(u.nome_unidade.trim());
@@ -3997,14 +4010,14 @@ async function preencherSelectUnidadesModalEstagio() {
 async function abrirModalLancamentoEstagio() {
     document.getElementById('form-estagios-lancamento').reset();
     document.getElementById('estagio-id').value = '';
-    document.getElementById('modal-estagio-title').innerText = 'Novo Lançamento de Horas';
+    document.getElementById('modal-estagio-title').innerText = 'Novo LanÃƒÂ§amento de Horas';
     document.getElementById('estagio-data').value = new Date().toISOString().split('T')[0];
     document.getElementById('estagio-status').value = 'Em andamento';
 
-    // Popula opções de unidades no modal
+    // Popula opÃƒÂ§ÃƒÂµes de unidades no modal
     await preencherSelectUnidadesModalEstagio();
 
-    // Popula opções de cursos dinamicamente de acordo com a pesquisa (em maiúsculo)
+    // Popula opÃƒÂ§ÃƒÂµes de cursos dinamicamente de acordo com a pesquisa (em maiÃƒÂºsculo)
     const selectCurso = document.getElementById('estagio-curso');
     if (selectCurso) {
         let cursos = [];
@@ -4019,7 +4032,7 @@ async function abrirModalLancamentoEstagio() {
         selectCurso.innerHTML = html;
     }
 
-    // Define a unidade padrão fixa/selecionada
+    // Define a unidade padrÃƒÂ£o fixa/selecionada
     const padraoUnidade = obterUnidadePadraoUsuario();
     const selectUnidade = document.getElementById('estagio-unidade');
     if (padraoUnidade && selectUnidade) {
@@ -4039,7 +4052,7 @@ async function abrirModalLancamentoEstagio() {
             selectUnidade.value = padraoUnidade;
         }
 
-        // Se o usuário não for Administrador, bloqueia o select para manter fixo na sua unidade
+        // Se o usuÃƒÂ¡rio nÃƒÂ£o for Administrador, bloqueia o select para manter fixo na sua unidade
         if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
             selectUnidade.disabled = true;
         } else {
@@ -4096,7 +4109,7 @@ async function salvarLancamentoEstagio(event) {
             alert('Erro: ' + data.message);
         }
     } catch (e) {
-        alert('Erro de comunicação com o servidor.');
+        alert('Erro de comunicaÃƒÂ§ÃƒÂ£o com o servidor.');
     }
 }
 
@@ -4113,7 +4126,7 @@ function renderEstagios(lista) {
         let statusBadge = 'badge-secondary';
         const stUpper = (l.status || '').toUpperCase();
         if (stUpper === 'EM ANDAMENTO') statusBadge = 'badge-primary';
-        else if (stUpper === 'CONCLUIDO' || stUpper === 'CONCLUÍDO') statusBadge = 'badge-success';
+        else if (stUpper === 'CONCLUIDO' || stUpper === 'CONCLUÃƒÂDO') statusBadge = 'badge-success';
         else if (stUpper === 'EVADIDO') statusBadge = 'badge-warning';
         else if (stUpper === 'CANCELADO') statusBadge = 'badge-danger';
 
@@ -4186,7 +4199,7 @@ async function editarLancamentoEstagio(id) {
 
     await preencherSelectUnidadesModalEstagio();
 
-    // Popula opções de cursos dinamicamente de acordo com a pesquisa (em maiúsculo)
+    // Popula opÃƒÂ§ÃƒÂµes de cursos dinamicamente de acordo com a pesquisa (em maiÃƒÂºsculo)
     const selectCurso = document.getElementById('estagio-curso');
     if (selectCurso) {
         let cursos = [];
@@ -4200,7 +4213,7 @@ async function editarLancamentoEstagio(id) {
         html += '<option value="OUTROS">OUTROS</option>';
         selectCurso.innerHTML = html;
         
-        // Verifica se o curso do lançamento não está na lista principal e adiciona
+        // Verifica se o curso do lanÃƒÂ§amento nÃƒÂ£o estÃƒÂ¡ na lista principal e adiciona
         if (l.curso) {
             const cursoAtualUpper = l.curso.trim().toUpperCase();
             if (!cursos.includes(cursoAtualUpper) && cursoAtualUpper !== 'OUTROS') {
@@ -4247,12 +4260,12 @@ async function editarLancamentoEstagio(id) {
     document.getElementById('estagio-protocolo').value = l.protocolo_ew || '';
     document.getElementById('estagio-observacoes').value = l.observacoes || '';
     
-    document.getElementById('modal-estagio-title').innerText = 'Editar Lançamento de Horas';
+    document.getElementById('modal-estagio-title').innerText = 'Editar LanÃƒÂ§amento de Horas';
     document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
 }
 
 async function excluirLancamentoEstagio(id) {
-    if (!confirm('Deseja realmente excluir este lançamento?')) return;
+    if (!confirm('Deseja realmente excluir este lanÃƒÂ§amento?')) return;
     try {
         const res = await fetch('/api/estagios/lancamentos/' + id, { method: 'DELETE' });
         const data = await res.json();
@@ -4262,7 +4275,7 @@ async function excluirLancamentoEstagio(id) {
             alert('Erro: ' + data.message);
         }
     } catch(e) {
-        alert('Erro ao excluir lançamento.');
+        alert('Erro ao excluir lanÃƒÂ§amento.');
     }
 }
 
@@ -4271,10 +4284,6 @@ async function carregarValidacaoEstagios() {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
-            const globalUnit = getGlobalSelectedUnitName();
-            if (globalUnit) {
-                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
-            }
             estagiosCache = data;
             atualizarFiltrosValidacaoEstagio();
             filtrarValidacaoEstagios();
@@ -4471,13 +4480,13 @@ async function validarLancamentoEstagio(id) {
     const horas_laboratorio = getInput('horas_laboratorio');
     const horas_evento      = getInput('horas_evento');
 
-    // ── Validação: soma das disciplinas deve ser igual ao total de horas ──
+    // Ã¢â€â‚¬Ã¢â€â‚¬ ValidaÃƒÂ§ÃƒÂ£o: soma das disciplinas deve ser igual ao total de horas Ã¢â€â‚¬Ã¢â€â‚¬
     const horas_totais_previsto = Math.round(parseFloat(original.horas_totais) || 0);
     const soma_disciplinas = horas_campo + horas_capacitacao + horas_laboratorio + horas_evento;
 
     if (soma_disciplinas !== horas_totais_previsto) {
         showToast(
-            `⚠️ Soma das disciplinas (${soma_disciplinas}h) é diferente do Total de Horas (${horas_totais_previsto}h). Corrija antes de validar.`,
+            `Ã¢Å¡Â Ã¯Â¸Â Soma das disciplinas (${soma_disciplinas}h) ÃƒÂ© diferente do Total de Horas (${horas_totais_previsto}h). Corrija antes de validar.`,
             'error'
         );
         return;
@@ -4510,7 +4519,7 @@ async function validarLancamentoEstagio(id) {
         });
         const data = await res.json();
         if (data.success) {
-            showToast('Lançamento validado com sucesso!', 'success');
+            showToast('LanÃƒÂ§amento validado com sucesso!', 'success');
             if (row) {
                 const btn = row.querySelector('button');
                 if (btn) {
@@ -4534,7 +4543,7 @@ async function validarLancamentoEstagio(id) {
             showToast('Erro: ' + data.message, 'error');
         }
     } catch (e) {
-        showToast('Erro de comunicação com o servidor.', 'error');
+        showToast('Erro de comunicaÃƒÂ§ÃƒÂ£o com o servidor.', 'error');
     }
 }
 
@@ -4552,10 +4561,6 @@ async function iniciarRelatorioHorasAluno() {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
-            const globalUnit = getGlobalSelectedUnitName();
-            if (globalUnit) {
-                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
-            }
             estagiosCache = data;
             atualizarDatalistAlunos();
         }
@@ -4666,7 +4671,7 @@ function gerarRelatorioHorasAluno() {
     tfoot.innerHTML = `
         <tr style="background: rgba(99, 102, 241, 0.15); font-weight: 700; border-top: 2px solid var(--accent-blue);">
             <td colspan="4" style="text-align: right; padding-right: 12px;">
-                <i class="fa-solid fa-sigma"></i> TOTAL (${filtrados.length} lançamento${filtrados.length > 1 ? 's' : ''})
+                <i class="fa-solid fa-sigma"></i> TOTAL (${filtrados.length} lanÃƒÂ§amento${filtrados.length > 1 ? 's' : ''})
             </td>
             <td style="color: var(--accent-blue); text-align: center; font-weight: 700;"><strong>${totalCampo}</strong></td>
             <td style="color: var(--accent-green); text-align: center; font-weight: 700;"><strong>${totalCapacitacao}</strong></td>
@@ -4684,19 +4689,19 @@ async function alterarStatusLancamentoRelatorio(id) {
     const novoStatus = prompt('Digite o novo status (Em andamento, Concluido, Evadido, Cancelado):', original.status);
     if (!novoStatus) return;
 
-    const statusPermitidos = ['Em andamento', 'Concluido', 'Concluído', 'Evadido', 'Cancelado'];
+    const statusPermitidos = ['Em andamento', 'Concluido', 'ConcluÃƒÂ­do', 'Evadido', 'Cancelado'];
     const statusFormatado = statusPermitidos.find(s => s.toLowerCase() === novoStatus.toLowerCase().trim());
 
     if (!statusFormatado) {
-        alert('Status inválido! Use apenas: Em andamento, Concluído, Evadido ou Cancelado.');
+        alert('Status invÃƒÂ¡lido! Use apenas: Em andamento, ConcluÃƒÂ­do, Evadido ou Cancelado.');
         return;
     }
     
-    const statusFinal = (statusFormatado === 'Concluido') ? 'Concluído' : statusFormatado;
+    const statusFinal = (statusFormatado === 'Concluido') ? 'ConcluÃƒÂ­do' : statusFormatado;
 
     if (statusFinal === original.status || statusFormatado === original.status) return;
 
-    if (!confirm(`Deseja realmente alterar o status deste lançamento de "${original.status}" para "${statusFinal}"?`)) {
+    if (!confirm(`Deseja realmente alterar o status deste lanÃƒÂ§amento de "${original.status}" para "${statusFinal}"?`)) {
         return;
     }
 
@@ -4717,12 +4722,12 @@ async function alterarStatusLancamentoRelatorio(id) {
         if (data.success) {
             showToast('Status atualizado com sucesso!', 'success');
             original.status = statusFormatado;
-            gerarRelatorioHorasAluno(); // recarrega a tabela para refletir a alteração
+            gerarRelatorioHorasAluno(); // recarrega a tabela para refletir a alteraÃƒÂ§ÃƒÂ£o
         } else {
             alert('Erro: ' + data.message);
         }
     } catch (e) {
-        alert('Erro de comunicação com o servidor.');
+        alert('Erro de comunicaÃƒÂ§ÃƒÂ£o com o servidor.');
     }
 }
 
@@ -4767,9 +4772,9 @@ async function alterarStatusTodosLancamentosRelatorio() {
         return;
     }
 
-    const statusFinal = (novoStatus === 'Concluido') ? 'Concluído' : novoStatus;
+    const statusFinal = (novoStatus === 'Concluido') ? 'ConcluÃƒÂ­do' : novoStatus;
 
-    if (!confirm(`Deseja realmente alterar o status de TODOS os ${filtrados.length} lançamentos deste(a) aluno(a) para "${statusFinal}"?`)) {
+    if (!confirm(`Deseja realmente alterar o status de TODOS os ${filtrados.length} lanÃƒÂ§amentos deste(a) aluno(a) para "${statusFinal}"?`)) {
         selectEl.value = ''; // Reseta se cancelar
         return;
     }
@@ -4808,12 +4813,12 @@ async function alterarStatusTodosLancamentosRelatorio() {
     }
 
     if (erros > 0) {
-        alert(`Atualização concluída com erros. Sucessos: ${sucessos}, Erros: ${erros}`);
+        alert(`AtualizaÃƒÂ§ÃƒÂ£o concluÃƒÂ­da com erros. Sucessos: ${sucessos}, Erros: ${erros}`);
     } else {
-        showToast(`Todos os ${sucessos} lançamentos foram atualizados para "${statusFinal}" com sucesso!`, 'success');
+        showToast(`Todos os ${sucessos} lanÃƒÂ§amentos foram atualizados para "${statusFinal}" com sucesso!`, 'success');
     }
     
-    selectEl.value = ''; // Reseta após salvar
+    selectEl.value = ''; // Reseta apÃƒÂ³s salvar
     gerarRelatorioHorasAluno();
 }
 
@@ -4830,14 +4835,14 @@ function imprimirRelatorioHorasAluno() {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    const responsavelSecretaria = (currentUser?.nome_usuario || currentUser?.usuario || 'Responsável Secretaria')
+    const responsavelSecretaria = (currentUser?.nome_usuario || currentUser?.usuario || 'ResponsÃƒÂ¡vel Secretaria')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-        alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
+        alert('Por favor, permita pop-ups no navegador para visualizar o relatÃƒÂ³rio.');
         return;
     }
 
@@ -4846,7 +4851,7 @@ function imprimirRelatorioHorasAluno() {
         <html>
             <head>
                 <meta charset="UTF-8">
-                <title>Relatório - Total de Horas por Aluno</title>
+                <title>RelatÃƒÂ³rio - Total de Horas por Aluno</title>
                 <style>
                     @page { size: A4 landscape; margin: 12mm; }
                     body { font-family: 'Inter', Arial, sans-serif; padding: 25px; color: #1e293b; background: #fff; }
@@ -4902,11 +4907,11 @@ function imprimirRelatorioHorasAluno() {
             </head>
             <body>
                 <div class="btn-imprimir-toolbar no-print">
-                    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+                    <button class="btn-print" onclick="window.print()">Ã°Å¸â€“Â¨Ã¯Â¸Â Imprimir / Salvar PDF</button>
                 </div>
-                <h2>Relatório de Horas por Aluno</h2>
+                <h2>RelatÃƒÂ³rio de Horas por Aluno</h2>
                 <div class="info-header">
-                    <div>Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
+                    <div>EmissÃƒÂ£o: ${new Date().toLocaleDateString('pt-BR')} ÃƒÂ s ${new Date().toLocaleTimeString('pt-BR')}</div>
                     <div>Impresso por: <strong>${currentUser ? (currentUser.nome_usuario || currentUser.usuario || '-') : '-'}</strong></div>
                 </div>
                 ${relatorioContent.innerHTML}
@@ -4923,7 +4928,7 @@ function imprimirRelatorioHorasAluno() {
 }
 
 // ============================================================================
-// RELATÓRIO: HORAS VALIDADAS
+// RELATÃƒâ€œRIO: HORAS VALIDADAS
 // ============================================================================
 
 async function iniciarRelatorioHorasValidadas() {
@@ -4979,7 +4984,7 @@ function gerarRelatorioHorasValidadas() {
         totalHoras += horas;
         return `<tr><td><strong>${l.nome_aluno || '-'}</strong></td><td>${l.unidade || '-'}</td><td>${l.curso || '-'}</td><td>${l.turma || '-'}</td><td><strong>${horas}</strong></td><td>${formatarData(l.data_validacao)}</td><td>${l.nome_usuario_validacao || '-'}</td></tr>`;
     }).join('');
-    tfoot.innerHTML = `<tr><td colspan="4" style="text-align:right; font-weight:bold;">TOTAL:</td><td colspan="3" style="font-weight:bold;">${totalHoras} horas (${resultados.length} lançamento${resultados.length > 1 ? 's' : ''})</td></tr>`;
+    tfoot.innerHTML = `<tr><td colspan="4" style="text-align:right; font-weight:bold;">TOTAL:</td><td colspan="3" style="font-weight:bold;">${totalHoras} horas (${resultados.length} lanÃƒÂ§amento${resultados.length > 1 ? 's' : ''})</td></tr>`;
     vazioEl.style.display = 'none';
     resultadoEl.style.display = 'block';
     btnImprimir.style.display = 'inline-block';
@@ -4990,10 +4995,10 @@ function imprimirRelatorioHorasValidadas() {
     if (!relatorio || relatorio.style.display === 'none') return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-        alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
+        alert('Por favor, permita pop-ups no navegador para visualizar o relatÃƒÂ³rio.');
         return;
     }
-    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório - Horas Validadas</title><style>
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>RelatÃƒÂ³rio - Horas Validadas</title><style>
         @page { size: A4 landscape; margin: 12mm; }
         body { font-family: Arial, sans-serif; color: #1e293b; }
         .no-print { display: flex; justify-content: flex-end; margin-bottom: 18px; }
@@ -5003,13 +5008,13 @@ function imprimirRelatorioHorasValidadas() {
         th, td { border:1px solid #cbd5e1; padding:8px; text-align:left; }
         th, tfoot { background:#f1f5f9; text-transform:uppercase; }
         @media print { .no-print { display:none; } }
-    </style></head><body><div class="no-print"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div><h2>Relatório de Horas Validadas</h2><p>Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
+    </style></head><body><div class="no-print"><button onclick="window.print()">Ã°Å¸â€“Â¨Ã¯Â¸Â Imprimir / Salvar PDF</button></div><h2>RelatÃƒÂ³rio de Horas Validadas</h2><p>EmissÃƒÂ£o: ${new Date().toLocaleDateString('pt-BR')} ÃƒÂ s ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
 }
 
 // ============================================================================
-// RELATÓRIO: ALUNOS POR UNIDADE
+// RELATÃƒâ€œRIO: ALUNOS POR UNIDADE
 // ============================================================================
 
 async function iniciarRelatorioAlunosUnidade() {
@@ -5018,15 +5023,11 @@ async function iniciarRelatorioAlunosUnidade() {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
-            const globalUnit = getGlobalSelectedUnitName();
-            if (globalUnit) {
-                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
-            }
             estagiosCache = data;
             preencherFiltrosRelatorioAlunosUnidade();
         }
     } catch (e) {
-        console.error("Erro ao carregar estágios para relatório:", e);
+        console.error("Erro ao carregar estÃƒÂ¡gios para relatÃƒÂ³rio:", e);
     }
 }
 
@@ -5131,7 +5132,7 @@ function gerarRelatorioAlunosUnidade() {
         totalGeralHoras += r.horas;
         let statusBadge = 'badge-secondary';
         if (r.status === 'EM ANDAMENTO') statusBadge = 'badge-primary';
-        else if (r.status === 'CONCLUÍDO' || r.status === 'CONCLUIDO') statusBadge = 'badge-success';
+        else if (r.status === 'CONCLUÃƒÂDO' || r.status === 'CONCLUIDO') statusBadge = 'badge-success';
         else if (r.status === 'EVADIDO') statusBadge = 'badge-warning';
         else if (r.status === 'CANCELADO') statusBadge = 'badge-danger';
 
@@ -5162,7 +5163,7 @@ function imprimirRelatorioAlunosUnidade() {
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-        alert('Erro ao abrir janela de impressão. Verifique o bloqueio de pop-ups.');
+        alert('Erro ao abrir janela de impressÃƒÂ£o. Verifique o bloqueio de pop-ups.');
         return;
     }
 
@@ -5171,7 +5172,7 @@ function imprimirRelatorioAlunosUnidade() {
         <html lang="pt-BR">
             <head>
                 <meta charset="UTF-8">
-                <title>Impressão - Relatório Alunos por Unidade</title>
+                <title>ImpressÃƒÂ£o - RelatÃƒÂ³rio Alunos por Unidade</title>
                 <style>
                     body { font-family: 'Inter', Arial, sans-serif; color: #333; padding: 20px; }
                     .btn-imprimir-toolbar {
@@ -5210,12 +5211,12 @@ function imprimirRelatorioAlunosUnidade() {
             </head>
             <body>
                 <div class="btn-imprimir-toolbar no-print">
-                    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
-                    <button class="btn-print" onclick="window.opener.exportarRelatorioAlunosUnidadeExcel()">📊 Baixar Excel</button>
+                    <button class="btn-print" onclick="window.print()">Ã°Å¸â€“Â¨Ã¯Â¸Â Imprimir / Salvar PDF</button>
+                    <button class="btn-print" onclick="window.opener.exportarRelatorioAlunosUnidadeExcel()">Ã°Å¸â€œÅ  Baixar Excel</button>
                 </div>
-                <h2>Relatório de Alunos por Unidade</h2>
+                <h2>RelatÃƒÂ³rio de Alunos por Unidade</h2>
                 <div class="info-header">
-                    Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
+                    EmissÃƒÂ£o: ${new Date().toLocaleDateString('pt-BR')} ÃƒÂ s ${new Date().toLocaleTimeString('pt-BR')}
                 </div>
                 ${relatorioContent.innerHTML}
             </body>
@@ -5240,3 +5241,147 @@ function exportarRelatorioAlunosUnidadeExcel() {
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
 }
+
+// ==========================================================================
+// MÃ“DULO: DOCUMENTOS (TEMPLATES PDF)
+// ==========================================================================
+
+let documentosCache = [];
+
+function abrirModalUploadDocumento() {
+    document.getElementById('form-upload-documento').reset();
+    document.getElementById('modal-upload-documento').classList.remove('hidden');
+}
+
+async function salvarDocumento() {
+    const form = document.getElementById('form-upload-documento');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const curso = document.getElementById('upload-doc-curso').value;
+    const tipo = document.getElementById('upload-doc-tipo').value;
+    const fileInput = document.getElementById('upload-doc-arquivo');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showToast('Selecione um arquivo PDF.', 'error');
+        return;
+    }
+    
+    if (file.type !== 'application/pdf') {
+        showToast('O arquivo deve ser um PDF.', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const base64 = e.target.result;
+        try {
+            const data = await safeFetch('/api/documentos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    curso: curso,
+                    tipo_documento: tipo,
+                    nome_arquivo: file.name,
+                    arquivo_base64: base64
+                })
+            });
+            if (data.success) {
+                showToast(data.message, 'success');
+                fecharModal('modal-upload-documento');
+                filtrarDocumentos();
+            } else {
+                showToast(data.message || 'Erro ao salvar documento', 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar documento:', error);
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+async function filtrarDocumentos() {
+    const curso = document.getElementById('filtro-documento-curso').value;
+    const tbody = document.getElementById('table-documentos-body');
+    if (!curso) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Selecione um curso para ver os documentos.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Carregando...</td></tr>';
+    
+    try {
+        const data = await safeFetch(`/api/documentos?curso=${encodeURIComponent(curso)}`);
+        if (data.success) {
+            documentosCache = data.documentos;
+            renderDocumentos(documentosCache);
+        }
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar documentos.</td></tr>';
+    }
+}
+
+function renderDocumentos(lista) {
+    const tbody = document.getElementById('table-documentos-body');
+    if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhum documento encontrado para este curso.</td></tr>';
+        return;
+    }
+    
+    let html = '';
+    lista.forEach(doc => {
+        const dataStr = new Date(doc.data_upload).toLocaleDateString('pt-BR');
+        html += `
+            <tr>
+                <td>${doc.curso}</td>
+                <td>${doc.tipo_documento}</td>
+                <td>${doc.nome_arquivo}</td>
+                <td>${dataStr}</td>
+                <td class="text-right">
+                    <button class="btn btn-icon text-primary" title="Visualizar / Imprimir" onclick="visualizarDocumento(${doc.id_documento})"><i class="fa-solid fa-eye"></i></button>
+                    ${isAdmin() ? `<button class="btn btn-icon text-danger" title="Excluir" onclick="excluirDocumento(${doc.id_documento})"><i class="fa-solid fa-trash"></i></button>` : ''}
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+async function visualizarDocumento(id) {
+    try {
+        const data = await safeFetch(`/api/documentos/${id}/arquivo`);
+        if (data.success) {
+            const doc = data.documento;
+            document.getElementById('visualizar-doc-titulo').innerText = `${doc.tipo_documento} - ${doc.curso}`;
+            document.getElementById('iframe-visualizar-doc').src = doc.arquivo_base64;
+            document.getElementById('modal-visualizar-documento').classList.remove('hidden');
+            
+            // Configurar o botÃ£o de impressÃ£o
+            document.getElementById('btn-imprimir-doc-modal').onclick = () => {
+                const iframe = document.getElementById('iframe-visualizar-doc');
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            };
+        }
+    } catch (e) {
+        showToast('Erro ao carregar o arquivo do documento.', 'error');
+    }
+}
+
+async function excluirDocumento(id) {
+    if(!confirm('Tem certeza que deseja excluir este documento?')) return;
+    try {
+        const data = await safeFetch(`/api/documentos/${id}`, { method: 'DELETE' });
+        if (data.success) {
+            showToast(data.message, 'success');
+            filtrarDocumentos();
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+

@@ -19,6 +19,21 @@ const pool = new Pool({
   connectionString: getDbUrl()
 });
 
+async function get_last_db_update() {
+  try {
+    const res = await pool.query(`
+      SELECT max(d) as last_update FROM (
+        SELECT max(data_movimentacao) as d FROM tbl_movimentacoes
+        UNION ALL
+        SELECT max(data_cadastro) as d FROM tbl_produtos
+      ) as t
+    `);
+    return res.rows[0].last_update || new Date();
+  } catch (e) {
+    return new Date();
+  }
+}
+
 async function init_db() {
   const client = await pool.connect();
   try {
@@ -171,6 +186,17 @@ async function init_db() {
           protocolo_ew VARCHAR(50),
           observacoes TEXT,
           data_cadastro TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tbl_documentos (
+          id_documento SERIAL PRIMARY KEY,
+          curso VARCHAR(150) NOT NULL,
+          tipo_documento VARCHAR(100) NOT NULL,
+          nome_arquivo VARCHAR(255) NOT NULL,
+          arquivo_base64 TEXT NOT NULL,
+          data_upload TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -1314,6 +1340,38 @@ async function excluir_lancamento_estagio(id_lancamento) {
   return true;
 }
 
+// --- DOCUMENTOS ---
+async function listar_documentos(curso) {
+  let query = "SELECT id_documento, curso, tipo_documento, nome_arquivo, data_upload FROM tbl_documentos";
+  let params = [];
+  if (curso) {
+    query += " WHERE curso = $1";
+    params.push(curso);
+  }
+  query += " ORDER BY tipo_documento ASC, nome_arquivo ASC";
+  const res = await pool.query(query, params);
+  return res.rows;
+}
+
+async function obter_arquivo_documento(id_documento) {
+  const res = await pool.query("SELECT arquivo_base64, nome_arquivo, tipo_documento, curso FROM tbl_documentos WHERE id_documento = $1", [id_documento]);
+  return res.rows[0];
+}
+
+async function salvar_documento(curso, tipo_documento, nome_arquivo, arquivo_base64) {
+  const res = await pool.query(`
+    INSERT INTO tbl_documentos (curso, tipo_documento, nome_arquivo, arquivo_base64)
+    VALUES ($1, $2, $3, $4) RETURNING id_documento
+  `, [curso, tipo_documento, nome_arquivo, arquivo_base64]);
+  return res.rows[0].id_documento;
+}
+
+async function excluir_documento(id_documento) {
+  await pool.query("DELETE FROM tbl_documentos WHERE id_documento = $1", [id_documento]);
+  return true;
+}
+
+
 module.exports = {
   init_db,
   listar_unidades,
@@ -1358,5 +1416,10 @@ module.exports = {
   excluir_centro_custo,
   listar_lancamentos_estagio,
   salvar_lancamento_estagio,
-  excluir_lancamento_estagio
+  excluir_lancamento_estagio,
+  get_last_db_update,
+  listar_documentos,
+  obter_arquivo_documento,
+  salvar_documento,
+  excluir_documento
 };
