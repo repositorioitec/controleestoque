@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -701,17 +701,17 @@
                 <!-- VIEW 5: USUÁRIOS (SOMENTE ADMIN) -->
                 <!-- VIEW DOCUMENTOS -->
                 <section id="view-documentos" class="app-view">
-                    <div class="view-header">
-                        <h2><i class="fa-solid fa-file-pdf text-primary"></i> Biblioteca de Documentos</h2>
-                        <button class="btn btn-primary" onclick="abrirModalUploadDocumento()">
+                    <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                        <h2 style="margin: 0; font-size: 1.5rem;"><i class="fa-solid fa-file-pdf text-primary"></i> Biblioteca de Documentos</h2>
+                        <button class="btn btn-primary" onclick="abrirModalUploadDocumento()" style="display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-upload"></i> Incluir Documento
                         </button>
                     </div>
 
-                    <div class="filters-bar" style="margin-bottom: 20px;">
-                        <div class="filter-group" style="flex: 1;">
-                            <label for="filtro-documento-curso">CURSO *</label>
-                            <select id="filtro-documento-curso" class="form-control" onchange="filtrarDocumentos()">
+                    <div class="filters-bar" style="margin-bottom: 25px; background: rgba(15, 23, 42, 0.4); padding: 15px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center;">
+                        <div class="filter-group" style="flex: 1; max-width: 400px; display: flex; flex-direction: column; gap: 8px;">
+                            <label for="filtro-documento-curso" style="font-weight: 600; font-size: 13px; color: var(--text-muted); display: block; white-space: nowrap;">CURSO <span style="color: var(--danger-color);">*</span></label>
+                            <select id="filtro-documento-curso" class="form-control" onchange="filtrarDocumentos()" style="width: 100%;">
                                 <option value="">SELECIONE...</option>
                                 <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
                                 <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>

@@ -402,7 +402,6 @@ a:hover {
 }
 
 .badge-db {
-    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -414,80 +413,13 @@ a:hover {
     border: 1px solid rgba(16, 185, 129, 0.3);
     border-radius: var(--radius-full);
     flex-shrink: 0;
-    cursor: help;
     transition: background 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.badge-db .db-tooltip {
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%) translateY(4px);
-    min-width: 210px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: #0f172a;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-    color: #e2e8f0;
-    text-align: center;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
-    z-index: 1200;
-}
-
-.badge-db .db-tooltip::before {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-bottom-color: rgba(148, 163, 184, 0.25);
-}
-
-.badge-db .db-tooltip::after {
-    content: '';
-    position: absolute;
-    bottom: calc(100% - 1px);
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-bottom-color: #0f172a;
-}
-
-.badge-db:hover .db-tooltip,
-.badge-db:focus-visible .db-tooltip {
-    opacity: 1;
-    visibility: visible;
-    transform: translateX(-50%) translateY(0);
-}
-
-.badge-db .db-tooltip-label {
-    display: block;
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-}
-
-.badge-db .db-tooltip-value {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--accent-green);
 }
 
 .badge-db.disconnected {
     background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
     border-color: rgba(239, 68, 68, 0.3);
-}
-
-.badge-db.disconnected .db-tooltip-value {
-    color: #f87171;
 }
 
 .topbar-actions {
@@ -842,12 +774,6 @@ select option {
     overflow: hidden;
 }
 
-.modal-content form {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-}
-
 .modal-sm { max-width: 400px; }
 
 .modal-header {
@@ -871,7 +797,6 @@ select option {
     padding: 24px;
     max-height: 75vh;
     overflow-y: auto;
-    flex: 1;
 }
 
 .modal-footer {
@@ -881,7 +806,6 @@ select option {
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    margin-top: auto;
 }
 
 .form-grid {

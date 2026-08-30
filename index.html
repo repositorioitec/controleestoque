@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle de Estoques - ITEC</title>
+    <title>Gestão Operacional - ITEC</title>
     <!-- Google Fonts: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Main CSS -->
     <link rel="stylesheet" href="css/style.css">
+    <!-- SheetJS para ler planilhas no navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -25,7 +27,7 @@
                 <div class="auth-logo">
                     <i class="fa-solid fa-boxes-stacked"></i>
                 </div>
-                <h2>Controle de Estoques - ITEC</h2>
+                <h2>Gestão Operacional - ITEC</h2>
                 <p>Sistema de Gestão Multiusuário e Unidades Operacionais</p>
             </div>
 
@@ -38,11 +40,16 @@
                 <form id="form-login" onsubmit="handleLogin(event)">
                     <div class="form-group">
                         <label for="login-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login)</label>
-                        <input type="email" id="login-usuario" placeholder="Ex: admin@itec.com" required autocomplete="username">
+                        <input type="text" id="login-usuario" placeholder="Ex: admin@itec.com" required autocomplete="username" style="text-transform: none;">
                     </div>
                     <div class="form-group">
                         <label for="login-senha"><i class="fa-solid fa-key"></i> Senha</label>
-                        <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password">
+                        <div class="password-wrapper">
+                            <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;">
+                            <button type="button" class="toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
@@ -70,7 +77,12 @@
                     </div>
                     <div class="form-group">
                         <label for="reg-senha"><i class="fa-solid fa-lock"></i> Senha *</label>
-                        <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
+                        <div class="password-wrapper">
+                            <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
+                            <button type="button" class="toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="reg-unidade"><i class="fa-solid fa-building"></i> Unidade Operacional *</label>
@@ -94,60 +106,91 @@
 
     <!-- TELA PRINCIPAL DA APLICAÇÃO (DASHBOARD & MÓDULOS) -->
     <div id="main-app" class="main-app hidden">
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
                     <i class="fa-solid fa-boxes-stacked"></i>
-                    <span>Controle de Estoques</span>
+                    <span>Gestão Operacional</span>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="nav-item" style="cursor: pointer;" onclick="const el = document.getElementById('ul-controle-estoques'); el.style.display = el.style.display === 'none' ? 'block' : 'none';">
+                    <li class="nav-item" style="cursor: pointer;" onclick="const el = document.getElementById('ul-controle-estoques'); el.style.display = el.style.display === 'none' ? 'block' : 'none';" data-menu-key="controle-estoques">
                         <a style="text-transform: uppercase; font-size: 13px; font-weight: 700; color: var(--text-main);"><i class="fa-solid fa-boxes-stacked"></i> <span>Controle de Estoques</span></a>
                     </li>
                     <li style="list-style: none;">
                         <ul id="ul-controle-estoques" style="display: none; padding-left: 15px; list-style: none; margin-top: 5px;">
-                            <li class="nav-item active" data-target="view-dashboard">
+                            <li class="nav-item active" data-target="view-dashboard" data-menu-key="dashboard">
                                 <a href="#"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
                             </li>
-                            <li class="nav-item supervisor-only" data-target="view-produtos">
+                            <li class="nav-item supervisor-only" data-target="view-produtos" data-menu-key="produtos">
                                 <a href="#"><i class="fa-solid fa-box-open"></i> <span>Produtos</span></a>
                             </li>
-                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-mov-historico','li-mov-transferencia'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
+                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-mov-historico','li-mov-transferencia'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })" data-menu-key="movimentacoes">
                                 <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span>Movimentações</span></a>
                             </li>
-                            <li class="nav-item" id="li-mov-historico" data-target="view-movimentacoes" style="display: none;">
+                            <li class="nav-item" id="li-mov-historico" data-target="view-movimentacoes" style="display: none;" data-menu-key="historico">
                                 <a href="#"><i class="fa-solid fa-list"></i> <span>Histórico</span></a>
                             </li>
-                            <li class="nav-item" id="li-mov-transferencia" data-target="view-transferencias" style="display: none;">
+                            <li class="nav-item" id="li-mov-transferencia" data-target="view-transferencias" style="display: none;" data-menu-key="transferencias">
                                 <a href="#"><i class="fa-solid fa-truck-fast"></i> <span>Transferências</span></a>
                             </li>
-                            <li class="nav-item supervisor-only" style="margin-top: 15px; cursor: pointer;" onclick="['li-cad-centros','li-cad-unidades','li-cad-categorias','li-cad-fornecedores'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
+                            <li class="nav-item supervisor-only" style="margin-top: 15px; cursor: pointer;" onclick="['li-cad-centros','li-cad-unidades','li-cad-categorias','li-cad-fornecedores'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })" data-menu-key="cadastros">
                                 <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
                             </li>
-                            <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" style="display: none;">
+                            <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" style="display: none;" data-menu-key="centros-custo">
                                 <a href="#"><i class="fa-solid fa-calculator"></i> <span>Centros de Custo</span></a>
                             </li>
-                            <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" style="display: none;">
+                            <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" style="display: none;" data-menu-key="unidades">
                                 <a href="#"><i class="fa-solid fa-building-user"></i> <span>Unidades</span></a>
                             </li>
-                            <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" style="display: none;">
+                            <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" style="display: none;" data-menu-key="categorias">
                                 <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias</span></a>
                             </li>
-                            <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" style="display: none;">
+                            <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" style="display: none;" data-menu-key="fornecedores">
                                 <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
                             </li>
-                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-estoque','li-sugestao-compras'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })">
+                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-estoque','li-sugestao-compras'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })" data-menu-key="relatorios">
                                 <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-open"></i> <span>Relatórios</span></a>
                             </li>
-                            <li class="nav-item" id="li-estoque" data-target="view-relatorios-estoque" style="display: none;">
+                            <li class="nav-item" id="li-estoque" data-target="view-relatorios-estoque" style="display: none;" data-menu-key="estoque-atual">
                                 <a href="#"><i class="fa-solid fa-file-invoice"></i> <span>Estoque Atual</span></a>
                             </li>
-                            <li class="nav-item" id="li-sugestao-compras" data-target="view-relatorios-sugestao-compras" style="display: none;">
+                            <li class="nav-item" id="li-sugestao-compras" data-target="view-relatorios-sugestao-compras" style="display: none;" data-menu-key="sugestao-compras">
                                 <a href="#"><i class="fa-solid fa-cart-shopping"></i> <span>Sugestão de Compras</span></a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item" style="cursor: pointer;" onclick="const el = document.getElementById('ul-controle-estagios'); el.style.display = el.style.display === 'none' ? 'block' : 'none';" data-menu-key="controle-estagios">
+                        <a style="text-transform: uppercase; font-size: 13px; font-weight: 700; color: var(--text-main);"><i class="fa-solid fa-user-graduate"></i> <span>Controle de Estágios</span></a>
+                    </li>
+                    <li style="list-style: none;">
+                        <ul id="ul-controle-estagios" style="display: none; padding-left: 15px; list-style: none; margin-top: 5px;">
+                            <li class="nav-item" data-target="view-estagios-lancamento" data-menu-key="estagios-lancamentos">
+                                <a href="#"><i class="fa-solid fa-clock"></i> <span>Lançamento de horas</span></a>
+                            </li>
+                            <li class="nav-item" data-target="view-estagios-validacao" data-menu-key="estagios-validacao">
+                                <a href="#"><i class="fa-solid fa-check-double"></i> <span>Validação Coordenação</span></a>
+                            </li>
+                            <!-- Submenu Relatórios de Estágios -->
+                            <li style="list-style: none; margin-top: 6px;">
+                                <a href="#" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="const el = document.getElementById('ul-estagios-relatorios'); el.style.display = el.style.display === 'none' ? 'block' : 'none'; return false;" data-menu-key="estagios-relatorios">
+                                    <i class="fa-solid fa-chart-bar"></i> Relatórios
+                                </a>
+                                <ul id="ul-estagios-relatorios" style="display: none; padding-left: 12px; list-style: none; margin-top: 4px;">
+                                    <li class="nav-item" data-target="view-estagios-relatorio-horas-aluno" data-menu-key="estagios-relatorio-horas-aluno">
+                                        <a href="#"><i class="fa-solid fa-file-chart-column"></i> <span>Total de Horas por Aluno</span></a>
+                                    </li>
+                                    <li class="nav-item" data-target="view-estagios-relatorio-alunos-unidade" data-menu-key="estagios-relatorio-alunos-unidade">
+                                        <a href="#"><i class="fa-solid fa-users-viewfinder"></i> <span>Alunos por Unidade</span></a>
+                                    </li>
+                                    <li class="nav-item" data-target="view-estagios-relatorio-horas-validadas" data-menu-key="estagios-relatorio-horas-validadas">
+                                        <a href="#"><i class="fa-solid fa-calendar-check"></i> <span>Horas Validadas</span></a>
+                                    </li>
+                                </ul>
                             </li>
                         </ul>
                     </li>
@@ -157,24 +200,33 @@
                 </ul>
             </nav>
 
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar">
-                        <i class="fa-solid fa-circle-user"></i>
-                    </div>
-                    <div class="user-details">
-                        <span id="user-display-name">Usuário</span>
-                        <small id="user-display-role">Operador</small>
-                        <small id="user-display-unit" style="display:block; color: #a0aec0; font-size: 0.75rem;"></small>
-                    </div>
+            <div class="sidebar-footer" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="text-align: center;">
+                    <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; width: 100%; border-color: rgba(255,255,255,0.1); color: var(--text-muted);" onclick="abrirModalSobre()">
+                        <i class="fa-solid fa-circle-info"></i> Sobre o Sistema
+                    </button>
                 </div>
-                <div style="display: flex; gap: 4px;">
-                    <button class="btn-logout" onclick="abrirModalTrocarSenha()" title="Trocar Senha">
-                        <i class="fa-solid fa-key"></i>
-                    </button>
-                    <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
-                        <i class="fa-solid fa-power-off"></i>
-                    </button>
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div class="user-info">
+                        <div class="user-avatar" onclick="document.getElementById('avatar-upload').click()" style="cursor: pointer; position: relative; overflow: hidden; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.1);" title="Alterar foto de perfil">
+                            <img id="user-avatar-img" src="" alt="Avatar" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
+                            <i class="fa-solid fa-circle-user" id="user-avatar-icon"></i>
+                            <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="handleAvatarUpload(event)">
+                        </div>
+                        <div class="user-details">
+                            <span id="user-display-name">Usuário</span>
+                            <small id="user-display-role">Operador</small>
+                            <small id="user-display-unit" style="display:block; color: #a0aec0; font-size: 0.75rem;"></small>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="btn-logout" onclick="abrirModalTrocarSenha()" title="Trocar Senha">
+                            <i class="fa-solid fa-key"></i>
+                        </button>
+                        <button class="btn-logout" onclick="handleLogout()" title="Sair do Sistema">
+                            <i class="fa-solid fa-power-off"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -198,17 +250,7 @@
                         <option value="">Todas as Unidades (Visão Global)</option>
                     </select>
                 </div>
-                <div class="topbar-actions">
-                    <button class="btn btn-outline" onclick="abrirModalMovimentacao('ENTRADA')">
-                        <i class="fa-solid fa-circle-plus"></i> Nova Entrada
-                    </button>
-                    <button class="btn btn-warning" onclick="abrirModalMovimentacao('SAIDA')">
-                        <i class="fa-solid fa-circle-minus"></i> Nova Saída
-                    </button>
-                    <button class="btn btn-primary supervisor-only" onclick="abrirModalProduto()">
-                        <i class="fa-solid fa-plus"></i> Novo Produto
-                    </button>
-                </div>
+                <!-- Botões removidos do cabeçalho conforme solicitado -->
             </header>
 
             <div class="content-body">
@@ -285,7 +327,7 @@
                                 <table class="table">
                                     <thead>
                                         <tr>
-                                            <th>Data/Hora</th>
+                                            <th>Data</th>
                                             <th>Produto</th>
                                             <th>Tipo</th>
                                             <th>Qtd</th>
@@ -446,7 +488,7 @@
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>Data/Hora</th>
+                                        <th>Data</th>
                                         <th>Unidade</th>
                                         <th>Produto</th>
                                         <th>Fornecedor</th>
@@ -479,6 +521,12 @@
                         <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
                             <form id="form-transferencia" onsubmit="submitTransferencia(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: end;">
                                 <div class="form-group" style="margin:0;">
+                                    <label for="transf-categoria" style="font-size: 12px;"><i class="fa-solid fa-tags"></i> Categoria</label>
+                                    <select id="transf-categoria" class="form-control" onchange="filtrarProdutosPorCategoria()">
+                                        <option value="">Todas as categorias</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin:0;">
                                     <label for="transf-produto" style="font-size: 12px;"><i class="fa-solid fa-box"></i> Produto</label>
                                     <select id="transf-produto" class="form-control" required>
                                         <option value="">Selecione o produto...</option>
@@ -494,12 +542,48 @@
                                     <label for="transf-quantidade" style="font-size: 12px;"><i class="fa-solid fa-cubes"></i> Quantidade</label>
                                     <input type="number" id="transf-quantidade" class="form-control" min="1" required placeholder="Ex: 10">
                                 </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 10px;">
+                                <div class="form-group" style="margin:0; grid-column: 1 / -1;">
+                                    <label for="transf-observacao" style="font-size: 12px;"><i class="fa-solid fa-comment-dots"></i> Observações</label>
+                                    <input type="text" id="transf-observacao" class="form-control" placeholder="Ex: Remessa para evento, reposição urgente..." maxlength="500">
+                                </div>
+                                <div style="display: flex; gap: 8px; grid-column: 1 / -1; justify-content: flex-end;">
+                                    <button type="submit" class="btn btn-primary" style="padding: 10px 28px;">
                                         <i class="fa-solid fa-paper-plane"></i> Transferir
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+
+                    <!-- Histórico de Transferências -->
+                    <div class="panel" style="margin-top: 20px;">
+                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i class="fa-solid fa-clock-rotate-left text-primary"></i> Histórico de Transferências</h3>
+                                <small style="color: var(--text-muted);">Transferências realizadas para/da unidade selecionada</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline" onclick="carregarHistoricoTransferencias()">
+                                <i class="fa-solid fa-rotate-right"></i> Atualizar
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Data</th>
+                                        <th>Produto</th>
+                                        <th>Tipo</th>
+                                        <th>Unidade</th>
+                                        <th>Qtd</th>
+                                        <th>Usuário</th>
+                                        <th>Observações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-transferencias-body">
+                                    <tr><td colspan="8" class="text-center text-muted">Carregando transferências...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -598,13 +682,15 @@
                                 <thead>
                                     <tr>
                                         <th>Razão Social</th>
+                                        <th>Razão Reduzida</th>
                                         <th>CNPJ/CPF</th>
                                         <th>Telefone</th>
-                                        <th>E-mail</th>
+                                        <th>Cidade/UF</th>
+                                        <th class="text-right">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-fornecedores-body">
-                                    <tr><td colspan="4" class="text-center">Carregando fornecedores...</td></tr>
+                                    <tr><td colspan="6" class="text-center">Carregando fornecedores...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -617,11 +703,49 @@
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-users-gear"></i> Gestão de Usuários e Aprovações</h3>
                         </div>
+                        
+                        <!-- Filtros de Usuários -->
+                        <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-filter text-primary"></i> Filtros de Pesquisa
+                            </div>
+                            <form id="form-filter-usuarios" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
+                                <div class="form-group" style="margin:0;">
+                                    <label for="filter-usr-nome" style="font-size: 12px;">Nome / Login</label>
+                                    <input type="text" id="filter-usr-nome" class="form-control" placeholder="Buscar..." oninput="filtrarUsuariosNaTela()">
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label for="filter-usr-nivel" style="font-size: 12px;">Nível de Acesso</label>
+                                    <select id="filter-usr-nivel" class="form-control" onchange="filtrarUsuariosNaTela()">
+                                        <option value="">Todos</option>
+                                        <option value="Administrador">Administrador</option>
+                                        <option value="Supervisor">Supervisor</option>
+                                        <option value="Operador">Operador</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label for="filter-usr-status" style="font-size: 12px;">Status / Atividade</label>
+                                    <select id="filter-usr-status" class="form-control" onchange="filtrarUsuariosNaTela()">
+                                        <option value="">Todos</option>
+                                        <option value="Aprovados">Aprovados e Ativos</option>
+                                        <option value="Pendentes">Pendentes (Aprovação)</option>
+                                        <option value="Inativos">Inativos</option>
+                                        <option value="Rejeitados">Rejeitados</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="limparFiltroUsuarios()" title="Limpar Filtros" style="flex: 1;">
+                                        <i class="fa-solid fa-eraser"></i> Limpar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                         <div class="table-responsive">
                             <table class="table">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
+                                        <th>Foto</th>
                                         <th>Nome Completo</th>
                                         <th>Login</th>
                                         <th>Nível de Acesso</th>
@@ -631,7 +755,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="table-usuarios-body">
-                                    <tr><td colspan="7" class="text-center">Carregando usuários...</td></tr>
+                                    <tr><td colspan="8" class="text-center">Carregando usuários...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -809,6 +933,362 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- VIEW 8: CONTROLE DE ESTÁGIOS - LANÇAMENTO DE HORAS -->
+                <section id="view-estagios-lancamento" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i class="fa-solid fa-clock text-primary"></i> Lançamento de Horas (Estágios)</h3>
+                                <small style="color: var(--text-muted);">Registro de horas de estágio dos alunos</small>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-secondary admin-only" onclick="abrirModalImportarPlanilha()">
+                                    <i class="fa-solid fa-file-import"></i> Importar Planilha
+                                </button>
+                                <button class="btn btn-primary" onclick="abrirModalLancamentoEstagio()">
+                                    <i class="fa-solid fa-plus"></i> Novo Lançamento
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Filtros -->
+                        <div class="search-bar" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; background: var(--bg-color); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                            <input type="text" id="filtro-lancamento-aluno" class="form-control" placeholder="BUSCAR POR ALUNO..." oninput="filtrarLancamentosEstagio()" style="flex: 2; min-width: 200px; text-transform: uppercase;">
+                            
+                            <select id="filtro-lancamento-curso" class="form-control" onchange="filtrarLancamentosEstagio()" style="flex: 1.5; min-width: 180px;">
+                                <option value="">TODOS OS CURSOS</option>
+                            </select>
+
+                            <select id="filtro-lancamento-turma" class="form-control" onchange="filtrarLancamentosEstagio()" style="flex: 1; min-width: 130px;">
+                                <option value="">TODAS AS TURMAS</option>
+                            </select>
+                            
+                            <select id="filtro-lancamento-unidade" class="form-control" onchange="filtrarLancamentosEstagio()" style="flex: 1; min-width: 140px;">
+                                <option value="">TODAS AS UNIDADES</option>
+                            </select>
+
+                            <select id="filtro-lancamento-status" class="form-control" onchange="filtrarLancamentosEstagio()" style="flex: 1; min-width: 140px;">
+                                <option value="">TODOS OS STATUS</option>
+                            </select>
+                        </div>
+
+                        <div class="table-responsive" style="margin-top: 20px;">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Aluno(a)</th>
+                                        <th>Curso</th>
+                                        <th>Turma</th>
+                                        <th>Unidade</th>
+                                        <th>Horas</th>
+                                        <th>Status</th>
+                                        <th>Validado</th>
+                                        <th>Registrado por</th>
+                                        <th class="text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-estagios-lancamentos-body">
+                                    <tr><td colspan="9" class="text-center">Carregando lançamentos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 9: CONTROLE DE ESTÁGIOS - VALIDAÇÃO COORDENAÇÃO -->
+                <section id="view-estagios-validacao" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i class="fa-solid fa-check-double text-primary"></i> Validação Coordenação</h3>
+                                <small style="color: var(--text-muted);">Validação e detalhamento de horas dos alunos</small>
+                            </div>
+                        </div>
+
+                        <div class="filter-panel" style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px; margin-top: 15px; display: flex; gap: 12px; flex-wrap: wrap;">
+                            <div class="form-group" style="margin:0; flex: 2; min-width: 200px;">
+                                <label for="search-validacao-aluno" style="font-size: 12px;"><i class="fa-solid fa-search"></i> PESQUISAR POR ALUNO</label>
+                                <input type="text" id="search-validacao-aluno" class="form-control" placeholder="DIGITE O NOME DO ALUNO..." oninput="filtrarValidacaoEstagios()" list="lista-alunos" style="text-transform: uppercase;">
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1.5; min-width: 170px;">
+                                <label for="search-validacao-protocolo" style="font-size: 12px;"><i class="fa-solid fa-hashtag"></i> PROTOCOLO EW</label>
+                                <input type="text" id="search-validacao-protocolo" class="form-control" placeholder="DIGITE O PROTOCOLO..." oninput="filtrarValidacaoEstagios()" style="text-transform: uppercase;">
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1.5; min-width: 170px;">
+                                <label for="filter-validacao-curso" style="font-size: 12px;"><i class="fa-solid fa-graduation-cap"></i> CURSO</label>
+                                <select id="filter-validacao-curso" class="form-control" onchange="filtrarValidacaoEstagios()">
+                                    <option value="">TODOS OS CURSOS</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 130px;">
+                                <label for="filter-validacao-turma" style="font-size: 12px;"><i class="fa-solid fa-users"></i> TURMA</label>
+                                <select id="filter-validacao-turma" class="form-control" onchange="filtrarValidacaoEstagios()">
+                                    <option value="">TODAS AS TURMAS</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 140px;">
+                                <label for="filter-validacao-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> UNIDADE</label>
+                                <select id="filter-validacao-unidade" class="form-control" onchange="filtrarValidacaoEstagios()">
+                                    <option value="">TODAS AS UNIDADES</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 140px;">
+                                <label for="filter-validacao-status-estagio" style="font-size: 12px;"><i class="fa-solid fa-info-circle"></i> STATUS</label>
+                                <select id="filter-validacao-status-estagio" class="form-control" onchange="filtrarValidacaoEstagios()" data-first-load="true">
+                                    <option value="">TODOS OS STATUS</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 140px;">
+                                <label for="filter-validacao-status" style="font-size: 12px;"><i class="fa-solid fa-check-double"></i> VALIDAÇÃO</label>
+                                <select id="filter-validacao-status" class="form-control" onchange="filtrarValidacaoEstagios()">
+                                    <option value="">TODAS</option>
+                                    <option value="validado">VALIDADOS</option>
+                                    <option value="pendente" selected>NÃO VALIDADOS (PENDENTES)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Aluno(a)</th>
+                                        <th>Turma</th>
+                                        <th>Status</th>
+                                        <th>Protocolo EW</th>
+                                        <th>Total Horas</th>
+                                        <th style="color: var(--accent-blue);">Campo</th>
+                                        <th style="color: var(--accent-green);">Capacitação</th>
+                                        <th style="color: var(--accent-warning);">Laboratório</th>
+                                        <th style="color: var(--accent-teal);">Evento</th>
+                                        <th></th>
+                                        <th>Registrado por</th>
+                                        <th>Validado Por</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-estagios-validacao-body">
+                                    <tr><td colspan="12" class="text-center">Carregando dados...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: RELATÓRIO TOTAL DE HORAS POR ALUNO -->
+                <section id="view-estagios-relatorio-horas-aluno" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i class="fa-solid fa-file-chart-column text-primary"></i> Relatório: Total de Horas por Aluno</h3>
+                                <small style="color: var(--text-muted);">Pesquise o aluno e visualize todos os seus lançamentos com o totalizador de horas</small>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            
+                            <div style="display: flex; flex-direction: column; gap: 4px; flex: 0 1 500px; min-width: 360px;">
+                                <label for="relatorio-search-aluno" style="font-size: 11px; margin: 0; color: var(--text-muted); font-weight: 600;"><i class="fa-solid fa-magnifying-glass"></i> NOME DO ALUNO</label>
+                                <input type="text" id="relatorio-search-aluno" class="form-control" placeholder="FILTRAR..." list="lista-alunos" style="text-transform: uppercase; height: 38px;" onkeyup="if(event.key==='Enter') gerarRelatorioHorasAluno()">
+                            </div>
+
+                            <button class="btn btn-primary" onclick="gerarRelatorioHorasAluno()" style="height: 38px; align-self: flex-end;">
+                                <i class="fa-solid fa-search"></i> Pesquisar
+                            </button>
+                            <button class="btn btn-secondary" onclick="limparRelatorioHorasAluno()" style="height: 38px; align-self: flex-end;">
+                                <i class="fa-solid fa-broom"></i> Limpar
+                            </button>
+                            <button class="btn btn-success" onclick="imprimirRelatorioHorasAluno()" id="btn-imprimir-horas" style="display: none; height: 38px; align-self: flex-end;">
+                                <i class="fa-solid fa-print"></i> Imprimir / Salvar PDF
+                            </button>
+
+                            <div id="container-alterar-status-todos" style="display: none; align-items: flex-end; gap: 8px; margin-left: auto;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="select-status-todos" style="font-size: 11px; margin: 0; color: var(--text-muted); font-weight: 600; white-space: nowrap;"><i class="fa-solid fa-edit"></i> ALTERAR TODOS:</label>
+                                    <select id="select-status-todos" class="form-control" style="height: 38px; font-size: 13px; padding: 0 12px; min-width: 150px;" onchange="alterarStatusTodosLancamentosRelatorio()">
+                                        <option value="">Selecione...</option>
+                                        <option value="Em andamento">Em andamento</option>
+                                        <option value="Concluído">Concluído</option>
+                                        <option value="Evadido">Evadido</option>
+                                        <option value="Cancelado">Cancelado</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div id="relatorio-horas-aluno-resultado" style="display: none;">
+                            <!-- Info do aluno acima da tabela -->
+                            <div id="relatorio-aluno-info" style="
+                                background: rgba(99,102,241,0.1);
+                                border: 1px solid rgba(99,102,241,0.35);
+                                border-radius: var(--radius-md);
+                                padding: 12px 18px;
+                                margin-bottom: 12px;
+                                display: flex;
+                                gap: 24px;
+                                flex-wrap: wrap;
+                                font-size: 14px;
+                            "></div>
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="table-relatorio-horas-aluno">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Turma</th>
+                                            <th>Status</th>
+                                            <th>Protocolo EW</th>
+                                            <th style="color: var(--accent-blue); text-align: center;">Campo</th>
+                                            <th style="color: var(--accent-green); text-align: center;">Capacitação</th>
+                                            <th style="color: var(--accent-warning); text-align: center;">Laboratório</th>
+                                            <th style="color: var(--accent-teal); text-align: center;">Evento</th>
+                                            <th style="text-align: center;">Total Horas</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-relatorio-horas-aluno-body">
+                                    </tbody>
+                                    <tfoot id="table-relatorio-horas-aluno-footer">
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div id="relatorio-horas-aluno-vazio" style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">
+                            <i class="fa-solid fa-file-slash" style="font-size: 40px; margin-bottom: 12px; display: block;"></i>
+                            Nenhum lançamento encontrado para o nome pesquisado.
+                        </div>
+
+                        <div id="relatorio-horas-aluno-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <i class="fa-solid fa-magnifying-glass" style="font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.4;"></i>
+                            Digite o nome do aluno acima e clique em Pesquisar para visualizar o relatório.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: RELATÓRIO DE ALUNOS POR UNIDADE -->
+                <section id="view-estagios-relatorio-alunos-unidade" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                            <div>
+                                <h3><i class="fa-solid fa-users-viewfinder text-primary"></i> Relatório: Alunos por Unidade</h3>
+                                <small style="color: var(--text-muted);">Filtre os lançamentos por unidade, curso, horas e status</small>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 150px;">
+                                <label for="relatorio-au-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> UNIDADE</label>
+                                <select id="relatorio-au-unidade" class="form-control">
+                                    <option value="">TODAS AS UNIDADES</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 150px;">
+                                <label for="relatorio-au-curso" style="font-size: 12px;"><i class="fa-solid fa-graduation-cap"></i> CURSO</label>
+                                <select id="relatorio-au-curso" class="form-control">
+                                    <option value="">TODOS OS CURSOS</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 0.5; min-width: 90px;">
+                                <label for="relatorio-au-horas-min" style="font-size: 12px;"><i class="fa-solid fa-clock"></i> HORAS MIN</label>
+                                <input type="number" id="relatorio-au-horas-min" class="form-control" placeholder="0" min="0">
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 0.5; min-width: 90px;">
+                                <label for="relatorio-au-horas-max" style="font-size: 12px;"><i class="fa-solid fa-clock"></i> HORAS MAX</label>
+                                <input type="number" id="relatorio-au-horas-max" class="form-control" placeholder="1000" min="0">
+                            </div>
+                            <div class="form-group" style="margin:0; flex: 1; min-width: 130px;">
+                                <label for="relatorio-au-status" style="font-size: 12px;"><i class="fa-solid fa-tag"></i> STATUS</label>
+                                <select id="relatorio-au-status" class="form-control">
+                                    <option value="">TODOS OS STATUS</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" onclick="gerarRelatorioAlunosUnidade()">
+                                    <i class="fa-solid fa-search"></i> Pesquisar
+                                </button>
+                                <button class="btn btn-secondary" onclick="limparRelatorioAlunosUnidade()" style="margin-left: 8px;">
+                                    <i class="fa-solid fa-broom"></i> Limpar
+                                </button>
+                                <button class="btn btn-success" onclick="imprimirRelatorioAlunosUnidade()" id="btn-imprimir-au" style="margin-left: 8px; display: none;">
+                                    <i class="fa-solid fa-print"></i> Imprimir
+                                </button>
+                                <button class="btn btn-outline" onclick="exportarRelatorioAlunosUnidadeExcel()" id="btn-exportar-au" style="margin-left: 8px; display: none;">
+                                    <i class="fa-solid fa-file-excel"></i> Baixar Excel
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="relatorio-au-resultado" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="table-relatorio-au">
+                                    <thead>
+                                        <tr>
+                                            <th>Aluno(a)</th>
+                                            <th>Unidade</th>
+                                            <th>Curso</th>
+                                            <th>Turma</th>
+                                            <th>Total Horas</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-relatorio-au-body">
+                                    </tbody>
+                                    <tfoot id="table-relatorio-au-footer">
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div id="relatorio-au-vazio" style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">
+                            <i class="fa-solid fa-file-slash" style="font-size: 40px; margin-bottom: 12px; display: block;"></i>
+                            Nenhum lançamento encontrado para os filtros informados.
+                        </div>
+
+                        <div id="relatorio-au-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <i class="fa-solid fa-filter" style="font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.4;"></i>
+                            Selecione os filtros acima e clique em Pesquisar para visualizar o relatório.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: RELATÓRIO DE HORAS VALIDADAS -->
+                <section id="view-estagios-relatorio-horas-validadas" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h3><i class="fa-solid fa-calendar-check text-primary"></i> Relatório: Horas Validadas</h3>
+                                <small style="color: var(--text-muted);">Consulte e imprima os lançamentos validados por período de validação</small>
+                            </div>
+                        </div>
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                            <div class="form-group" style="margin:0; min-width: 180px;">
+                                <label for="relatorio-hv-data-inicio" style="font-size: 12px;"><i class="fa-solid fa-calendar-day"></i> VALIDAÇÃO DE</label>
+                                <input type="date" id="relatorio-hv-data-inicio" class="form-control">
+                            </div>
+                            <div class="form-group" style="margin:0; min-width: 180px;">
+                                <label for="relatorio-hv-data-fim" style="font-size: 12px;"><i class="fa-solid fa-calendar-day"></i> VALIDAÇÃO ATÉ</label>
+                                <input type="date" id="relatorio-hv-data-fim" class="form-control">
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" onclick="gerarRelatorioHorasValidadas()"><i class="fa-solid fa-search"></i> Pesquisar</button>
+                                <button class="btn btn-secondary" onclick="limparRelatorioHorasValidadas()" style="margin-left: 8px;"><i class="fa-solid fa-broom"></i> Limpar</button>
+                                <button class="btn btn-success" onclick="imprimirRelatorioHorasValidadas()" id="btn-imprimir-hv" style="margin-left: 8px; display: none;"><i class="fa-solid fa-print"></i> Imprimir</button>
+                            </div>
+                        </div>
+                        <div id="relatorio-hv-resultado" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead><tr><th>Aluno(a)</th><th>Unidade</th><th>Curso</th><th>Turma</th><th>Total Horas</th><th>Data da validação</th><th>Validado por</th></tr></thead>
+                                    <tbody id="table-relatorio-hv-body"></tbody>
+                                    <tfoot id="table-relatorio-hv-footer"></tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="relatorio-hv-vazio" style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">Nenhuma hora validada encontrada para o período informado.</div>
+                        <div id="relatorio-hv-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">Selecione o período de validação, se desejar, e clique em Pesquisar.</div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
@@ -857,10 +1337,17 @@
                 <div class="modal-body">
                     <p style="margin-bottom: 1rem;">Usuário: <strong id="aprovar-user-nome"></strong></p>
                     <div class="form-group">
-                        <label for="aprovar-unidade">Unidade Operacional *</label>
-                        <select id="aprovar-unidade" required>
-                            <option value="">Selecione a Unidade...</option>
-                        </select>
+                        <label>Unidades Operacionais *</label>
+                        <div style="margin-bottom: 6px;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; color: var(--primary);">
+                                <input type="checkbox" id="check-todas-unidades" onchange="toggleTodasUnidades(this)">
+                                Todas as Unidades
+                            </label>
+                        </div>
+                        <div id="aprovar-unidades-container" class="checkbox-group" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 5px;">
+                            <!-- Checkboxes de unidades serão inseridos aqui via JS -->
+                        </div>
+                        <small style="color: var(--text-muted); margin-top: 5px; display: block;">Selecione uma ou mais unidades onde o usuário poderá operar.</small>
                     </div>
                     <div class="form-group">
                         <label for="aprovar-nivel">Nível de Acesso *</label>
@@ -955,8 +1442,8 @@
                 <input type="hidden" id="mov-tipo">
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="mov-data">Data / Hora da Operação *</label>
-                        <input type="datetime-local" id="mov-data" class="form-control" required>
+                        <label for="mov-data">Data da Operação *</label>
+                        <input type="date" id="mov-data" class="form-control" required>
                     </div>
                     <div class="form-group">
                         <label for="mov-unidade">Unidade Operacional *</label>
@@ -1043,9 +1530,14 @@
             </div>
             <form id="form-fornecedor" onsubmit="salvarFornecedor(event)">
                 <div class="modal-body">
+                    <input type="hidden" id="forn-id">
                     <div class="form-group">
                         <label for="forn-nome">Razão Social / Nome *</label>
                         <input type="text" id="forn-nome" placeholder="Ex: Distribuidora Silva LTDA" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="forn-razao-reduzida">Razão Reduzida</label>
+                        <input type="text" id="forn-razao-reduzida" placeholder="Ex: Dist. Silva">
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
@@ -1060,6 +1552,41 @@
                     <div class="form-group">
                         <label for="forn-email">E-mail</label>
                         <input type="email" id="forn-email" placeholder="contato@fornecedor.com">
+                    </div>
+                    <!-- Campos de Endereço -->
+                    <div class="form-grid" style="grid-template-columns: 1fr 2fr;">
+                        <div class="form-group">
+                            <label for="forn-cep">CEP</label>
+                            <input type="text" id="forn-cep" placeholder="00000-000" onblur="buscarEnderecoPorCep(this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-endereco">Endereço</label>
+                            <input type="text" id="forn-endereco" placeholder="Rua, Avenida...">
+                        </div>
+                    </div>
+                    <div class="form-grid" style="grid-template-columns: 1fr 2fr;">
+                        <div class="form-group">
+                            <label for="forn-numero">Número</label>
+                            <input type="text" id="forn-numero" placeholder="Ex: 123">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-complemento">Complemento</label>
+                            <input type="text" id="forn-complemento" placeholder="Sala, Apto, Galpão...">
+                        </div>
+                    </div>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="form-group">
+                            <label for="forn-bairro">Bairro</label>
+                            <input type="text" id="forn-bairro" placeholder="Bairro">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-cidade">Cidade</label>
+                            <input type="text" id="forn-cidade" placeholder="Cidade">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-estado">UF</label>
+                            <input type="text" id="forn-estado" placeholder="UF" maxlength="2" style="text-transform: uppercase;">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1101,6 +1628,29 @@
         </div>
     </div>
 
+    <!-- MODAL DE PERMISSÕES DE MENU -->
+    <div id="modal-permissoes-menu" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Permissões de Menu <small id="perm-menu-username" style="font-weight:normal; font-size:14px;"></small></h3>
+                <button class="modal-close" onclick="fecharModal('modal-permissoes-menu')">&times;</button>
+            </div>
+            <form id="form-permissoes-menu" onsubmit="salvarPermissoesMenu(event)">
+                <input type="hidden" id="perm-menu-id">
+                <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Selecione os menus e submenus que este usuário pode acessar:</p>
+                    <div id="permissoes-menu-list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Checkboxes serão gerados aqui dinamicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-permissoes-menu')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Permissões</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL 6: TROCAR SENHA -->
     <div id="modal-trocar-senha" class="modal-overlay hidden">
         <div class="modal-content" style="max-width: 400px;">
@@ -1130,27 +1680,144 @@
         </div>
     </div>
 
-    <!-- JS Application Script -->
-    <script src="js/main.js"></script>
+    <!-- MODAL LANÇAMENTO ESTÁGIO -->
+    <div id="modal-estagios-lancamento" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="modal-estagio-title">Lançamento de Horas</h3>
+                <button class="modal-close" onclick="fecharModal('modal-estagios-lancamento')">&times;</button>
+            </div>
+            <form id="form-estagios-lancamento" onsubmit="salvarLancamentoEstagio(event)">
+                <input type="hidden" id="estagio-id">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="estagio-data">Data *</label>
+                            <input type="date" id="estagio-data" required>
+                        </div>
+                        <input type="hidden" id="estagio-status" value="Em andamento">
+                        <div class="form-group span-2">
+                            <label for="estagio-aluno">Aluno(a) *</label>
+                            <input type="text" id="estagio-aluno" placeholder="NOME DO ALUNO" required list="lista-alunos" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="estagio-unidade">Unidade *</label>
+                            <select id="estagio-unidade" required>
+                                <option value="">Selecione a Unidade...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="estagio-curso">Curso *</label>
+                            <select id="estagio-curso" required>
+                                <option value="">SELECIONE...</option>
+                                <option value="CUIDADOR DE IDOSO">CUIDADOR DE IDOSO</option>
+                                <option value="ESPECIALIZACAO EM MAMOGRAFIA">ESPECIALIZACAO EM MAMOGRAFIA</option>
+                                <option value="INSTRUMENTACAO CIRURGICA">INSTRUMENTACAO CIRURGICA</option>
+                                <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
+                                <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>
+                                <option value="TECNICO EM ESTETICA">TECNICO EM ESTETICA</option>
+                                <option value="TECNICO EM FARMACIA">TECNICO EM FARMACIA</option>
+                                <option value="TECNICO EM RADIOLOGIA">TECNICO EM RADIOLOGIA</option>
+                                <option value="OUTROS">OUTROS</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="estagio-turma">Turma</label>
+                            <input type="text" id="estagio-turma" placeholder="Ex: T01-M" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '')">
+                        </div>
+                        <div class="form-group">
+                            <label for="estagio-horas">Horas Totais</label>
+                            <input type="number" id="estagio-horas" step="0.5" min="0" value="0">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="estagio-protocolo">Protocolo EW</label>
+                            <input type="text" id="estagio-protocolo" placeholder="Apenas Números" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                        </div>
+                        <div class="form-group span-2">
+                            <label for="estagio-observacoes">Observações</label>
+                            <textarea id="estagio-observacoes" rows="2" placeholder="Informações adicionais..." style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-estagios-lancamento')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL IMPORTAR PLANILHA DE ESTÁGIOS -->
+    <div id="modal-importar-planilha" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-import"></i> Importar Planilha de Estágios</h3>
+                <button class="modal-close" onclick="fecharModal('modal-importar-planilha')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                    Selecione o arquivo Excel (<strong>.xlsx</strong> ou <strong>.xls</strong>) com as colunas:
+                    <br><code style="font-size: 12px; color: var(--accent-blue);">Aluno | Data | Unidade | Curso | Turma | Horas Totais | Status</code>
+                </p>
+
+                <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 32px; text-align: center; cursor: pointer; transition: border-color .2s;"
+                     id="drop-zone-planilha"
+                     onclick="document.getElementById('input-planilha').click()"
+                     ondragover="event.preventDefault(); this.style.borderColor='var(--accent-blue)';"
+                     ondragleave="this.style.borderColor='var(--border-color)';"
+                     ondrop="handleDropPlanilha(event)">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 36px; color: var(--accent-blue); margin-bottom: 10px;"></i>
+                    <p style="margin: 0; font-weight: 600;">Clique ou arraste o arquivo aqui</p>
+                    <p id="nome-arquivo-planilha" style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">Nenhum arquivo selecionado</p>
+                </div>
+                <input type="file" id="input-planilha" accept=".xlsx,.xls,.csv" style="display:none;" onchange="selecionarPlanilha(this)">
+
+                <div id="resultado-importacao" style="display:none; margin-top: 16px; padding: 12px; border-radius: var(--radius-md); font-size: 14px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-importar-planilha')">Fechar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirmar-importacao" onclick="confirmarImportacaoPlanilha()" disabled>
+                    <i class="fa-solid fa-upload"></i> Importar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DATALIST PARA PREENCHIMENTO AUTOMÁTICO DOS ALUNOS -->
+    <datalist id="lista-alunos"></datalist>
+
     <script>
-        // Verifica status do banco de dados e exibe última atualização no tooltip
-        function verificarStatusBanco() {
+        // Verifica status do banco de dados e atualiza o ícone
+        
+        function verificarStatusBancoHover() {
             const badge = document.getElementById('db-status-badge');
             if (!badge) return;
-            fetch('/api/db-info')
+            badge.title = 'Buscando última atualização...';
+            fetch('/api/db-last-update')
                 .then(r => r.ok ? r.json() : Promise.reject())
                 .then(data => {
                     badge.classList.remove('disconnected');
-                    if (data.ultima_atualizacao) {
-                        const dt = new Date(data.ultima_atualizacao);
-                        const formatado = dt.toLocaleString('pt-BR', {
-                            day: '2-digit', month: '2-digit', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit', second: '2-digit'
-                        });
-                        badge.title = `Banco de Dados: Conectado\nÚltima atualização: ${formatado}`;
-                    } else {
-                        badge.title = 'Banco de Dados: Conectado';
-                    }
+                    badge.title = 'Banco de Dados: Conectado.\nÚltima Atualização: ' + new Date(data.time).toLocaleString();
+                })
+                .catch(() => {
+                    badge.classList.add('disconnected');
+                    badge.title = 'Banco de Dados: Desconectado';
+                });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const badge = document.getElementById('db-status-badge');
+            if (badge) {
+                badge.addEventListener('mouseenter', verificarStatusBancoHover);
+            }
+        });
+        function verificarStatusBanco() {
+            const badge = document.getElementById('db-status-badge');
+            if (!badge) return;
+            fetch('/api/dashboard')
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(() => {
+                    badge.classList.remove('disconnected');
+                    badge.title = 'Banco de Dados: Conectado';
                 })
                 .catch(() => {
                     badge.classList.add('disconnected');
@@ -1206,5 +1873,72 @@
         .kpi-clickable:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 32px rgba(245,158,11,0.35) !important; }
         .kpi-click-hint { font-size: 11px; opacity: 0.75; margin-top: 4px; display: block; }
     </style>
+    <!-- MODAL AVATAR PREVIEW -->
+    <div id="modal-avatar-preview" class="modal-overlay hidden">
+        <div class="modal-content modal-sm" style="max-width: 400px; text-align: center;">
+            <div class="modal-header">
+                <h3>Visualizar Foto</h3>
+                <button class="modal-close" onclick="fecharModal('modal-avatar-preview')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Deseja usar esta imagem como foto de perfil?</p>
+                <div style="width: 150px; height: 150px; border-radius: 50%; overflow: hidden; margin: 0 auto; border: 2px solid var(--accent-blue);">
+                    <img id="avatar-preview-img" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center; gap: 10px;">
+                <button class="btn btn-secondary" onclick="fecharModal('modal-avatar-preview')">Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmarAvatarUpload()">Confirmar e Salvar</button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-foto-usuario" class="modal-overlay hidden">
+        <div class="modal-content modal-sm" style="max-width: 420px; text-align: center;">
+            <div class="modal-header">
+                <h3 id="foto-usuario-nome">Foto do usuário</h3>
+                <button class="modal-close" onclick="fecharModal('modal-foto-usuario')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <img id="foto-usuario-ampliada" src="" alt="Foto do usuário" style="max-width: 100%; max-height: 420px; border-radius: 12px; object-fit: contain; border: 2px solid var(--accent-blue);">
+            </div>
+        </div>
+    </div>
+    <!-- MODAL SOBRE -->
+    <div id="modal-sobre" class="modal-overlay hidden">
+        <div class="modal-content modal-sm" style="max-width: 350px; text-align: center;">
+            <div class="modal-header">
+                <h3>Sobre</h3>
+                <button class="modal-close" onclick="fecharModal('modal-sobre')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 30px 20px;">
+                <i class="fa-solid fa-boxes-stacked" style="font-size: 40px; color: var(--accent-blue); margin-bottom: 15px;"></i>
+                <h2 style="margin: 0; font-size: 24px; color: var(--text-main);">ITEC.2026.V.8.2</h2>
+                <p style="color: var(--text-muted); margin-top: 10px; font-size: 14px;">Sistema de Gestão de Estoque</p>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button class="btn btn-secondary" onclick="fecharModal('modal-sobre')">Fechar</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function abrirModalSobre() {
+            document.getElementById('modal-sobre').classList.remove('hidden');
+        }
+
+        function toggleSenha(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+                btn.setAttribute('aria-label', 'Ocultar senha');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+                btn.setAttribute('aria-label', 'Mostrar senha');
+            }
+        }
+    </script>
+    <script src="js/main.js"></script>
 </body>
 </html>
