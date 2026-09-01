@@ -1,0 +1,8 @@
+Somente administrador pode acessar
+ * Unidades operacionais/Fornecedores/Categorias/produtos
+ 
+Unidades Operacionais Nome, Endereço e CNPJ
+O usuário faz o seu cadastro na tela de login, o administrador aprova e atrela a alguma unidade, pois o usuário vai acessar somente a sua unidade.
+No registro de entrada e saída incluir a data, deixar data atual pre-preenchida.
+
+

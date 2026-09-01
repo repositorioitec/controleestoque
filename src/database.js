@@ -16,7 +16,8 @@ function getDbUrl() {
 }
 
 const pool = new Pool({
-  connectionString: getDbUrl()
+  connectionString: getDbUrl(),
+  options: '-c search_path=public'
 });
 
 async function get_last_db_update() {

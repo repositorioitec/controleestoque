@@ -1086,6 +1086,7 @@ async function iniciarAplicacao() {
     
     // Start inactivity watcher after login
     resetInatividadeTimer();
+    carregarDataAtualizacaoBanco();
 
     const selectGlobal = document.getElementById('select-global-unidade');
     if (currentUser.nivel_acesso === 'Administrador') {
@@ -1308,7 +1309,8 @@ function navegarParaView(viewId) {
             'view-estagios-validacao': 'Validação Coordenação (Estágios)',
             'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno',
             'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade',
-            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas'
+            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas',
+            'view-relatorio-controle-manual': 'Relatório: Controle Manual'
         };
         document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
 
@@ -1337,6 +1339,7 @@ function navegarParaView(viewId) {
         if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
         if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
         if (viewId === 'view-estagios-relatorio-horas-validadas') iniciarRelatorioHorasValidadas();
+        if (viewId === 'view-relatorio-controle-manual') iniciarRelatorioControleManual();
     }
 }
 
@@ -3008,6 +3011,7 @@ const TODOS_MENUS = [
     { key: 'relatorios', label: 'Relatórios (Grupo)' },
     { key: 'estoque-atual', label: 'Estoque Atual' },
     { key: 'sugestao-compras', label: 'Sugestão de Compras' },
+    { key: 'relatorio-controle-manual', label: 'Controle Manual' },
     { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
     { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
     { key: 'estagios-validacao', label: 'Validação Coordenação' },
@@ -3938,10 +3942,32 @@ function atualizarFiltrosLancamentosEstagio() {
     elTurma.innerHTML = '<option value="">TODAS AS TURMAS</option>' + 
         turmas.map(t => `<option value="${t}">${t}</option>`).join('');
 
-    // Atualiza opções Unidade
-    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
-        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+    // Unidade ativa conforme cabeçalho ou cadastro do usuário
+    const unidadeAtiva = (getGlobalSelectedUnitName() || (currentUser && currentUser.nome_unidade) || '').trim().toUpperCase();
 
+    // Aplica regras de restrição baseadas no cabeçalho ou permissões do usuário
+    let unidadesDisponiveis = unidades;
+    const globalUnit = getGlobalSelectedUnitName();
+    if (globalUnit) {
+        unidadesDisponiveis = [globalUnit.trim().toUpperCase()];
+    } else if (currentUser && currentUser.nivel_acesso !== 'Administrador' && currentUser.nome_unidade) {
+        unidadesDisponiveis = [currentUser.nome_unidade.trim().toUpperCase()];
+    }
+
+    // Atualiza opções Unidade — sem "TODAS AS UNIDADES"
+    if (unidadesDisponiveis.length <= 1) {
+        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
+        elUnidade.disabled = true;
+    } else {
+        elUnidade.disabled = false;
+        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
+        const unidadeAtualRestaurada = (elUnidade.value || '').toUpperCase();
+        if (unidadesDisponiveis.includes(unidadeAtiva)) {
+            elUnidade.value = unidadeAtiva;
+        } else if (unidadesDisponiveis.includes(unidadeAtualRestaurada)) {
+            elUnidade.value = unidadeAtualRestaurada;
+        }
+    }
     // Atualiza opções Status
     if (elStatus) {
         elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
@@ -4317,8 +4343,32 @@ function atualizarFiltrosValidacaoEstagio() {
     elTurma.innerHTML = '<option value="">TODAS AS TURMAS</option>' + 
         turmas.map(t => `<option value="${t}">${t}</option>`).join('');
 
-    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
-        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+    // Unidade ativa conforme cabeçalho ou cadastro do usuário
+    const unidadeAtiva = (getGlobalSelectedUnitName() || (currentUser && currentUser.nome_unidade) || '').trim().toUpperCase();
+
+    // Aplica regras de restrição baseadas no cabeçalho ou permissões do usuário
+    let unidadesDisponiveis = unidades;
+    const globalUnit = getGlobalSelectedUnitName();
+    if (globalUnit) {
+        unidadesDisponiveis = [globalUnit.trim().toUpperCase()];
+    } else if (currentUser && currentUser.nivel_acesso !== 'Administrador' && currentUser.nome_unidade) {
+        unidadesDisponiveis = [currentUser.nome_unidade.trim().toUpperCase()];
+    }
+
+    // Atualiza opções Unidade — sem "TODAS AS UNIDADES"
+    if (unidadesDisponiveis.length <= 1) {
+        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
+        elUnidade.disabled = true;
+    } else {
+        elUnidade.disabled = false;
+        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
+        const unidadeAtualRestaurada = (elUnidade.value || '').toUpperCase();
+        if (unidadesDisponiveis.includes(unidadeAtiva)) {
+            elUnidade.value = unidadeAtiva;
+        } else if (unidadesDisponiveis.includes(unidadeAtualRestaurada)) {
+            elUnidade.value = unidadeAtualRestaurada;
+        }
+    }
 
     if (elStatus) {
         elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
@@ -4907,7 +4957,7 @@ function imprimirRelatorioHorasAluno() {
             </head>
             <body>
                 <div class="btn-imprimir-toolbar no-print">
-                    <button class="btn-print" onclick="window.print()">Ã°Å¸â€“Â¨Ã¯Â¸Â Imprimir / Salvar PDF</button>
+                    <button class="btn-print" onclick="window.print()">Imprimir / Salvar PDF</button>
                 </div>
                 <h2>Relatório de Horas por Aluno</h2>
                 <div class="info-header">
@@ -4939,6 +4989,7 @@ async function iniciarRelatorioHorasValidadas() {
             estagiosCache = unidadeSelecionada
                 ? res.lancamentos.filter(l => (l.unidade || '').trim().toUpperCase() === unidadeSelecionada.toUpperCase())
                 : res.lancamentos;
+            popularFiltroUnidadeHorasValidadas();
             gerarRelatorioHorasValidadas();
         }
     } catch (e) {
@@ -4949,16 +5000,19 @@ async function iniciarRelatorioHorasValidadas() {
 function limparRelatorioHorasValidadas() {
     document.getElementById('relatorio-hv-data-inicio').value = '';
     document.getElementById('relatorio-hv-data-fim').value = '';
+    if(document.getElementById('relatorio-hv-unidade')) document.getElementById('relatorio-hv-unidade').value = '';
     gerarRelatorioHorasValidadas();
 }
 
 function gerarRelatorioHorasValidadas() {
     const dataInicio = document.getElementById('relatorio-hv-data-inicio').value;
     const dataFim = document.getElementById('relatorio-hv-data-fim').value;
+    const unidadeSelecionadaFiltro = (document.getElementById('relatorio-hv-unidade') ? document.getElementById('relatorio-hv-unidade').value : '').trim().toUpperCase();
     const resultados = estagiosCache
         .filter(l => l.validado_coordenacao === true)
         .filter(l => !dataInicio || (l.data_validacao || '') >= dataInicio)
         .filter(l => !dataFim || (l.data_validacao || '') <= dataFim)
+        .filter(l => !unidadeSelecionadaFiltro || (l.unidade || '').trim().toUpperCase() === unidadeSelecionadaFiltro)
         .sort((a, b) => (b.data_validacao || '').localeCompare(a.data_validacao || '') ||
             (b.horas_totais || 0) - (a.horas_totais || 0));
 
@@ -5008,7 +5062,7 @@ function imprimirRelatorioHorasValidadas() {
         th, td { border:1px solid #cbd5e1; padding:8px; text-align:left; }
         th, tfoot { background:#f1f5f9; text-transform:uppercase; }
         @media print { .no-print { display:none; } }
-    </style></head><body><div class="no-print"><button onclick="window.print()">Ã°Å¸â€“Â¨Ã¯Â¸Â Imprimir / Salvar PDF</button></div><h2>Relatório de Horas Validadas</h2><p>Emissão: ${new Date().toLocaleDateString('pt-BR')} Í s ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
+    </style></head><body><div class="no-print"><button onclick="window.print()">Imprimir / Salvar PDF</button></div><h2>Relatório de Horas Validadas</h2><p>Emissão: ${new Date().toLocaleDateString('pt-BR')} Í s ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
 }
@@ -5042,9 +5096,33 @@ function preencherFiltrosRelatorioAlunosUnidade() {
     const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
     const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
 
-    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
-        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
-    
+    // Unidade ativa conforme cabeçalho ou cadastro do usuário
+    const unidadeAtiva = (getGlobalSelectedUnitName() || (currentUser && currentUser.nome_unidade) || '').trim().toUpperCase();
+
+    // Aplica regras de restrição baseadas no cabeçalho ou permissões do usuário
+    let unidadesDisponiveis = unidades;
+    const globalUnit = getGlobalSelectedUnitName();
+    if (globalUnit) {
+        unidadesDisponiveis = [globalUnit.trim().toUpperCase()];
+    } else if (currentUser && currentUser.nivel_acesso !== 'Administrador' && currentUser.nome_unidade) {
+        unidadesDisponiveis = [currentUser.nome_unidade.trim().toUpperCase()];
+    }
+
+    // Atualiza opções Unidade — sem "TODAS AS UNIDADES"
+    if (unidadesDisponiveis.length <= 1) {
+        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
+        elUnidade.disabled = true;
+    } else {
+        elUnidade.disabled = false;
+        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
+        const unidadeAtualRestaurada = (elUnidade.value || '').toUpperCase();
+        if (unidadesDisponiveis.includes(unidadeAtiva)) {
+            elUnidade.value = unidadeAtiva;
+        } else if (unidadesDisponiveis.includes(unidadeAtualRestaurada)) {
+            elUnidade.value = unidadeAtualRestaurada;
+        }
+    }
+
     elCurso.innerHTML = '<option value="">TODOS OS CURSOS</option>' + 
         cursos.map(c => `<option value="${c}">${c}</option>`).join('');
 
@@ -5053,7 +5131,9 @@ function preencherFiltrosRelatorioAlunosUnidade() {
 }
 
 function limparRelatorioAlunosUnidade() {
-    document.getElementById('relatorio-au-unidade').value = '';
+    if (document.getElementById('relatorio-au-unidade').options.length > 1) {
+        document.getElementById('relatorio-au-unidade').selectedIndex = 0;
+    }
     document.getElementById('relatorio-au-curso').value = '';
     document.getElementById('relatorio-au-horas-min').value = '';
     document.getElementById('relatorio-au-horas-max').value = '';
@@ -5211,8 +5291,8 @@ function imprimirRelatorioAlunosUnidade() {
             </head>
             <body>
                 <div class="btn-imprimir-toolbar no-print">
-                    <button class="btn-print" onclick="window.print()">Ã°Å¸â€“Â¨Ã¯Â¸Â Imprimir / Salvar PDF</button>
-                    <button class="btn-print" onclick="window.opener.exportarRelatorioAlunosUnidadeExcel()">Ã°Å¸â€œÅ  Baixar Excel</button>
+                    <button class="btn-print" onclick="window.print()">Imprimir / Salvar PDF</button>
+                    <button class="btn-print" onclick="window.opener.exportarRelatorioAlunosUnidadeExcel()">Baixar Excel</button>
                 </div>
                 <h2>Relatório de Alunos por Unidade</h2>
                 <div class="info-header">
@@ -5342,7 +5422,7 @@ function renderDocumentos(lista) {
                 <td>${dataStr}</td>
                 <td class="text-right">
                     <button class="btn btn-icon text-primary" title="Visualizar / Imprimir" onclick="visualizarDocumento(${doc.id_documento})"><i class="fa-solid fa-eye"></i></button>
-                    ${isAdmin() ? `<button class="btn btn-icon text-danger" title="Excluir" onclick="excluirDocumento(${doc.id_documento})"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    <button class="btn btn-icon text-danger" title="Excluir" onclick="excluirDocumento(${doc.id_documento})"><i class="fa-solid fa-trash"></i></button>
                 </td>
             </tr>
         `;
@@ -5416,3 +5496,152 @@ async function excluirDocumento(id) {
 }
 
 
+
+async function carregarDataAtualizacaoBanco() {
+    const el = document.getElementById('db-last-update-label');
+    if (!el) return;
+    try {
+        const res = await safeFetch('/api/db-last-update');
+        if (res.success && res.time) {
+            const dateObj = new Date(res.time);
+            const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            el.innerText = `ATUALIZADO: ${dateStr} ${timeStr}`;
+        } else {
+            el.innerText = 'ATUALIZADO: N/D';
+        }
+    } catch (e) {
+        el.innerText = 'ATUALIZADO: ERRO';
+    }
+}
+
+// --- RELATORIO CONTROLE MANUAL ---
+async function iniciarRelatorioControleManual() {
+    document.getElementById('relatorio-controle-manual-resultado').style.display = 'none';
+    document.getElementById('btn-imprimir-controle-manual').style.display = 'none';
+    
+    const selectC = document.getElementById('filter-categoria-controle-manual');
+    if (selectC) {
+        selectC.innerHTML = '<option value="">Carregando...</option>';
+        const dataC = await safeFetch('/api/categorias');
+        if (dataC.success && dataC.categorias) {
+            selectC.innerHTML = '<option value="">Todas as Categorias</option>' +
+                dataC.categorias.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
+        } else {
+            selectC.innerHTML = '<option value="">Erro ao carregar</option>';
+        }
+    }
+}
+
+async function gerarRelatorioControleManual() {
+    try {
+        const btn = document.querySelector('#view-relatorio-controle-manual button.btn-primary');
+        if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando...';
+        
+        const catSelect = document.getElementById('filter-categoria-controle-manual');
+        const catId = catSelect ? catSelect.value : '';
+        let url = '/api/produtos';
+        if (catId) {
+            url += `?categoria_id=${encodeURIComponent(catId)}`;
+        }
+        
+        const res = await safeFetch(url);
+        if (!res || !res.success) {
+            alert('Erro ao carregar produtos.');
+            if(btn) btn.innerHTML = '<i class="fa-solid fa-search"></i> Gerar Planilha';
+            return;
+        }
+        
+        let produtos = res.produtos || [];
+        produtos.sort((a, b) => (a.nome_produto || '').localeCompare(b.nome_produto || ''));
+
+        const tbody = document.getElementById('table-relatorio-controle-manual-body');
+        if (tbody) {
+            tbody.innerHTML = '';
+            
+            for (const p of produtos) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${p.nome_produto || '-'}</strong></td>
+                    <td style="text-align: center;">${p.estoque_atual || 0}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+        
+        document.getElementById('relatorio-controle-manual-resultado').style.display = 'block';
+        document.getElementById('btn-imprimir-controle-manual').style.display = 'inline-block';
+        
+        if(btn) btn.innerHTML = '<i class="fa-solid fa-search"></i> Gerar Planilha';
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao gerar relatório.');
+    }
+}
+
+function imprimirRelatorioControleManual() {
+    const relatorio = document.getElementById('relatorio-controle-manual-resultado');
+    if (!relatorio || relatorio.style.display === 'none') return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
+        return;
+    }
+    
+    const userEl = document.getElementById('user-display-name');
+    const usuario = userEl ? userEl.textContent || userEl.innerText : 'Usuário Desconhecido';
+    
+    const dataObj = new Date();
+    const dataStr = dataObj.toLocaleDateString('pt-BR');
+    const horaStr = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    
+    const html = `
+        <html>
+        <head>
+            <title>Controle Manual</title>
+            <style>
+                @page { size: landscape; margin: 15mm; }
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
+                th { background-color: #f2f2f2; }
+                h2 { text-align: center; margin-bottom: 5px; }
+                .report-meta { text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; }
+                .no-print { display: block; margin-bottom: 20px; text-align: center; }
+                @media print { .no-print { display: none !important; } }
+            </style>
+        </head>
+        <body>
+            <div class="no-print">
+                <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #0ea5e9; color: white; border: none; border-radius: 4px;">Imprimir Agora</button>
+            </div>
+            <h2>Controle Manual de Estoque</h2>
+            <div class="report-meta">
+                Gerado por: <strong>${usuario}</strong> em ${dataStr} às ${horaStr}
+            </div>
+            ${relatorio.innerHTML}
+            
+            <div style="margin-top: 60px; display: flex; justify-content: space-around; text-align: center; font-size: 14px; page-break-inside: avoid;">
+                <div style="width: 35%;">
+                    <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
+                    <strong>Responsável pelo estoque</strong>
+                </div>
+                <div style="width: 35%;">
+                    <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
+                    <strong>${usuario}</strong>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+}
