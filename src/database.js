@@ -16,24 +16,8 @@ function getDbUrl() {
 }
 
 const pool = new Pool({
-  connectionString: getDbUrl(),
-  options: '-c search_path=public'
+  connectionString: getDbUrl()
 });
-
-async function get_last_db_update() {
-  try {
-    const res = await pool.query(`
-      SELECT max(d) as last_update FROM (
-        SELECT max(data_movimentacao) as d FROM tbl_movimentacoes
-        UNION ALL
-        SELECT max(data_cadastro) as d FROM tbl_produtos
-      ) as t
-    `);
-    return res.rows[0].last_update || new Date();
-  } catch (e) {
-    return new Date();
-  }
-}
 
 async function init_db() {
   const client = await pool.connect();
@@ -191,17 +175,6 @@ async function init_db() {
     `);
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS tbl_documentos (
-          id_documento SERIAL PRIMARY KEY,
-          curso VARCHAR(150) NOT NULL,
-          tipo_documento VARCHAR(100) NOT NULL,
-          nome_arquivo VARCHAR(255) NOT NULL,
-          arquivo_base64 TEXT NOT NULL,
-          data_upload TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await client.query(`
       ALTER TABLE tbl_estagios_lancamentos 
       ADD COLUMN IF NOT EXISTS horas_campo NUMERIC(6, 2) DEFAULT 0,
       ADD COLUMN IF NOT EXISTS horas_capacitacao NUMERIC(6, 2) DEFAULT 0,
@@ -220,7 +193,8 @@ async function init_db() {
       ALTER TABLE tbl_estagios_lancamentos
       ADD COLUMN IF NOT EXISTS nome_usuario_registro VARCHAR(150) DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS nome_usuario_validacao VARCHAR(150) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS data_validacao TIMESTAMPTZ DEFAULT NULL;
+      ADD COLUMN IF NOT EXISTS data_validacao TIMESTAMPTZ DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS aguardando_analise BOOLEAN DEFAULT FALSE;
     `);
 
     // Registra como "Legado" os lançamentos antigos que não possuem usuário
@@ -1311,26 +1285,26 @@ async function excluir_centro_custo(id_centro_custo) {
 
 async function listar_lancamentos_estagio() {
   const res = await pool.query(`
-    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, to_char(data_validacao, 'YYYY-MM-DD') as data_validacao, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao
+    SELECT id_lancamento, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, to_char(data_validacao, 'YYYY-MM-DD') as data_validacao, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao, aguardando_analise
     FROM tbl_estagios_lancamentos
     ORDER BY id_lancamento DESC
   `);
   return res.rows;
 }
 
-async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao) {
+async function salvar_lancamento_estagio(id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao, aguardando_analise) {
   if (id_lancamento) {
     await pool.query(`
       UPDATE tbl_estagios_lancamentos
-       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, horas_enf_cirurgica = $15, horas_enf_medica = $16, horas_saude_mulher = $17, horas_saude_mental = $18, horas_saude_publica = $19, horas_emergencia = $20, validado_coordenacao = $21, nome_usuario_validacao = COALESCE($22, nome_usuario_validacao), data_validacao = CASE WHEN $21 = TRUE AND data_validacao IS NULL THEN CURRENT_TIMESTAMP ELSE data_validacao END
+       SET data_lancamento = $1, status = $2, nome_aluno = $3, unidade = $4, curso = $5, turma = $6, horas_totais = $7, protocolo_ew = $8, observacoes = $9, horas_campo = $11, horas_capacitacao = $12, horas_laboratorio = $13, horas_evento = $14, horas_enf_cirurgica = $15, horas_enf_medica = $16, horas_saude_mulher = $17, horas_saude_mental = $18, horas_saude_publica = $19, horas_emergencia = $20, validado_coordenacao = $21, nome_usuario_validacao = COALESCE($22, nome_usuario_validacao), data_validacao = CASE WHEN $21 = TRUE AND data_validacao IS NULL THEN CURRENT_TIMESTAMP ELSE data_validacao END, aguardando_analise = $23
        WHERE id_lancamento = $10
-    `, [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao || false, nome_usuario_validacao || null]);
+    `, [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, id_lancamento, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao || false, nome_usuario_validacao || null, aguardando_analise || false]);
     return id_lancamento;
   } else {
     const res = await pool.query(
-      `INSERT INTO tbl_estagios_lancamentos (data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) RETURNING id_lancamento`,
-      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo || 0, horas_capacitacao || 0, horas_laboratorio || 0, horas_evento || 0, horas_enf_cirurgica || 0, horas_enf_medica || 0, horas_saude_mulher || 0, horas_saude_mental || 0, horas_saude_publica || 0, horas_emergencia || 0, validado_coordenacao || false, nome_usuario_registro || null, nome_usuario_validacao || null]
+      `INSERT INTO tbl_estagios_lancamentos (data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_registro, nome_usuario_validacao, aguardando_analise)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING id_lancamento`,
+      [data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo || 0, horas_capacitacao || 0, horas_laboratorio || 0, horas_evento || 0, horas_enf_cirurgica || 0, horas_enf_medica || 0, horas_saude_mulher || 0, horas_saude_mental || 0, horas_saude_publica || 0, horas_emergencia || 0, validado_coordenacao || false, nome_usuario_registro || null, nome_usuario_validacao || null, aguardando_analise || false]
     );
     return res.rows[0].id_lancamento;
   }
@@ -1341,39 +1315,50 @@ async function excluir_lancamento_estagio(id_lancamento) {
   return true;
 }
 
-// --- DOCUMENTOS ---
-async function listar_documentos(curso) {
-  let query = "SELECT id_documento, curso, tipo_documento, nome_arquivo, data_upload FROM tbl_documentos";
-  let params = [];
-  if (curso) {
-    query += " WHERE curso = $1";
-    params.push(curso);
-  }
-  query += " ORDER BY tipo_documento ASC, nome_arquivo ASC";
-  const res = await pool.query(query, params);
-  return res.rows;
+
+async function documentos_salvar(doc) {
+    const query = `
+        INSERT INTO tbl_documentos (curso, tipo_documento, nome_arquivo, tipo_mime, dados_arquivo)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *;
+    `;
+    const values = [doc.curso, doc.tipo_documento, doc.nome_arquivo, doc.tipo_mime, doc.dados_arquivo];
+    const { rows } = await pool.query(query, values);
+    return rows[0];
 }
 
-async function obter_arquivo_documento(id_documento) {
-  const res = await pool.query("SELECT arquivo_base64, nome_arquivo, tipo_documento, curso FROM tbl_documentos WHERE id_documento = $1", [id_documento]);
-  return res.rows[0];
+async function documentos_listar(curso) {
+    // Não retornamos dados_arquivo na listagem para não sobrecarregar a rede
+    let query = `
+        SELECT id_documento, curso, tipo_documento, nome_arquivo, tipo_mime, data_inclusao
+        FROM tbl_documentos
+    `;
+    let values = [];
+    if (curso) {
+        query += ` WHERE curso = $1`;
+        values.push(curso);
+    }
+    query += ` ORDER BY data_inclusao DESC`;
+    const { rows } = await pool.query(query, values);
+    return rows;
 }
 
-async function salvar_documento(curso, tipo_documento, nome_arquivo, arquivo_base64) {
-  const res = await pool.query(`
-    INSERT INTO tbl_documentos (curso, tipo_documento, nome_arquivo, arquivo_base64)
-    VALUES ($1, $2, $3, $4) RETURNING id_documento
-  `, [curso, tipo_documento, nome_arquivo, arquivo_base64]);
-  return res.rows[0].id_documento;
+async function documentos_obter_arquivo(id) {
+    const { rows } = await pool.query(`SELECT * FROM tbl_documentos WHERE id_documento = $1`, [id]);
+    return rows[0];
 }
 
-async function excluir_documento(id_documento) {
-  await pool.query("DELETE FROM tbl_documentos WHERE id_documento = $1", [id_documento]);
-  return true;
+async function documentos_excluir(id) {
+    await pool.query(`DELETE FROM tbl_documentos WHERE id_documento = $1`, [id]);
+    return true;
 }
-
 
 module.exports = {
+    documentos_salvar,
+    documentos_listar,
+    documentos_obter_arquivo,
+    documentos_excluir,
+
   init_db,
   listar_unidades,
   cadastrar_unidade,
@@ -1417,10 +1402,5 @@ module.exports = {
   excluir_centro_custo,
   listar_lancamentos_estagio,
   salvar_lancamento_estagio,
-  excluir_lancamento_estagio,
-  get_last_db_update,
-  listar_documentos,
-  obter_arquivo_documento,
-  salvar_documento,
-  excluir_documento
+  excluir_lancamento_estagio
 };

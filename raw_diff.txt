@@ -1,0 +1,1083 @@
+Created At: 2026-09-01T20:17:31-03:00
+Completed At: 2026-09-01T20:19:24-03:00
+The following changes were made by the multi_replace_file_content tool to: c:\ControleEstoques - Ambiente Testes\public\js\main.js. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -2380,1090 +2380,1279 @@
+ }
+ 
+ // --- CATEGORIAS, FORNECEDORES & UNIDADES ---
+-
+-async function carregarCategoriasEFornecedores() {
+-    const dataCat = await safeFetch('/api/categorias');
+-    const dataForn = await safeFetch('/api/fornecedores');
+-
+-    if (dataCat.success) {
+-        categoriasCache = dataCat.categorias;
+-        const selectProdCat = document.getElementById('prod-categoria');
+-        const selectFilterCat = document.getElementById('filter-produto-categoria');
+-
+-        const optionsHtml = categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
+-        if (selectProdCat) selectProdCat.innerHTML = '<option value="">Selecione...</option>' + optionsHtml;
+-        if (selectFilterCat) selectFilterCat.innerHTML = '<option value="">Todas as Categorias</option>' + optionsHtml;
+-    }
+-
+-    if (dataForn.success) {
+-        const optionsForn = '<option value="">Selecione...</option>' +
+-            dataForn.fornecedores.map(f => `<option value="${f.id_fornecedor}">${f.nome_fornecedor}</option>`).join('');
+-
+-        const selectFornMov = document.getElementById('mov-fornecedor');
+-        if (selectFornMov) selectFornMov.innerHTML = optionsForn;
+-    }
+-}
+-
+-async function carregarCadastrosGerais() {
+-    carregarUnidades();
+-    carregarCentrosCusto();
+-    carregarCategoriasEFornecedores();
+-
+-    const dataCat = await safeFetch('/api/categorias');
+-    if (dataCat.success) {
+-        const tbody = document.getElementById('table-categorias-body');
+-        if (tbody) {
+-            tbody.innerHTML = dataCat.categorias.map(c => `
+-                <tr>
+-                    <td>#${c.id_categoria}</td>
+-                    <td><strong>${c.nome_categoria}</strong></td>
+-                </tr>
+-            `).join('');
+-        }
+-    }
+-
+-    const dataForn = await safeFetch('/api/fornecedores');
+-    if (dataForn.success) {
+-        window._fornecedoresCache = dataForn.fornecedores;
+-        const tbody = document.getElementById('table-fornecedores-body');
+-        if (tbody) {
+-            tbody.innerHTML = dataForn.fornecedores.map(f => {
+-                const cidadeUf = (f.cidade && f.estado) ? `${f.cidade}/${f.estado}` : (f.cidade || f.estado || '-');
+-                return `
+-                <tr>
+-                    <td><strong>${f.nome_fornecedor}</strong></td>
+-                    <td>${f.razao_reduzida || '-'}</td>
+-                    <td>${f.cnpj_cpf || '-'}</td>
+-                    <td>${f.telefone || '-'}</td>
+-                    <td>${cidadeUf}</td>
+-                    <td class="text-right">
+-                        <button class="btn btn-sm btn-secondary" title="Editar" onclick="editarFornecedor(${f.id_fornecedor})"><i class="fa-solid fa-edit"></i></button>
+-                        <button class="btn btn-sm btn-danger" title="Excluir" onclick="excluirFornecedor(${f.id_fornecedor})"><i class="fa-solid fa-trash"></i></button>
+-                    </td>
+-                </tr>
+-                `;
+-            }).join('');
+-        }
+-    }
+-}
+-
+-// --- CENTROS DE CUSTO ---
+-
+-let centrosCustoCache = [];
+-
+-async function carregarCentrosCusto() {
+-    try {
+-        const result = await safeFetch('/api/centros-custo');
+-        if (result.success) {
+-            centrosCustoCache = result.centros;
+-            const tbody = document.getElementById('table-centros-custo-body');
+-            if (!tbody) return;
+-            if (centrosCustoCache.length === 0) {
+-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum centro de custo cadastrado.</td></tr>';
+-                return;
+-            }
+-            tbody.innerHTML = centrosCustoCache.map(c => `
+-                <tr>
+-                    <td><code>${c.codigo}</code></td>
+-                    <td><strong>${c.nome}</strong></td>
+-                    <td><small class="text-muted">${c.descricao || '-'}</small></td>
+-                    <td class="text-right">
+-                        <button class="btn btn-sm btn-outline" onclick="abrirModalCentroCusto(${c.id_centro_custo})" title="Editar">
+-                            <i class="fa-solid fa-pen"></i>
+-                        </button>
+-                        <button class="btn btn-sm btn-danger" onclick="excluirCentroCusto(${c.id_centro_custo})" title="Excluir">
+-                            <i class="fa-solid fa-trash"></i>
+-                        </button>
+-                    </td>
+-                </tr>
+-            `).join('');
+-        }
+-    } catch (e) {
+-        showToast('Erro ao carregar centros de custo.', 'error');
+-    }
+-}
+-
+-function abrirModalCentroCusto(id_centro_custo = null) {
+-    document.getElementById('form-centro-custo').reset();
+-    document.getElementById('cc-id').value = '';
+-    document.getElementById('modal-centro-custo-title').textContent = id_centro_custo ? 'Editar Centro de Custo' : 'Cadastrar Novo Centro de Custo';
+-
+-    if (id_centro_custo) {
+-        const c = centrosCustoCache.find(x => x.id_centro_custo == id_centro_custo);
+-        if (c) {
+-            document.getElementById('cc-id').value = c.id_centro_custo;
+-            document.getElementById('cc-codigo').value = c.codigo;
+-            document.getElementById('cc-nome').value = c.nome;
+-            document.getElementById('cc-descricao').value = c.descricao || '';
+-        }
+-    }
+-
+-    document.getElementById('modal-centro-custo').classList.remove('hidden');
+-}
+-
+-async function salvarCentroCusto(event) {
+-    event.preventDefault();
+-    const payload = {
+-        id_centro_custo: document.getElementById('cc-id').value || null,
+-        codigo: document.getElementById('cc-codigo').value.trim(),
+-        nome: document.getElementById('cc-nome').value.trim(),
+-        descricao: document.getElementById('cc-descricao').value.trim()
+-    };
+-
+-    const result = await safeFetch('/api/centros-custo', {
+-        method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify(payload)
+-    });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        fecharModal('modal-centro-custo');
+-        carregarCentrosCusto();
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-async function excluirCentroCusto(id_centro_custo) {
+-    if (!confirm('Tem certeza que deseja excluir este centro de custo?')) return;
+-
+-    const result = await safeFetch(`/api/centros-custo/${id_centro_custo}`, { method: 'DELETE' });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        carregarCentrosCusto();
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-function abrirModalCategoria() {
+-    document.getElementById('form-categoria').reset();
+-    document.getElementById('modal-categoria').classList.remove('hidden');
+-}
+-
+-async function salvarCategoria(event) {
+-    event.preventDefault();
+-    const nome_categoria = document.getElementById('cat-nome').value.trim();
+-
+-    const result = await safeFetch('/api/categorias', {
+-        method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ nome_categoria })
+-    });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        fecharModal('modal-categoria');
+-        carregarCadastrosGerais();
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-function abrirModalFornecedor() {
+-    document.getElementById('form-fornecedor').reset();
+-    document.getElementById('modal-fornecedor').classList.remove('hidden');
+-}
+-
+-async function buscarEnderecoPorCep(cep) {
+-    const cepLimpo = cep.replace(/\D/g, '');
+-    if (cepLimpo.length !== 8) return;
+-    
+-    try {
+-        const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+-        const data = await response.json();
+-        
+-        if (!data.erro) {
+-            document.getElementById('forn-endereco').value = data.logradouro || '';
+-            document.getElementById('forn-bairro').value = data.bairro || '';
+-            document.getElementById('forn-cidade').value = data.localidade || '';
+-            document.getElementById('forn-estado').value = data.uf || '';
+-            document.getElementById('forn-numero').focus();
+-        } else {
+-            showToast('CEP não encontrado.', 'error');
+-        }
+-    } catch (error) {
+-        showToast('Erro ao buscar o CEP.', 'error');
+-    }
+-}
+-
+-async function editarFornecedor(id) {
+-    if (!window._fornecedoresCache) return;
+-    const f = window._fornecedoresCache.find(x => x.id_fornecedor === id);
+-    if (!f) return;
+-
+-    document.getElementById('form-fornecedor').reset();
+-    document.getElementById('forn-id').value = f.id_fornecedor;
+-    document.getElementById('forn-nome').value = f.nome_fornecedor || '';
+-    if (document.getElementById('forn-razao-reduzida')) document.getElementById('forn-razao-reduzida').value = f.razao_reduzida || '';
+-    document.getElementById('forn-cnpj').value = f.cnpj_cpf || '';
+-    document.getElementById('forn-tel').value = f.telefone || '';
+-    document.getElementById('forn-email').value = f.email || '';
+-    if (document.getElementById('forn-cep')) document.getElementById('forn-cep').value = f.cep || '';
+-    if (document.getElementById('forn-endereco')) document.getElementById('forn-endereco').value = f.endereco || '';
+-    if (document.getElementById('forn-numero')) document.getElementById('forn-numero').value = f.numero || '';
+-    if (document.getElementById('forn-complemento')) document.getElementById('forn-complemento').value = f.complemento || '';
+-    if (document.getElementById('forn-bairro')) document.getElementById('forn-bairro').value = f.bairro || '';
+-    if (document.getElementById('forn-cidade')) document.getElementById('forn-cidade').value = f.cidade || '';
+-    if (document.getElementById('forn-estado')) document.getElementById('forn-estado').value = f.estado || '';
+-
+-    document.getElementById('modal-fornecedor').classList.remove('hidden');
+-}
+-
+-async function excluirFornecedor(id) {
+-    if (confirm('Tem certeza que deseja excluir este fornecedor?')) {
+-        const result = await safeFetch(`/api/fornecedores/${id}`, {
+-            method: 'DELETE'
+-        });
+-        if (result.success) {
+-            showToast(result.message, 'success');
+-            carregarCadastrosGerais();
+-        } else {
+-            showToast(result.message, 'error');
+-        }
+-    }
+-}
+-
+-async function salvarFornecedor(event) {
+-    event.preventDefault();
+-    const payload = {
+-        nome_fornecedor: document.getElementById('forn-nome').value.trim(),
+-        razao_reduzida: document.getElementById('forn-razao-reduzida') ? document.getElementById('forn-razao-reduzida').value.trim() : '',
+-        cnpj_cpf: document.getElementById('forn-cnpj').value.trim(),
+-        telefone: document.getElementById('forn-tel').value.trim(),
+-        email: document.getElementById('forn-email').value.trim(),
+-        cep: document.getElementById('forn-cep') ? document.getElementById('forn-cep').value.trim() : '',
+-        endereco: document.getElementById('forn-endereco') ? document.getElementById('forn-endereco').value.trim() : '',
+-        numero: document.getElementById('forn-numero') ? document.getElementById('forn-numero').value.trim() : '',
+-        complemento: document.getElementById('forn-complemento') ? document.getElementById('forn-complemento').value.trim() : '',
+-        bairro: document.getElementById('forn-bairro') ? document.getElementById('forn-bairro').value.trim() : '',
+-        cidade: document.getElementById('forn-cidade') ? document.getElementById('forn-cidade').value.trim() : '',
+-        estado: document.getElementById('forn-estado') ? document.getElementById('forn-estado').value.trim() : ''
+-    };
+-
+-    const id = document.getElementById('forn-id') ? document.getElementById('forn-id').value : '';
+-    let url = '/api/fornecedores';
+-    let method = 'POST';
+-    if (id) {
+-        url += `/${id}`;
+-        method = 'PUT';
+-    }
+-
+-    const result = await safeFetch(url, {
+-        method: method,
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify(payload)
+-    });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        fecharModal('modal-fornecedor');
+-        carregarCadastrosGerais();
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-// --- USUÁRIOS E APROVAÇÃO ---
+-
+-async function carregarUsuarios() {
+-    const result = await safeFetch('/api/auth/users');
+-
+-    if (result.success) {
+-        window._usuariosCache = result.users;
+-        renderizarTabelaUsuarios();
+-    } else {
+-        const tbody = document.getElementById('table-usuarios-body');
+-        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
+-    }
+-}
+-
+-function filtrarUsuariosNaTela() {
+-    renderizarTabelaUsuarios();
+-}
+-
+-function limparFiltroUsuarios() {
+-    const form = document.getElementById('form-filter-usuarios');
+-    if(form) form.reset();
+-    filtrarUsuariosNaTela();
+-}
+-
+-function renderizarTabelaUsuarios() {
+-    const buscaNome = (document.getElementById('filter-usr-nome')?.value || '').toLowerCase().trim();
+-    const buscaNivel = document.getElementById('filter-usr-nivel')?.value || '';
+-    const buscaStatus = document.getElementById('filter-usr-status')?.value || '';
+-
+-    let filtrados = _usuariosCache || [];
+-
+-    if (buscaNome) {
+-        filtrados = filtrados.filter(u => 
+-            (u.nome_usuario && u.nome_usuario.toLowerCase().includes(buscaNome)) ||
+-            (u.usuario && u.usuario.toLowerCase().includes(buscaNome))
+-        );
+-    }
+-    
+-    if (buscaNivel) {
+-        filtrados = filtrados.filter(u => u.nivel_acesso === buscaNivel);
+-    }
+-
+-    if (buscaStatus) {
+-        filtrados = filtrados.filter(u => {
+-            const isAtivo = u.ativo !== false;
+-            if (buscaStatus === 'Aprovados') return (u.status_aprovacao === 'Aprovado' || !u.status_aprovacao) && isAtivo;
+-            if (buscaStatus === 'Pendentes') return u.status_aprovacao === 'Pendente';
+-            if (buscaStatus === 'Inativos') return !isAtivo;
+-            if (buscaStatus === 'Rejeitados') return u.status_aprovacao === 'Rejeitado';
+-            return true;
+-        });
+-    }
+-
+-    const tbody = document.getElementById('table-usuarios-body');
+-    if (!tbody) return;
+-
+-    if (filtrados.length === 0) {
+-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Nenhum usuário encontrado com os filtros selecionados.</td></tr>`;
+-        return;
+-    }
+-
+-    tbody.innerHTML = filtrados.map(u => {
+-        let statusBadge = 'badge-success';
+-        if (u.status_aprovacao === 'Pendente') statusBadge = 'badge-warning';
+-        if (u.status_aprovacao === 'Rejeitado') statusBadge = 'badge-danger';
+-
+-        let badgeSenha = u.senha_pendente ? ' <span class="badge badge-warning" style="margin-left: 5px;" title="Troca de senha solicitada"><i class="fa-solid fa-key"></i> Pendente</span>' : '';
+-
+-        // Texto de unidades
+-        let unidades_texto;
+-        if (u.nivel_acesso === 'Administrador') {
+-            unidades_texto = '<span style="color:var(--primary);font-weight:600;">Todas (Admin)</span>';
+-        } else if (u.unidades_acesso && u.unidades_acesso.length > 0) {
+-            unidades_texto = u.unidades_acesso.map(uu => uu.nome_unidade).join(', ');
+-        } else {
+-            unidades_texto = u.nome_unidade || 'Sem Unidade';
+-        }
+-
+-        let acoesHtml = '';
+-        if (u.status_aprovacao === 'Pendente') {
+-            acoesHtml = `
+-                <button class="btn btn-sm btn-success" onclick="abrirModalUsuario(${u.id_usuario}, 'aprovar')" title="Aprovar Cadastro">
+-                    <i class="fa-solid fa-check"></i> Aprovar
+-                </button>
+-                <button class="btn btn-sm btn-danger" onclick="rejeitarUsuario(${u.id_usuario})" title="Rejeitar Cadastro">
+-                    <i class="fa-solid fa-xmark"></i> Rejeitar
+-                </button>
+-                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
+-                    <i class="fa-solid fa-trash"></i>
+-                </button>
+-            `;
+-        } else {
+-            let menusPermJson = u.menus_permitidos ? JSON.stringify(u.menus_permitidos).replace(/"/g, '&quot;') : 'null';
+-            const isAtivo = u.ativo !== false;
+-            const btnInativar = isAtivo
+-                ? `<button class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, true)" title="Inativar Usuário">
+-                       <i class="fa-solid fa-user-slash"></i> Inativar
+-                   </button>`
+-                : `<button class="btn btn-sm" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4);" onclick="toggleInativarUsuario(${u.id_usuario}, false)" title="Reativar Usuário">
+-                       <i class="fa-solid fa-user-check"></i> Reativar
+-                   </button>`;
+-            acoesHtml = `
+-                <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / Nível">
+-                    <i class="fa-solid fa-pen-to-square"></i> Editar
+-                </button>
+-                <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
+-                    <i class="fa-solid fa-list-check"></i> Permissões
+-                </button>
+-                ${btnInativar}
+-                <button class="btn btn-sm btn-danger" onclick="excluirUsuario(${u.id_usuario})" title="Excluir Usuário">
+-                    <i class="fa-solid fa-trash"></i>
+-                </button>
+-            `;
+-        }
+-        
+-        if (u.senha_pendente) {
+-            acoesHtml += `
+-                <button class="btn btn-sm btn-success" onclick="aprovarSenhaPendente(${u.id_usuario})" title="Aprovar Nova Senha">
+-                    <i class="fa-solid fa-key"></i>
+-                </button>
+-                <button class="btn btn-sm btn-danger" onclick="rejeitarSenhaPendente(${u.id_usuario})" title="Rejeitar Nova Senha">
+-                    <i class="fa-solid fa-xmark"></i>
+-                </button>
+-            `;
+-        }
+-
+-        const isAtivo = u.ativo !== false;
+-        const avatar = u.avatar_base64 || localStorage.getItem('user_avatar_' + u.id_usuario);
+-        const fotoHtml = avatar
+-            ? `<button type="button" onclick="abrirFotoUsuario(${u.id_usuario})" title="Visualizar foto" style="width:38px; height:38px; padding:0; border:1px solid var(--accent-blue); border-radius:50%; overflow:hidden; cursor:pointer; background:transparent; vertical-align:middle;"><img src="${avatar}" alt="Foto de ${u.nome_usuario}" style="width:100%; height:100%; object-fit:cover;"></button>`
+-            : `<span title="Sem foto" style="display:inline-flex; width:38px; height:38px; align-items:center; justify-content:center; border-radius:50%; background:rgba(148,163,184,0.16); color:var(--text-muted);"><i class="fa-solid fa-user"></i></span>`;
+-        return `
+-            <tr style="${isAtivo ? '' : 'opacity:0.55;'}">
+-                <td>#${u.id_usuario}</td>
+-                <td>${fotoHtml}</td>
+-                <td><strong>${u.nome_usuario}</strong>${badgeSenha}${ !isAtivo ? ' <span class="badge badge-danger" style="margin-left:5px;"><i class="fa-solid fa-ban"></i> Inativo</span>' : '' }</td>
+-                <td><code>${u.usuario}</code></td>
+-                <td><span class="badge ${u.nivel_acesso === 'Administrador' ? 'badge-info' : u.nivel_acesso === 'Supervisor' ? 'badge-warning' : 'badge-secondary'}">${u.nivel_acesso}</span></td>
+-                <td>${unidades_texto}</td>
+-                <td><span class="badge ${statusBadge}">${u.status_aprovacao || 'Aprovado'}</span></td>
+-                <td class="text-right">${acoesHtml}</td>
+-            </tr>
+-        `;
+-    }).join('');
+-}
+-
+-// -------------------------------------------------
+-// Função para excluir usuário (DELETE)
+-// -------------------------------------------------
+-async function excluirUsuario(id_usuario) {
+-  // Pergunta de confirmação ao usuário
+-  if (!confirm('Tem certeza que deseja EXCLUIR este usuário?')) {
+-    return;
+-  }
+-
+-  try {
+-    const resultado = await safeFetch(`/api/auth/users/${id_usuario}`, {
+-      method: 'DELETE',
+-      headers: { 'Content-Type': 'application/json' }
+-    });
+-
+-    if (resultado.success) {
+-      showToast('Usuário excluído com sucesso.', 'success');
+-      // Atualiza a lista de usuários
+-      carregarUsuarios();
+-    } else {
+-      showToast(resultado.message || 'Falha ao excluir o usuário.', 'error');
+-    }
+-  } catch (err) {
+-    console.error(err);
+-    showToast('Erro ao comunicar com o servidor.', 'error');
+-  }
+-}
+-
+-async function toggleInativarUsuario(id_usuario, inativar) {
+-    const acao = inativar ? 'INATIVAR' : 'REATIVAR';
+-    const descricao = inativar
+-        ? 'Tem certeza que deseja INATIVAR este usuário? Ele não conseguirá mais fazer login.'
+-        : 'Tem certeza que deseja REATIVAR este usuário? Ele voltará a ter acesso ao sistema.';
+-    if (!confirm(descricao)) return;
+-
+-    const endpoint = inativar
+-        ? `/api/auth/users/${id_usuario}/inativar`
+-        : `/api/auth/users/${id_usuario}/ativar`;
+-
+-    try {
+-        const resultado = await safeFetch(endpoint, {
+-            method: 'POST',
+-            headers: { 'Content-Type': 'application/json' }
+-        });
+-
+-        if (resultado.success) {
+-            showToast(resultado.message, 'success');
+-            carregarUsuarios();
+-        } else {
+-            showToast(resultado.message || 'Falha na operação.', 'error');
+-        }
+-    } catch (err) {
+-        console.error(err);
+-        showToast('Erro ao comunicar com o servidor.', 'error');
+-    }
+-}
+-
+-// Controla o checkbox "Todas as Unidades"
+-function toggleTodasUnidades(checkbox) {
+-    const cbs = document.querySelectorAll('input[name="usuario-unidade"]');
+-    cbs.forEach(cb => {
+-        cb.checked = checkbox.checked;
+-        cb.disabled = checkbox.checked;
+-    });
+-}
+-
+-async function abrirModalUsuario(id_usuario, modo = 'editar') {
+-    const u = _userDataMap[id_usuario] || {};
+-    const nome_usuario = u.nome_usuario || '';
+-    const unidades_atuais = u.unidades_acesso || [];
+-    const nivel_atual = u.nivel_acesso || 'Operador';
+-    const categorias_acesso = u.categorias_acesso || [];
+-
+-    document.getElementById('aprovar-user-id').value = id_usuario;
+-    document.getElementById('aprovar-user-nome').textContent = nome_usuario;
+-    document.getElementById('aprovar-user-modo').value = modo;
+-
+-    const title = modo === 'aprovar' ? 'Aprovar e Vincular Usuário' : 'Editar Unidade e Nível de Acesso';
+-    document.getElementById('modal-user-title').textContent = title;
+-
+-    // Carregar unidades
+-    const data = await safeFetch('/api/unidades');
+-    if (data.success) {
+-        unidadesCache = data.unidades;
+-        const unidContainer = document.getElementById('aprovar-unidades-container');
+-        const idsAtuais = unidades_atuais.map(uu => uu.id_unidade);
+-        const todasMarcadas = idsAtuais.length > 0 && idsAtuais.length === data.unidades.length;
+-
+-        unidContainer.innerHTML = data.unidades.map(un => {
+-            const isChecked = idsAtuais.includes(un.id_unidade) ? 'checked' : '';
+-            const isDisabled = todasMarcadas ? 'disabled' : '';
+-            return `
+-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
+-                    <input type="checkbox" name="usuario-unidade" value="${un.id_unidade}" ${isChecked} ${isDisabled}>
+-                    ${un.nome_unidade}
+-                </label>
+-            `;
+-        }).join('');
+-
+-        // Marcar "Todas" se todas estiverem selecionadas
+-        const checkTodas = document.getElementById('check-todas-unidades');
+-        if (checkTodas) checkTodas.checked = todasMarcadas;
+-    }
+-
+-    if (nivel_atual) {
+-        document.getElementById('aprovar-nivel').value = nivel_atual;
+-    }
+-
+-    // Carregar categorias
+-    let cats = categoriasCache;
+-    if (cats.length === 0) {
+-        const catReq = await safeFetch('/api/categorias');
+-        if (catReq.success) {
+-            cats = catReq.categorias;
+-            categoriasCache = cats;
+-        }
+-    }
+-    
+-    const catContainer = document.getElementById('aprovar-categorias');
+-    if (catContainer) {
+-        catContainer.innerHTML = cats.map(c => {
+-            const isChecked = categorias_acesso.includes(c.id_categoria) ? 'checked' : '';
+-            return `
+-                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
+-                    <input type="checkbox" name="usuario-categoria" value="${c.id_categoria}" ${isChecked}>
+-                    ${c.nome_categoria}
+-                </label>
+-            `;
+-        }).join('');
+-    }
+-
+-    document.getElementById('modal-aprovar-usuario').classList.remove('hidden');
+-}
+-
+-async function salvarAprovacaoOuEdicaoUsuario(event) {
+-    event.preventDefault();
+-    const userId = document.getElementById('aprovar-user-id').value;
+-    const modo = document.getElementById('aprovar-user-modo').value;
+-    const nivel_acesso = document.getElementById('aprovar-nivel').value;
+-
+-    // Verificar se marcou "Todas as Unidades"
+-    const checkTodas = document.getElementById('check-todas-unidades');
+-    const todasMarcadas = checkTodas && checkTodas.checked;
+-
+-    // Coletar unidades selecionadas
+-    const unidades = Array.from(document.querySelectorAll('input[name="usuario-unidade"]:checked'))
+-                          .map(cb => parseInt(cb.value));
+-
+-    if (!todasMarcadas && unidades.length === 0) {
+-        showToast('Selecione ao menos uma Unidade Operacional.', 'warning');
+-        return;
+-    }
+-
+-    const categoriasSelecionadas = Array.from(document.querySelectorAll('input[name="usuario-categoria"]:checked'))
+-                                        .map(cb => parseInt(cb.value));
+-
+-    const endpoint = modo === 'aprovar' 
+-        ? `/api/auth/users/${userId}/aprovar` 
+-        : `/api/auth/users/${userId}/editar`;
+-
+-    const result = await safeFetch(endpoint, {
+-        method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ 
+-            unidades, 
+-            todas_unidades: todasMarcadas, 
+-            nivel_acesso, 
+-            categorias: categoriasSelecionadas 
+-        })
+-    });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        fecharModal('modal-aprovar-usuario');
+-        carregarUsuarios();
+-
+-        if (currentUser && currentUser.id_usuario == userId) {
+-            currentUser.nivel_acesso = nivel_acesso;
+-            setSessionUser(currentUser);
+-            iniciarAplicacao();
+-        }
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-const TODOS_MENUS = [
+-    { key: 'controle-estoques', label: 'Controle de Estoques (Menu Pai)', isParent: true },
+-    { key: 'dashboard', label: 'Dashboard' },
+-    { key: 'produtos', label: 'Produtos' },
+-    { key: 'movimentacoes', label: 'Movimentações (Grupo)' },
+-    { key: 'historico', label: 'Histórico' },
+-    { key: 'transferencias', label: 'Transferências' },
+-    { key: 'cadastros', label: 'Cadastros (Grupo)' },
+-    { key: 'centros-custo', label: 'Centros de Custo' },
+-    { key: 'unidades', label: 'Unidades' },
+-    { key: 'categorias', label: 'Categorias' },
+-    { key: 'fornecedores', label: 'Fornecedores' },
+-    { key: 'relatorios', label: 'Relatórios (Grupo)' },
+-    { key: 'estoque-atual', label: 'Estoque Atual' },
+-    { key: 'sugestao-compras', label: 'Sugestão de Compras' },
+-    { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
+-    { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
+-    { key: 'estagios-validacao', label: 'Validação Coordenação' },
+-    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
+-    { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
+-    { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
+-    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' }
+-];
+-
+-function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
+-    document.getElementById('perm-menu-id').value = id_usuario;
+-    document.getElementById('perm-menu-username').textContent = `- ${nome_usuario}`;
+-
+-    const permitidos = menus_permitidos || [];
+-
+-    // Monta mapa de pai → filhos para cascata de checkboxes
+-    const grupoAtual = { key: null };
+-    const grupoDoItem = {};
+-    TODOS_MENUS.forEach(m => {
+-        if (m.isParent) {
+-            grupoAtual.key = m.key;
+-        } else if (grupoAtual.key) {
+-            grupoDoItem[m.key] = grupoAtual.key;
+-        }
+-    });
+-
+-    const container = document.getElementById('permissoes-menu-list');
+-    container.innerHTML = TODOS_MENUS.map(m => {
+-        // Se null/undefined (antes da feature), assume que pode ver (fallback).
+-        const isChecked = !menus_permitidos || permitidos.includes(m.key) ? 'checked' : '';
+-        const boldStyle = m.isParent ? 'font-weight: bold;' : 'margin-left: 15px;';
+-        const parentAttr = m.isParent ? `data-parent-key="${m.key}"` : '';
+-        const groupAttr = grupoDoItem[m.key] ? `data-group="${grupoDoItem[m.key]}"` : '';
+-
+-        return `
+-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; ${boldStyle}">
+-                <input type="checkbox" name="menu-permission" value="${m.key}" ${isChecked} ${parentAttr} ${groupAttr}>
+-                ${m.label}
+-            </label>
+-        `;
+-    }).join('');
+-
+-    // Cascata: ao marcar/desmarcar um pai, marca/desmarca todos os filhos do grupo
+-    container.querySelectorAll('input[data-parent-key]').forEach(parentCb => {
+-        parentCb.addEventListener('change', function () {
+-            const key = this.getAttribute('data-parent-key');
+-            container.querySelectorAll(`input[data-group="${key}"]`).forEach(child => {
+-                child.checked = this.checked;
+-            });
+-        });
+-    });
+-
+-    document.getElementById('modal-permissoes-menu').classList.remove('hidden');
+-}
+-
+-async function salvarPermissoesMenu(event) {
+-    event.preventDefault();
+-    const id_usuario = document.getElementById('perm-menu-id').value;
+-    
+-    const checkboxes = document.querySelectorAll('input[name="menu-permission"]:checked');
+-    const menus = Array.from(checkboxes).map(cb => cb.value);
+-
+-    const result = await safeFetch(`/api/auth/users/${id_usuario}/menus`, {
+-        method: 'POST',
+-        headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ menus })
+-    });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        fecharModal('modal-permissoes-menu');
+-        carregarUsuarios(); // recarregar a lista para pegar as permissões novas
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-async function rejeitarUsuario(id_usuario) {
+-    if (!confirm('Deseja rejeitar este usuário?')) return;
+-
+-    const result = await safeFetch(`/api/auth/users/${id_usuario}/rejeitar`, { method: 'POST' });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        carregarUsuarios();
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-// Funções de Troca de Senha
+-function abrirModalTrocarSenha() {
+-    document.getElementById('form-trocar-senha').reset();
+-    document.getElementById('modal-trocar-senha').classList.remove('hidden');
+-}
+-
+-async function solicitarTrocaSenha(event) {
+-    event.preventDefault();
+-    const senha_atual = document.getElementById('ts-senha-atual').value;
+-    const nova_senha = document.getElementById('ts-nova-senha').value;
+-
+-    const result = await safeFetch('/api/auth/users/solicitar-senha', {
+-        method: 'POST',
+-        headers: { 'Content-Type': 'application/json', 'X-User-Id': currentUser ? currentUser.id_usuario : null },
+-        body: JSON.stringify({ senha_atual, nova_senha })
+-    });
+-
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        fecharModal('modal-trocar-senha');
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-async function aprovarSenhaPendente(id_usuario) {
+-    if (!confirm('Deseja aprovar a nova senha deste usuário? A antiga deixará de funcionar.')) return;
+-    const result = await safeFetch(`/api/auth/users/${id_usuario}/aprovar-senha`, { method: 'POST' });
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        carregarUsuarios();
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-async function rejeitarSenhaPendente(id_usuario) {
+-    if (!confirm('Deseja rejeitar a solicitação de nova senha?')) return;
+-    const result = await safeFetch(`/api/auth/users/${id_usuario}/rejeitar-senha`, { method: 'POST' });
+-    if (result.success) {
+-        showToast(result.message, 'success');
+-        carregarUsuarios();
+-    } else {
+-        showToast(result.message, 'error');
+-    }
+-}
+-
+-// --- UTILITÁRIOS ---
+-
+-function fecharModal(modalId) {
+-    document.getElementById(modalId).classList.add('hidden');
+-}
+-
+-function getNomeUnidadeAtiva() {
+-    if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
+-        return currentUser.nome_unidade;
+-    }
+-    const globalSelect = document.getElementById('select-global-unidade');
+-    if (globalSelect && globalSelect.value) {
+-        return globalSelect.options[globalSelect.selectedIndex].text;
+-    }
+-    return ''; // Retorna vazio se for "Todas as Unidades"
+-}
+-
+-function formatarMoeda(valor) {
+-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+-}
+-
+-function formatarData(strData) {
+-    if (!strData) return '-';
+-    try {
+-        const d = new Date(strData);
+-        if (isNaN(d.getTime())) return strData;
+-        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+-    } catch (e) {
+-        return strData;
+-    }
+-}
+-
+-function showToast(mensagem, tipo = 'success') {
+-    const container = document.getElementById('toast-container');
+-    const toast = document.createElement('div');
+-    toast.className = `toast toast-${tipo}`;
+-    
+-    let icon = 'fa-check-circle';
+-    if (tipo === 'error') icon = 'fa-circle-xmark';
+-    if (tipo === 'warning') icon = 'fa-triangle-exclamation';
+-    if (tipo === 'info') icon = 'fa-circle-info';
+-
+-    toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${mensagem}</span>`;
+-    container.appendChild(toast);
+-
+-    setTimeout(() => {
+-        toast.style.opacity = '0';
+-        toast.style.transform = 'translateX(100%)';
+-        toast.style.transition = 'all 0.3s ease';
+-        setTimeout(() => toast.remove(), 300);
+-    }, 4000);
+-}
+-
+-// --- RELATÓRIO DE ESTOQUE BAIXO ---
+-
+-async function abrirRelatorioEstoqueBaixo() {
+-    document.getElementById('modal-relatorio-estoque').classList.remove('hidden');
+-    document.getElementById('table-relatorio-body').innerHTML =
+-        '<tr><td colspan="7" class="text-center text-muted">Carregando...</td></tr>';
+-
+-    let url = '/api/produtos?busca=';
+-    if (selectedUnitId) url += `&id_unidade=${selectedUnitId}`;
+-
+-    const result = await safeFetch(url);
+-    if (!result.success) {
+-        showToast('Erro ao carregar produtos.', 'error');
+-        return;
+-    }
+-
+-    // Filtra somente produtos com estoque baixo ou zerado
+-    const baixos = result.produtos.filter(p =>
+-        p.status_estoque === 'Baixo' || p.status_estoque === 'Zerado'
+-    );
+-
+-    const infoEl = document.getElementById('relatorio-estoque-info');
+-    const unidadeLabel = selectedUnitId
+-        ? (unidadesCache.find(u => u.id_unidade == selectedUnitId)?.nome_unidade || 'Unidade selecionada')
+-        : 'Todas as Unidades';
+-    const agora = new Date().toLocaleDateString('pt-BR');
+-    infoEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> &nbsp;
+-        <strong>${baixos.length} produto(s)</strong> com estoque abaixo do mínimo &nbsp;|&nbsp;
+-        Unidade: <strong>${unidadeLabel}</strong> &nbsp;|&nbsp;
+-        Gerado em: <strong>${agora}</strong>`;
+-
+-    const tbody = document.getElementById('table-relatorio-body');
+-    if (baixos.length === 0) {
+-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:24px;">✅ Nenhum produto com estoque baixo!</td></tr>';
+-        return;
+-    }
+-
+-    tbody.innerHTML = baixos.map((p, i) => {
+-        const badgeClass = p.status_estoque === 'Zerado' ? 'badge-danger' : 'badge-warning';
+-        return `
+-            <tr>
+-                <td style="color:var(--text-muted)">${i + 1}</td>
+-                <td><strong>${p.nome_produto}</strong></td>
+-                <td>${p.nome_categoria || '-'}</td>
+-                <td>${p.nome_unidade || '-'}</td>
+-                <td>${p.estoque_minimo}</td>
+-                <td><strong style="font-size:15px;color:${p.estoque_atual === 0 ? '#f87171' : '#fbbf24'}">${p.estoque_atual}</strong></td>
+-                <td><span class="badge ${badgeClass}">${p.status_estoque}</span></td>
+-            </tr>`;
+-    }).join('');
+-}
+-
+-function imprimirRelatorioEstoque() {
+-    const info = document.getElementById('relatorio-estoque-info').innerText;
+-    const rows = document.getElementById('table-relatorio-body').innerHTML;
+-    const thead = document.getElementById('table-relatorio-baixo').querySelector('thead').outerHTML;
+-
+-    const html = `<!DOCTYPE html>
+-<html lang="pt-BR">
+-<head>
+-    <meta charset="UTF-8">
+-    <title>Relatório de Estoque Baixo</title>
+-    <style>
+-        body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
+-        h1 { font-size: 20px; margin-bottom: 4px; }
+-        .info { font-size: 12px; color: #555; margin-bottom: 16px; padding: 8px 12px; background: #fff8e1; border-left: 4px solid #f59e0b; border-radius: 4px; }
+-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+-        th { background: #1e293b; color: #fff; padding: 8px 10px; text-align: left; }
+-        td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+-        tr:nth-child(even) td { background: #f8fafc; }
+-        .badge { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+-        .badge-warning { background: #fef3c7; color: #92400e; }
+-        .badge-danger { background: #fee2e2; color: #991b1b; }
+-        @page { margin: 16mm; }
+-    </style>
+-</head>
+-<body>
+-    <h1>⚠️ Relatório de Estoque Baixo</h1>
+-    <div class="info">${info}</div>
+-    <table>
+-        ${thead}
+-        <tbody>${rows}</tbody>
+-    </table>
+-</body>
+-</html>`;
+-
+-    const win = window.open('', '_blank');
+-    if (win) {
+-        win.document.write(html);
+-        win.document.close();
+-        setTimeout(() => {
+-            win.focus();
+-            win.print();
+-        }, 250);
+-    } else {
+-        window.print();
+-    }
+-}
+-
+-// --- RELATÓRIO DE ESTOQUE ---
+-
+-async function preencherOpcoesFiltrosRelatorioEstoque() {
+-    const sUnidade = document.getElementById('filter-rel-est-unidade');
+-    const sCategoria = document.getElementById('filter-rel-est-categoria');
+-
+-    if (sUnidade && unidadesCache.length === 0) {
+-        const u = await safeFetch('/api/unidades');
+-        if (u.success) unidadesCache = u.unidades;
+-    }
+-    if (sCategoria && categoriasCache.length === 0) {
+-        const c = await safeFetch('/api/categorias');
+-        if (c.success) categoriasCache = c.categorias;
+-    }
+-
+-    if (sUnidade) {
+-        let html = '<option value="">Todas as Unidades</option>';
+-        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
+-            html = `<option value="${currentUser.id_unidade}">${currentUser.nome_unidade || 'Sua Unidade'}</option>`;
+-            sUnidade.disabled = true;
+-        } else {
+-            unidadesCache.forEach(un => {
+-                html += `<option value="${un.id_unidade}">${un.nome_unidade}</option>`;
+-            });
+-            if (selectedUnitId) sUnidade.value = selectedUnitId;
+-        }
+-        sUnidade.innerHTML = html;
+-    }
+-
+-    if (sCategoria) {
+-        sCategoria.innerHTML = '<option value="">Todas as Categorias</option>' + 
+-            categoriasCache.map(cat => `<option value="${cat.id_categoria}">${cat.nome_categoria}</option>`).join('');
+-    }
+-}
+-
+-async function carregarRelatorioEstoque() {
+-    let unidade = document.getElementById('filter-rel-est-unidade')?.value || '';
+-    const categoria = document.getElementById('filter-rel-est-categoria')?.value || '';
+-    const incluirZerados = document.getElementById('filter-rel-est-zerados')?.checked || false;
+-
+-    if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
+-        unidade = currentUser.id_unidade || '';
+-    } else if (!unidade && selectedUnitId) {
+-        unidade = selectedUnitId;
+-        const sUnidade = document.getElementById('filter-rel-est-unidade');
+-        if (sUnidade) sUnidade.value = selectedUnitId;
+-    }
+-
+-    let url = '/api/relatorios/estoque?';
+-    if (unidade) url += `id_unidade=${unidade}&`;
+-    if (categoria) url += `id_categoria=${categoria}&`;
+-    if (incluirZerados) url += `incluir_zerados=true&`;
+-
+-    const tbody = document.getElementById('table-relatorios-estoque-body');
+-    if (!tbody) return;
+-
+-    try {
+-        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Carregando dados do relatório...</td></tr>';
+-        const res = await safeFetch(url);
+-        
+-        if (res.success) {
+-            if (res.data.length === 0) {
+-                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum produto encontrado para os filtros selecionados.</td></tr>';
+-                if (document.getElementById('report-estoque-total-val')) {
+-                    document.getElementById('report-estoque-total-val').textContent = 'R$ 0,00';
+-                }
+-                return;
+-            }
+-
+-            let somaTotal = 0;
+-            res.data.forEach(r => {
+-                if (r.valor_total) somaTotal += r.valor_total;
+-            });
+-            
+-            if (document.getElementById('report-estoque-total-val')) {
+-                document.getElementById('report-estoque-total-val').textContent = somaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+-            }
+-
+-            tbody.innerHTML = res.data.map(r => `
+-                <tr>
+-                    <td>#${r.id_produto}</td>
+-                    <td><strong>${r.nome_produto}</strong></td>
+-                    <td>${r.nome_categoria}</td>
+-                    <td>${r.nome_unidade}</td>
+-                    <td><span class="badge ${r.estoque_atual <= 0 ? 'badge-danger' : 'badge-primary'}">${r.estoque_atual}</span></td>
+-                    <td><small style="color: var(--accent-warning);">${(r.preco_custo || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</small></td>
+-                    <td><strong>${(r.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+-                </tr>
+-            `).join('');
+-        } else {
+-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar relatório.</td></tr>';
+-            showToast(res.message || 'Erro ao carregar relatório', 'error');
+-        }
+-    } catch (e) {
+-        console.error(e);
+-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro de conexão ao carregar relatório.</td></tr>';
+-    }
+-}
+-
+-function aplicarFiltrosRelatorioEstoque(event) {
+-    if (event) event.preventDefault();
+-    carregarRelatorioEstoque();
+-}
+-
+-function limparFiltrosRelatorioEstoque() {
+-    document.getElementById('form-filter-relatorio-estoque').reset();
+-    if (currentUser && currentUser.nivel_acesso === 'Administrador' && selectedUnitId) {
+-        document.getElementById('filter-rel-est-unidade').value = selectedUnitId;
+-    }
+-    carregarRelatorioEstoque();
+-}
+-
+-function imprimirRelatorioEstoque() {
+-    const selectUnidade = document.getElementById('filter-rel-est-unidade');
+-    const nomeUnidade = selectUnidade && selectUnidade.selectedIndex > 0 ? selectUnidade.options[selectUnidade.selectedIndex].text : 'Todas as Unidades';
+-    
+-    const selectCategoria = document.getElementById('filter-rel-est-categoria');
+-    const nomeCategoria = selectCategoria && selectCategoria.selectedIndex > 0 ? selectCategoria.options[selectCategoria.selectedIndex].text : 'Todas as Categorias';
+-    const incluirZerados = document.getElementById('filter-rel-est-zerados')?.checked || false;
+-
+-    const tbody = document.getElementById('table-relatorios-estoque-body')?.innerHTML || '';
+-    const now = new Date().toLocaleDateString('pt-BR');
+-
+-    let filtrosTexto = [];
+-    if (nomeUnidade && nomeUnidade !== 'Todas as Unidades') filtrosTexto.push(`Unidade: <strong>${nomeUnidade}</strong>`);
+-    if (nomeCategoria && nomeCategoria !== 'Todas as Categorias') filtrosTexto.push(`Categoria: <strong>${nomeCategoria}</strong>`);
+-    filtrosTexto.push(`Produtos zerados: <strong>${incluirZerados ? 'Incluídos' : 'Ocultos'}</strong>`);
+-    
+-    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros específicos (Exibindo estoque atual geral)';
+-    const valorTotalEstoque = document.getElementById('report-estoque-total-val')?.innerText || 'R$ 0,00';
+-
+-    const html = `<!DOCTYPE html>
+-<html lang="pt-BR">
+-<head>
+-    <meta charset="UTF-8">
+-    <title>Relatório de Estoque Atual</title>
+-    <style>
+-        body { font-family: 'Inter', Arial, sans-serif; padding: 20px; color: #333; }
+-        .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; border-bottom: 2px solid #0284c7; padding-bottom: 10px; }
+-        .header h1 { font-size: 22px; margin: 0 0 5px 0; color: #0f172a; }
+-        .header .meta { text-align: right; font-size: 11px; color: #475569; }
+-        .filter-box { font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; color: #334155; }
+-        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+-        th { background: #0f172a; color: #ffffff; padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 600; }
+-        td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; color: #334155; }
+-        tr:nth-child(even) td { background: #f8fafc; }
+-        .badge { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; display: inline-block; }
+-        .badge-primary { background: #dbeafe; color: #1e3a8a; border: 1px solid #bfdbfe; }
+-        .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+<truncated 229560 bytes>
+
+NOTE: The output was truncated because it was too long. Use a more targeted query or a smaller range to get the information you need.

@@ -1,10 +1,14 @@
-import sys
-file_path = 'c:/ControleEstoques - Ambiente Testes/public/index.html'
-with open(file_path, 'r', encoding='utf-8') as f:
+import codecs
+
+p = r'c:\ControleEstoques - Ambiente Testes\src\database.js'
+with codecs.open(p, 'r', 'utf-8') as f:
     content = f.read()
 
-content = content.replace('<option value="">TODAS AS UNIDADES</option>', '')
+# Fix init_db
+content = content.replace(
+    "ADD COLUMN IF NOT EXISTS data_validacao TIMESTAMPTZ DEFAULT NULL;",
+    "ADD COLUMN IF NOT EXISTS data_validacao TIMESTAMPTZ DEFAULT NULL,\n      ADD COLUMN IF NOT EXISTS aguardando_analise BOOLEAN DEFAULT FALSE;"
+)
 
-with open(file_path, 'w', encoding='utf-8') as f:
+with codecs.open(p, 'w', 'utf-8') as f:
     f.write(content)
-print('Done!')

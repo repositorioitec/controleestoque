@@ -11,23 +11,7 @@ let unidadesCache = [];
 let movimentacoesCache = [];
 let _userDataMap = {}; // mapa id_usuario -> dados completos do usuário
 
-window.onerror = function(message, source, lineno, colno, error) {
-    if (typeof showToast === 'function') {
-        showToast('Erro Global: ' + message, 'error');
-    } else {
-        alert('Erro Global: ' + message);
-    }
-};
-
-window.onunhandledrejection = function(event) {
-    if (typeof showToast === 'function') {
-        showToast('Erro Async: ' + (event.reason ? event.reason.message || event.reason : 'Desconhecido'), 'error');
-    } else {
-        alert('Erro Async: ' + event.reason);
-    }
-};
-
-// --- HELPERS DE NÍVEL DE ACESSO ---
+// --- HELPERS DE NÍVEL DE ACESSO ---
 function isAdmin() {
     return currentUser && currentUser.nivel_acesso === 'Administrador';
 }
@@ -35,7 +19,7 @@ function isSupervisor() {
     return currentUser && (currentUser.nivel_acesso === 'Supervisor' || currentUser.nivel_acesso === 'Administrador');
 }
 
-// --- MOTOR LOCALDB PARA GITHUB PAGES (CLIENT-SIDE ESTÍTICO) ---
+// --- MOTOR LOCALDB PARA GITHUB PAGES (CLIENT-SIDE ESTÁTICO) ---
 const LocalDB = {
     init() {
         if (!localStorage.getItem('gh_unidades')) {
@@ -264,7 +248,7 @@ const LocalDB = {
             return { success: false, message: 'Usuário não encontrado.' };
         }
 
-        // --- ESTÍGIOS ---
+        // --- ESTÁGIOS ---
         if (path === '/api/estagios/lancamentos') {
             const lancamentos = this.get('estagios_lancamentos');
             if (method === 'GET') {
@@ -477,7 +461,7 @@ const LocalDB = {
             return { success: true, message: 'Produto excluído.' };
         }
 
-        // PATCH PREÃƒâ€¡O
+        // PATCH PREÇO
         if (path.match(/\/api\/produtos\/\d+\/preco/) && method === 'PATCH') {
             const id = parseInt(path.split('/')[3]);
             const { campo, valor } = body;
@@ -619,7 +603,7 @@ const LocalDB = {
             return { success: true, message: 'Transferência registrada com sucesso!' };
         }
 
-        // MOVIMENTAÇÕES¢ES SINGLE GET
+        // MOVIMENTAÇÕES SINGLE GET
         if (path.match(/\/api\/movimentacoes\/\d+$/) && method === 'GET') {
             const id = path.split('/')[3];
             const m = this.get('movimentacoes').find(x => x.id_movimentacao == id);
@@ -627,7 +611,7 @@ const LocalDB = {
             return { success: true, movimentacao: m };
         }
 
-        // MOVIMENTAÇÕES¢ES PUT
+        // MOVIMENTAÇÕES PUT
         if (path.match(/\/api\/movimentacoes\/\d+$/) && method === 'PUT') {
             const id = path.split('/')[3];
             const movs = this.get('movimentacoes');
@@ -659,7 +643,7 @@ const LocalDB = {
             return { success: true, message: 'Movimentação atualizada com sucesso!' };
         }
 
-        // MOVIMENTAÇÕES¢ES DELETE
+        // MOVIMENTAÇÕES DELETE
         if (path.match(/\/api\/movimentacoes\/\d+$/) && method === 'DELETE') {
             let movs = this.get('movimentacoes');
             const idx = movs.findIndex(x => x.id_movimentacao == path.split('/')[3]);
@@ -803,7 +787,7 @@ const LocalDB = {
     }
 };
 
-// Função auxiliar para realizar chamadas API ou redirecionar para LocalDB no GitHub Pages
+// Funçao auxiliar para realizar chamadas API ou redirecionar para LocalDB no GitHub Pages
 async function safeFetch(url, options = {}) {
     // Se estiver rodando estático no GitHub Pages
     if (window.location.hostname.includes('github.io')) {
@@ -865,7 +849,7 @@ function clearSessionUser() {
 }
 
 function checarSessaoUsuario() {
-    // Não remover localStorage aqui — login.html salva lá
+    // Não remover localStorage aqui — login.html salva lá
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('action') === 'login' || urlParams.get('logout') === 'true') {
@@ -1086,7 +1070,6 @@ async function iniciarAplicacao() {
     
     // Start inactivity watcher after login
     resetInatividadeTimer();
-    carregarDataAtualizacaoBanco();
 
     const selectGlobal = document.getElementById('select-global-unidade');
     if (currentUser.nivel_acesso === 'Administrador') {
@@ -1210,7 +1193,7 @@ function abrirPrimeiroMenuESubmenu() {
         }
     }
 
-    // Menus permanecem RECOLHIDOS ao iniciar — não abre o parentUlToOpen
+    // Menus permanecem RECOLHIDOS ao iniciar — não abre o parentUlToOpen
 
     // Marca como active o primeiro submenu
     if (targetNavItem) {
@@ -1309,8 +1292,7 @@ function navegarParaView(viewId) {
             'view-estagios-validacao': 'Validação Coordenação (Estágios)',
             'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno',
             'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade',
-            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas',
-            'view-relatorio-controle-manual': 'Relatório: Controle Manual'
+            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas'
         };
         document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
 
@@ -1339,7 +1321,6 @@ function navegarParaView(viewId) {
         if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
         if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
         if (viewId === 'view-estagios-relatorio-horas-validadas') iniciarRelatorioHorasValidadas();
-        if (viewId === 'view-relatorio-controle-manual') iniciarRelatorioControleManual();
     }
 }
 
@@ -1387,6 +1368,12 @@ async function carregarDashboard() {
                         <td><strong>${m.quantidade}</strong></td>
                     </tr>
                 `).join('');
+            }
+            
+            const lastUpdateLabel = document.getElementById('db-last-update-label');
+            if (lastUpdateLabel) {
+                const now = new Date();
+                lastUpdateLabel.textContent = `ATUALIZADO: ${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
             }
         }
     } catch (error) {
@@ -1725,7 +1712,7 @@ function excluirMovimentacao(id_movimentacao) {
             }
         });
 }
-// --- MOVIMENTAÇÕES¢ES DE ESTOQUE ---
+// --- MOVIMENTAÇÕES DE ESTOQUE ---
 
 function getFormattedLocalDateTime() {
     const now = new Date();
@@ -1768,7 +1755,7 @@ async function preencherOpcoesFiltrosMovimentacoes() {
     if (dataCC.success && dataCC.centros && selectCC) {
         const valAtual = selectCC.value;
         selectCC.innerHTML = '<option value="">Todos os Centros</option>' +
-            dataCC.centros.map(c => `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`).join('');
+            dataCC.centros.map(c => `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`).join('');
         if (valAtual) selectCC.value = valAtual;
     }
 }
@@ -2072,7 +2059,7 @@ function imprimirRelatorioMovimentacoes() {
 <body>
     <div class="header">
         <div>
-            <h1>Ã°Å¸â€œâ€¹ Relatório de Movimentações de Estoque</h1>
+            <h1>📋 Relatório de Movimentações de Estoque</h1>
             <small style="color: #64748b;">Sistema de Controle de Estoques - ITEC</small>
         </div>
         <div class="meta">
@@ -2082,7 +2069,7 @@ function imprimirRelatorioMovimentacoes() {
     </div>
 
     <div class="filter-box">
-        Ã°Å¸â€Â <strong>Filtros Aplicados:</strong> ${filtrosHtml}
+        🔍 <strong>Filtros Aplicados:</strong> ${filtrosHtml}
     </div>
 
     <div class="kpi-grid">
@@ -2149,7 +2136,7 @@ async function abrirModalMovimentacao(param) {
         editandoMovimentacaoId = null;
         document.getElementById('mov-tipo').value = param;
         document.getElementById('mov-data').value = getFormattedLocalDateTime();
-        document.getElementById('modal-movimentacao-title').textContent = param === 'ENTRADA' ? 'Registrar Nova ENTRADA de Estoque' : 'Registrar Nova SAÍDA de Estoque';
+        document.getElementById('modal-movimentacao-title').textContent = param === 'ENTRADA' ? 'Registrar Nova ENTRADA de Estoque' : 'Registrar Nova SAÍDA de Estoque';
         
         const btnSubmit = document.getElementById('btn-submit-mov');
         btnSubmit.className = param === 'ENTRADA' ? 'btn btn-primary' : 'btn btn-warning';
@@ -2244,7 +2231,7 @@ async function abrirModalMovimentacao(param) {
                     document.getElementById('mov-fornecedor').value = mov.id_fornecedor;
                 }
 
-                // Restaura centro de custo se for edição de SAÍDA
+                // Restaura centro de custo se for edição de SAÍDA
                 if (mov.tipo_movimentacao === 'SAIDA' && mov.id_centro_custo && document.getElementById('mov-centro-custo')) {
                     await carregarCentrosCustoNoModal(mov.id_centro_custo);
                 } else if (mov.tipo_movimentacao === 'SAIDA') {
@@ -2277,7 +2264,7 @@ async function carregarCentrosCustoNoModal(valorAtual = null) {
     }
 
     selectCC.innerHTML = centros.map(c =>
-        `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`
+        `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`
     ).join('');
 
     if (valorAtual) {
@@ -2391,6 +2378,9 @@ async function carregarCategoriasEFornecedores() {
         const optionsHtml = categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
         if (selectProdCat) selectProdCat.innerHTML = '<option value="">Selecione...</option>' + optionsHtml;
         if (selectFilterCat) selectFilterCat.innerHTML = '<option value="">Todas as Categorias</option>' + optionsHtml;
+
+        const selectFilterManual = document.getElementById('filter-categoria-controle-manual');
+        if (selectFilterManual) selectFilterManual.innerHTML = '<option value="">Todas as Categorias</option>' + optionsHtml;
     }
 
     if (dataForn.success) {
@@ -2664,7 +2654,7 @@ async function salvarFornecedor(event) {
     }
 }
 
-// --- USUÍRIOS E APROVAÇÃO ---
+// --- USUÁRIOS E APROVAÇÃO ---
 
 async function carregarUsuarios() {
     const result = await safeFetch('/api/auth/users');
@@ -3011,15 +3001,13 @@ const TODOS_MENUS = [
     { key: 'relatorios', label: 'Relatórios (Grupo)' },
     { key: 'estoque-atual', label: 'Estoque Atual' },
     { key: 'sugestao-compras', label: 'Sugestão de Compras' },
-    { key: 'relatorio-controle-manual', label: 'Controle Manual' },
     { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
     { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
     { key: 'estagios-validacao', label: 'Validação Coordenação' },
-    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)' },
+    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
     { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
     { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
-    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' },
-    { key: 'documentos', label: 'Documentos' }
+    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' }
 ];
 
 function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
@@ -3028,7 +3016,7 @@ function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
 
     const permitidos = menus_permitidos || [];
 
-    // Monta mapa de pai Ã¢â€ â€™ filhos para cascata de checkboxes
+    // Monta mapa de pai → filhos para cascata de checkboxes
     const grupoAtual = { key: null };
     const grupoDoItem = {};
     TODOS_MENUS.forEach(m => {
@@ -3150,7 +3138,7 @@ async function rejeitarSenhaPendente(id_usuario) {
     }
 }
 
-// --- UTILITÍRIOS ---
+// --- UTILITÁRIOS ---
 
 function fecharModal(modalId) {
     document.getElementById(modalId).classList.add('hidden');
@@ -3236,7 +3224,7 @@ async function abrirRelatorioEstoqueBaixo() {
 
     const tbody = document.getElementById('table-relatorio-body');
     if (baixos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:24px;">Ã¢Å“â€¦ Nenhum produto com estoque baixo!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:24px;">✅ Nenhum produto com estoque baixo!</td></tr>';
         return;
     }
 
@@ -3280,7 +3268,7 @@ function imprimirRelatorioEstoque() {
     </style>
 </head>
 <body>
-    <h1>Ã¢Å¡Â Ã¯Â¸Â Relatório de Estoque Baixo</h1>
+    <h1>⚠️ Relatório de Estoque Baixo</h1>
     <div class="info">${info}</div>
     <table>
         ${thead}
@@ -3457,7 +3445,7 @@ function imprimirRelatorioEstoque() {
 <body>
     <div class="header">
         <div>
-            <h1>Ã°Å¸â€œâ€¹ Relatório de Estoque Atual</h1>
+            <h1>📋 Relatório de Estoque Atual</h1>
             <small style="color: #64748b;">Sistema de Controle de Estoques - ITEC</small>
         </div>
         <div class="meta">
@@ -3467,7 +3455,7 @@ function imprimirRelatorioEstoque() {
     </div>
 
     <div class="filter-box">
-        Ã°Å¸â€Â <strong>Filtros Aplicados:</strong> ${filtrosHtml}
+        🔍 <strong>Filtros Aplicados:</strong> ${filtrosHtml}
     </div>
 
     <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; display: inline-block;">
@@ -3483,7 +3471,7 @@ function imprimirRelatorioEstoque() {
                 <th>Categoria</th>
                 <th>Unidade</th>
                 <th>Saldo Atual</th>
-                <th>Preço Unit. (ÃƒÅ¡lt. Entrada)</th>
+                <th>Preço Unit. (Últ. Entrada)</th>
                 <th>Valor Total</th>
             </tr>
         </thead>
@@ -3742,7 +3730,7 @@ function imprimirRelatorioSugestaoCompras() {
 }
 
 // ============================================================================
-// IMPORTAÇÃO DE PLANILHA DE ESTÍGIOS
+// IMPORTAÇÃO DE PLANILHA DE ESTÁGIOS
 // ============================================================================
 
 let _planilhaArquivo = null;
@@ -3886,7 +3874,7 @@ async function confirmarImportacaoPlanilha() {
 }
 
 // ============================================================================
-// NOVO CÓDIGO - ABA DE ESTÍGIOS
+// NOVO CÓDIGO - ABA DE ESTÁGIOS
 // ============================================================================
 
 let estagiosCache = [];
@@ -3901,6 +3889,10 @@ async function carregarLancamentosEstagio() {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
             estagiosCache = data;
             atualizarFiltrosLancamentosEstagio();
             atualizarDatalistAlunos();
@@ -3928,7 +3920,7 @@ function atualizarFiltrosLancamentosEstagio() {
     const unidadeAtual = (elUnidade.value || '').toUpperCase();
     const statusAtual = elStatus ? (elStatus.value || '').toUpperCase() : '';
 
-    // Extrai valores únicos em MAIÃƒÅ¡SCULO
+    // Extrai valores únicos em MAIÚSCULO
     const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
     const turmas = [...new Set(estagiosCache.map(l => (l.turma || '').trim().toUpperCase()).filter(Boolean))].sort();
     const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
@@ -3942,32 +3934,10 @@ function atualizarFiltrosLancamentosEstagio() {
     elTurma.innerHTML = '<option value="">TODAS AS TURMAS</option>' + 
         turmas.map(t => `<option value="${t}">${t}</option>`).join('');
 
-    // Unidade ativa conforme cabeçalho ou cadastro do usuário
-    const unidadeAtiva = (getGlobalSelectedUnitName() || (currentUser && currentUser.nome_unidade) || '').trim().toUpperCase();
+    // Atualiza opções Unidade
+    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
+        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
 
-    // Aplica regras de restrição baseadas no cabeçalho ou permissões do usuário
-    let unidadesDisponiveis = unidades;
-    const globalUnit = getGlobalSelectedUnitName();
-    if (globalUnit) {
-        unidadesDisponiveis = [globalUnit.trim().toUpperCase()];
-    } else if (currentUser && currentUser.nivel_acesso !== 'Administrador' && currentUser.nome_unidade) {
-        unidadesDisponiveis = [currentUser.nome_unidade.trim().toUpperCase()];
-    }
-
-    // Atualiza opções Unidade — sem "TODAS AS UNIDADES"
-    if (unidadesDisponiveis.length <= 1) {
-        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
-        elUnidade.disabled = true;
-    } else {
-        elUnidade.disabled = false;
-        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
-        const unidadeAtualRestaurada = (elUnidade.value || '').toUpperCase();
-        if (unidadesDisponiveis.includes(unidadeAtiva)) {
-            elUnidade.value = unidadeAtiva;
-        } else if (unidadesDisponiveis.includes(unidadeAtualRestaurada)) {
-            elUnidade.value = unidadeAtualRestaurada;
-        }
-    }
     // Atualiza opções Status
     if (elStatus) {
         elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
@@ -4152,7 +4122,7 @@ function renderEstagios(lista) {
         let statusBadge = 'badge-secondary';
         const stUpper = (l.status || '').toUpperCase();
         if (stUpper === 'EM ANDAMENTO') statusBadge = 'badge-primary';
-        else if (stUpper === 'CONCLUIDO' || stUpper === 'CONCLUÍDO') statusBadge = 'badge-success';
+        else if (stUpper === 'CONCLUIDO' || stUpper === 'CONCLUÍDO') statusBadge = 'badge-success';
         else if (stUpper === 'EVADIDO') statusBadge = 'badge-warning';
         else if (stUpper === 'CANCELADO') statusBadge = 'badge-danger';
 
@@ -4310,6 +4280,10 @@ async function carregarValidacaoEstagios() {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
             estagiosCache = data;
             atualizarFiltrosValidacaoEstagio();
             filtrarValidacaoEstagios();
@@ -4343,32 +4317,8 @@ function atualizarFiltrosValidacaoEstagio() {
     elTurma.innerHTML = '<option value="">TODAS AS TURMAS</option>' + 
         turmas.map(t => `<option value="${t}">${t}</option>`).join('');
 
-    // Unidade ativa conforme cabeçalho ou cadastro do usuário
-    const unidadeAtiva = (getGlobalSelectedUnitName() || (currentUser && currentUser.nome_unidade) || '').trim().toUpperCase();
-
-    // Aplica regras de restrição baseadas no cabeçalho ou permissões do usuário
-    let unidadesDisponiveis = unidades;
-    const globalUnit = getGlobalSelectedUnitName();
-    if (globalUnit) {
-        unidadesDisponiveis = [globalUnit.trim().toUpperCase()];
-    } else if (currentUser && currentUser.nivel_acesso !== 'Administrador' && currentUser.nome_unidade) {
-        unidadesDisponiveis = [currentUser.nome_unidade.trim().toUpperCase()];
-    }
-
-    // Atualiza opções Unidade — sem "TODAS AS UNIDADES"
-    if (unidadesDisponiveis.length <= 1) {
-        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
-        elUnidade.disabled = true;
-    } else {
-        elUnidade.disabled = false;
-        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
-        const unidadeAtualRestaurada = (elUnidade.value || '').toUpperCase();
-        if (unidadesDisponiveis.includes(unidadeAtiva)) {
-            elUnidade.value = unidadeAtiva;
-        } else if (unidadesDisponiveis.includes(unidadeAtualRestaurada)) {
-            elUnidade.value = unidadeAtualRestaurada;
-        }
-    }
+    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
+        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
 
     if (elStatus) {
         elStatus.innerHTML = '<option value="">TODOS OS STATUS</option>' + 
@@ -4530,13 +4480,13 @@ async function validarLancamentoEstagio(id) {
     const horas_laboratorio = getInput('horas_laboratorio');
     const horas_evento      = getInput('horas_evento');
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Validação: soma das disciplinas deve ser igual ao total de horas Ã¢â€â‚¬Ã¢â€â‚¬
+    // ── Validação: soma das disciplinas deve ser igual ao total de horas ──
     const horas_totais_previsto = Math.round(parseFloat(original.horas_totais) || 0);
     const soma_disciplinas = horas_campo + horas_capacitacao + horas_laboratorio + horas_evento;
 
     if (soma_disciplinas !== horas_totais_previsto) {
         showToast(
-            `Ã¢Å¡Â Ã¯Â¸Â Soma das disciplinas (${soma_disciplinas}h) é diferente do Total de Horas (${horas_totais_previsto}h). Corrija antes de validar.`,
+            `⚠️ Soma das disciplinas (${soma_disciplinas}h) é diferente do Total de Horas (${horas_totais_previsto}h). Corrija antes de validar.`,
             'error'
         );
         return;
@@ -4611,6 +4561,10 @@ async function iniciarRelatorioHorasAluno() {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
             estagiosCache = data;
             atualizarDatalistAlunos();
         }
@@ -4957,11 +4911,11 @@ function imprimirRelatorioHorasAluno() {
             </head>
             <body>
                 <div class="btn-imprimir-toolbar no-print">
-                    <button class="btn-print" onclick="window.print()">Imprimir / Salvar PDF</button>
+                    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
                 </div>
                 <h2>Relatório de Horas por Aluno</h2>
                 <div class="info-header">
-                    <div>Emissão: ${new Date().toLocaleDateString('pt-BR')} Í s ${new Date().toLocaleTimeString('pt-BR')}</div>
+                    <div>Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
                     <div>Impresso por: <strong>${currentUser ? (currentUser.nome_usuario || currentUser.usuario || '-') : '-'}</strong></div>
                 </div>
                 ${relatorioContent.innerHTML}
@@ -4989,7 +4943,6 @@ async function iniciarRelatorioHorasValidadas() {
             estagiosCache = unidadeSelecionada
                 ? res.lancamentos.filter(l => (l.unidade || '').trim().toUpperCase() === unidadeSelecionada.toUpperCase())
                 : res.lancamentos;
-            popularFiltroUnidadeHorasValidadas();
             gerarRelatorioHorasValidadas();
         }
     } catch (e) {
@@ -5000,19 +4953,16 @@ async function iniciarRelatorioHorasValidadas() {
 function limparRelatorioHorasValidadas() {
     document.getElementById('relatorio-hv-data-inicio').value = '';
     document.getElementById('relatorio-hv-data-fim').value = '';
-    if(document.getElementById('relatorio-hv-unidade')) document.getElementById('relatorio-hv-unidade').value = '';
     gerarRelatorioHorasValidadas();
 }
 
 function gerarRelatorioHorasValidadas() {
     const dataInicio = document.getElementById('relatorio-hv-data-inicio').value;
     const dataFim = document.getElementById('relatorio-hv-data-fim').value;
-    const unidadeSelecionadaFiltro = (document.getElementById('relatorio-hv-unidade') ? document.getElementById('relatorio-hv-unidade').value : '').trim().toUpperCase();
     const resultados = estagiosCache
         .filter(l => l.validado_coordenacao === true)
         .filter(l => !dataInicio || (l.data_validacao || '') >= dataInicio)
         .filter(l => !dataFim || (l.data_validacao || '') <= dataFim)
-        .filter(l => !unidadeSelecionadaFiltro || (l.unidade || '').trim().toUpperCase() === unidadeSelecionadaFiltro)
         .sort((a, b) => (b.data_validacao || '').localeCompare(a.data_validacao || '') ||
             (b.horas_totais || 0) - (a.horas_totais || 0));
 
@@ -5062,7 +5012,7 @@ function imprimirRelatorioHorasValidadas() {
         th, td { border:1px solid #cbd5e1; padding:8px; text-align:left; }
         th, tfoot { background:#f1f5f9; text-transform:uppercase; }
         @media print { .no-print { display:none; } }
-    </style></head><body><div class="no-print"><button onclick="window.print()">Imprimir / Salvar PDF</button></div><h2>Relatório de Horas Validadas</h2><p>Emissão: ${new Date().toLocaleDateString('pt-BR')} Í s ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
+    </style></head><body><div class="no-print"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div><h2>Relatório de Horas Validadas</h2><p>Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
 }
@@ -5077,6 +5027,10 @@ async function iniciarRelatorioAlunosUnidade() {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
+            const globalUnit = getGlobalSelectedUnitName();
+            if (globalUnit) {
+                data = data.filter(l => (l.unidade || '').trim().toUpperCase() === globalUnit.toUpperCase());
+            }
             estagiosCache = data;
             preencherFiltrosRelatorioAlunosUnidade();
         }
@@ -5096,33 +5050,9 @@ function preencherFiltrosRelatorioAlunosUnidade() {
     const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
     const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
 
-    // Unidade ativa conforme cabeçalho ou cadastro do usuário
-    const unidadeAtiva = (getGlobalSelectedUnitName() || (currentUser && currentUser.nome_unidade) || '').trim().toUpperCase();
-
-    // Aplica regras de restrição baseadas no cabeçalho ou permissões do usuário
-    let unidadesDisponiveis = unidades;
-    const globalUnit = getGlobalSelectedUnitName();
-    if (globalUnit) {
-        unidadesDisponiveis = [globalUnit.trim().toUpperCase()];
-    } else if (currentUser && currentUser.nivel_acesso !== 'Administrador' && currentUser.nome_unidade) {
-        unidadesDisponiveis = [currentUser.nome_unidade.trim().toUpperCase()];
-    }
-
-    // Atualiza opções Unidade — sem "TODAS AS UNIDADES"
-    if (unidadesDisponiveis.length <= 1) {
-        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
-        elUnidade.disabled = true;
-    } else {
-        elUnidade.disabled = false;
-        elUnidade.innerHTML = unidadesDisponiveis.map(u => `<option value="${u}">${u}</option>`).join('');
-        const unidadeAtualRestaurada = (elUnidade.value || '').toUpperCase();
-        if (unidadesDisponiveis.includes(unidadeAtiva)) {
-            elUnidade.value = unidadeAtiva;
-        } else if (unidadesDisponiveis.includes(unidadeAtualRestaurada)) {
-            elUnidade.value = unidadeAtualRestaurada;
-        }
-    }
-
+    elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
+        unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+    
     elCurso.innerHTML = '<option value="">TODOS OS CURSOS</option>' + 
         cursos.map(c => `<option value="${c}">${c}</option>`).join('');
 
@@ -5131,9 +5061,7 @@ function preencherFiltrosRelatorioAlunosUnidade() {
 }
 
 function limparRelatorioAlunosUnidade() {
-    if (document.getElementById('relatorio-au-unidade').options.length > 1) {
-        document.getElementById('relatorio-au-unidade').selectedIndex = 0;
-    }
+    document.getElementById('relatorio-au-unidade').value = '';
     document.getElementById('relatorio-au-curso').value = '';
     document.getElementById('relatorio-au-horas-min').value = '';
     document.getElementById('relatorio-au-horas-max').value = '';
@@ -5212,7 +5140,7 @@ function gerarRelatorioAlunosUnidade() {
         totalGeralHoras += r.horas;
         let statusBadge = 'badge-secondary';
         if (r.status === 'EM ANDAMENTO') statusBadge = 'badge-primary';
-        else if (r.status === 'CONCLUÍDO' || r.status === 'CONCLUIDO') statusBadge = 'badge-success';
+        else if (r.status === 'CONCLUÍDO' || r.status === 'CONCLUIDO') statusBadge = 'badge-success';
         else if (r.status === 'EVADIDO') statusBadge = 'badge-warning';
         else if (r.status === 'CANCELADO') statusBadge = 'badge-danger';
 
@@ -5291,12 +5219,12 @@ function imprimirRelatorioAlunosUnidade() {
             </head>
             <body>
                 <div class="btn-imprimir-toolbar no-print">
-                    <button class="btn-print" onclick="window.print()">Imprimir / Salvar PDF</button>
-                    <button class="btn-print" onclick="window.opener.exportarRelatorioAlunosUnidadeExcel()">Baixar Excel</button>
+                    <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+                    <button class="btn-print" onclick="window.opener.exportarRelatorioAlunosUnidadeExcel()">📊 Baixar Excel</button>
                 </div>
                 <h2>Relatório de Alunos por Unidade</h2>
                 <div class="info-header">
-                    Emissão: ${new Date().toLocaleDateString('pt-BR')} Í s ${new Date().toLocaleTimeString('pt-BR')}
+                    Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
                 </div>
                 ${relatorioContent.innerHTML}
             </body>
@@ -5322,11 +5250,10 @@ function exportarRelatorioAlunosUnidadeExcel() {
     URL.revokeObjectURL(link.href);
 }
 
-// ==========================================================================
-// MÃ“DULO: DOCUMENTOS (TEMPLATES PDF)
-// ==========================================================================
 
-let documentosCache = [];
+// ==========================================
+// DOCUMENTOS API
+// ==========================================
 
 function abrirModalUploadDocumento() {
     document.getElementById('form-upload-documento').reset();
@@ -5334,314 +5261,233 @@ function abrirModalUploadDocumento() {
 }
 
 async function salvarDocumento() {
-    const form = document.getElementById('form-upload-documento');
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-
     const curso = document.getElementById('upload-doc-curso').value;
     const tipo = document.getElementById('upload-doc-tipo').value;
-    const fileInput = document.getElementById('upload-doc-arquivo');
-    const file = fileInput.files[0];
-
-    if (!file) {
-        showToast('Selecione um arquivo PDF.', 'error');
+    const inputArquivo = document.getElementById('upload-doc-arquivo');
+    
+    if (!curso || !tipo || inputArquivo.files.length === 0) {
+        showToast('Preencha todos os campos.', 'warning');
         return;
     }
     
-    if (file.type !== 'application/pdf') {
-        showToast('O arquivo deve ser um PDF.', 'error');
-        return;
-    }
-
+    const file = inputArquivo.files[0];
     const reader = new FileReader();
+    
     reader.onload = async function(e) {
-        const base64 = e.target.result;
-        try {
-            const data = await safeFetch('/api/documentos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    curso: curso,
-                    tipo_documento: tipo,
-                    nome_arquivo: file.name,
-                    arquivo_base64: base64
-                })
-            });
-            if (data.success) {
-                showToast(data.message, 'success');
-                fecharModal('modal-upload-documento');
+        const base64Data = e.target.result;
+        
+        const docData = {
+            curso: curso,
+            tipo_documento: tipo,
+            nome_arquivo: file.name,
+            tipo_mime: file.type,
+            dados_arquivo: base64Data
+        };
+        
+        const btn = document.querySelector('#form-upload-documento button[type="submit"]');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...'; }
+        
+        const res = await safeFetch('/api/documentos', {
+            method: 'POST',
+            body: JSON.stringify(docData)
+        });
+        
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar Documento'; }
+        
+        if (res.success) {
+            showToast('Documento salvo!', 'success');
+            fecharModal('modal-upload-documento');
+            // Atualiza filtro se necessário
+            const filtroAtual = document.getElementById('filtro-documento-curso').value;
+            if (filtroAtual === curso || !filtroAtual) {
+                document.getElementById('filtro-documento-curso').value = curso;
                 filtrarDocumentos();
-            } else {
-                showToast(data.message || 'Erro ao salvar documento', 'error');
             }
-        } catch (error) {
-            console.error('Erro ao salvar documento:', error);
+        } else {
+            showToast(res.message || 'Erro ao salvar', 'error');
         }
     };
+    
+    reader.onerror = function() {
+        showToast('Erro ao ler o arquivo.', 'error');
+    };
+    
     reader.readAsDataURL(file);
 }
 
 async function filtrarDocumentos() {
     const curso = document.getElementById('filtro-documento-curso').value;
     const tbody = document.getElementById('table-documentos-body');
+    
     if (!curso) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Selecione um curso para ver os documentos.</td></tr>';
         return;
     }
     
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Carregando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Carregando documentos... <i class="fa-solid fa-spinner fa-spin"></i></td></tr>';
     
-    try {
-        const data = await safeFetch(`/api/documentos?curso=${encodeURIComponent(curso)}`);
-        if (data.success) {
-            documentosCache = data.documentos;
-            renderDocumentos(documentosCache);
+    const res = await safeFetch(`/api/documentos?curso=${encodeURIComponent(curso)}`);
+    if (res.success) {
+        if (res.documentos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum documento encontrado para este curso.</td></tr>';
+            return;
         }
-    } catch (e) {
+        
+        tbody.innerHTML = res.documentos.map(d => `
+            <tr>
+                <td><strong>${d.nome_arquivo}</strong></td>
+                <td>${d.tipo_documento}</td>
+                <td>${d.curso}</td>
+                <td>${new Date(d.data_inclusao).toLocaleString('pt-BR')}</td>
+                <td class="text-right">
+                    <button class="btn btn-sm btn-primary" onclick="visualizarDocumento(${d.id_documento})" title="Visualizar / Baixar"><i class="fa-solid fa-eye"></i> Visualizar</button>
+                    ${currentUser && currentUser.nivel_acesso === 'Administrador' ? 
+                      `<button class="btn btn-sm btn-danger" onclick="excluirDocumento(${d.id_documento})" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
+                </td>
+            </tr>
+        `).join('');
+    } else {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar documentos.</td></tr>';
     }
 }
 
-function renderDocumentos(lista) {
-    const tbody = document.getElementById('table-documentos-body');
-    if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhum documento encontrado para este curso.</td></tr>';
-        return;
+async function visualizarDocumento(id) {
+    const res = await safeFetch(`/api/documentos/${id}`);
+    if (res.success && res.documento) {
+        const doc = res.documento;
+        // Verifica se é PDF ou DOCX/XLSX
+        if (doc.tipo_mime === 'application/pdf') {
+            document.getElementById('visualizar-doc-titulo').innerText = doc.nome_arquivo;
+            document.getElementById('iframe-visualizar-doc').src = doc.dados_arquivo;
+            document.getElementById('modal-visualizar-documento').classList.remove('hidden');
+        } else {
+            // Outros arquivos (Word, Excel) forçam o download pois o iframe não consegue renderizar facilmente
+            baixarArquivo(doc.dados_arquivo, doc.nome_arquivo);
+        }
+    } else {
+        showToast('Erro ao abrir documento', 'error');
     }
-    
-    let html = '';
-    lista.forEach(doc => {
-        const dataStr = new Date(doc.data_upload).toLocaleDateString('pt-BR');
-        html += `
-            <tr>
-                <td>${doc.curso}</td>
-                <td>${doc.tipo_documento}</td>
-                <td>${doc.nome_arquivo}</td>
-                <td>${dataStr}</td>
-                <td class="text-right">
-                    <button class="btn btn-icon text-primary" title="Visualizar / Imprimir" onclick="visualizarDocumento(${doc.id_documento})"><i class="fa-solid fa-eye"></i></button>
-                    <button class="btn btn-icon text-danger" title="Excluir" onclick="excluirDocumento(${doc.id_documento})"><i class="fa-solid fa-trash"></i></button>
-                </td>
-            </tr>
-        `;
-    });
-    tbody.innerHTML = html;
 }
 
-async function visualizarDocumento(id) {
-    try {
-        const data = await safeFetch(`/api/documentos/${id}/arquivo`);
-        if (data.success) {
-            const doc = data.documento;
-            document.getElementById('visualizar-doc-titulo').innerText = `${doc.tipo_documento} - ${doc.curso}`;
-            document.getElementById('iframe-visualizar-doc').src = doc.arquivo_base64;
-            document.getElementById('modal-visualizar-documento').classList.remove('hidden');
-            
-            // Configurar o botão de impressão de forma mais robusta (Blob URL para evitar problemas de CORS e travamentos)
-            document.getElementById('btn-imprimir-doc-modal').onclick = () => {
-                const src = doc.arquivo_base64;
-                try {
-                    const arr = src.split(',');
-                    const mime = arr[0].match(/:(.*?);/)[1];
-                    const bstr = atob(arr[1]);
-                    let n = bstr.length;
-                    const u8arr = new Uint8Array(n);
-                    while(n--){
-                        u8arr[n] = bstr.charCodeAt(n);
-                    }
-                    const blob = new Blob([u8arr], {type: mime});
-                    const url = URL.createObjectURL(blob);
-                    
-                    if (mime === 'application/pdf') {
-                        const newWindow = window.open(url, '_blank');
-                        if (!newWindow) showToast('Por favor, permita pop-ups para imprimir.', 'error');
-                    } else {
-                        const printWindow = window.open('', '_blank');
-                        if (printWindow) {
-                            printWindow.document.write('<html><head><title>Imprimir Documento</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;"><img src="' + url + '" style="max-width:100%;" onload="window.print(); window.close();"></body></html>');
-                            printWindow.document.close();
-                        } else {
-                            showToast('Por favor, permita pop-ups para imprimir.', 'error');
-                        }
-                    }
-                } catch (err) {
-                    const iframe = document.getElementById('iframe-visualizar-doc');
-                    try {
-                        iframe.contentWindow.focus();
-                        iframe.contentWindow.print();
-                    } catch (e) {
-                        showToast('Não foi possível iniciar a impressão.', 'error');
-                    }
-                }
-            };
-        }
-    } catch (e) {
-        showToast('Erro ao carregar o arquivo do documento.', 'error');
-    }
+function baixarArquivo(base64Data, filename) {
+    const link = document.createElement('a');
+    link.href = base64Data;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 async function excluirDocumento(id) {
-    if(!confirm('Tem certeza que deseja excluir este documento?')) return;
-    try {
-        const data = await safeFetch(`/api/documentos/${id}`, { method: 'DELETE' });
-        if (data.success) {
-            showToast(data.message, 'success');
-            filtrarDocumentos();
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-
-
-async function carregarDataAtualizacaoBanco() {
-    const el = document.getElementById('db-last-update-label');
-    if (!el) return;
-    try {
-        const res = await safeFetch('/api/db-last-update');
-        if (res.success && res.time) {
-            const dateObj = new Date(res.time);
-            const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            el.innerText = `ATUALIZADO: ${dateStr} ${timeStr}`;
-        } else {
-            el.innerText = 'ATUALIZADO: N/D';
-        }
-    } catch (e) {
-        el.innerText = 'ATUALIZADO: ERRO';
-    }
-}
-
-// --- RELATORIO CONTROLE MANUAL ---
-async function iniciarRelatorioControleManual() {
-    document.getElementById('relatorio-controle-manual-resultado').style.display = 'none';
-    document.getElementById('btn-imprimir-controle-manual').style.display = 'none';
+    if (!confirm('Tem certeza que deseja excluir este documento?')) return;
     
-    const selectC = document.getElementById('filter-categoria-controle-manual');
-    if (selectC) {
-        selectC.innerHTML = '<option value="">Carregando...</option>';
-        const dataC = await safeFetch('/api/categorias');
-        if (dataC.success && dataC.categorias) {
-            selectC.innerHTML = '<option value="">Todas as Categorias</option>' +
-                dataC.categorias.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
-        } else {
-            selectC.innerHTML = '<option value="">Erro ao carregar</option>';
-        }
+    const res = await safeFetch(`/api/documentos/${id}`, { method: 'DELETE' });
+    if (res.success) {
+        showToast('Documento excluído!', 'success');
+        filtrarDocumentos();
+    } else {
+        showToast('Erro ao excluir', 'error');
     }
 }
 
+
+// --- RELATÓRIO CONTROLE MANUAL ---
 async function gerarRelatorioControleManual() {
     try {
-        const btn = document.querySelector('#view-relatorio-controle-manual button.btn-primary');
-        if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando...';
-        
-        const catSelect = document.getElementById('filter-categoria-controle-manual');
-        const catId = catSelect ? catSelect.value : '';
-        let url = '/api/produtos';
-        if (catId) {
-            url += `?categoria_id=${encodeURIComponent(catId)}`;
-        }
-        
-        const res = await safeFetch(url);
-        if (!res || !res.success) {
-            alert('Erro ao carregar produtos.');
-            if(btn) btn.innerHTML = '<i class="fa-solid fa-search"></i> Gerar Planilha';
-            return;
-        }
-        
-        let produtos = res.produtos || [];
-        produtos.sort((a, b) => (a.nome_produto || '').localeCompare(b.nome_produto || ''));
+        const catId = document.getElementById('filter-categoria-controle-manual').value;
+        const btn = document.querySelector('button[onclick="gerarRelatorioControleManual()"]');
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando...';
 
-        const tbody = document.getElementById('table-relatorio-controle-manual-body');
-        if (tbody) {
-            tbody.innerHTML = '';
-            
-            for (const p of produtos) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${p.nome_produto || '-'}</strong></td>
-                    <td style="text-align: center;">${p.estoque_atual || 0}</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                `;
-                tbody.appendChild(tr);
+        let url = '/api/produtos';
+        const queryParams = [];
+        if (selectedUnitId) queryParams.push(`id_unidade=${selectedUnitId}`);
+        if (catId) queryParams.push(`id_categoria=${catId}`);
+        if (queryParams.length > 0) url += '?' + queryParams.join('&');
+
+        const result = await safeFetch(url);
+        
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-search"></i> Gerar Planilha';
+
+        if (result.success) {
+            let produtos = result.produtos;
+            if (catId) {
+                produtos = produtos.filter(p => p.id_categoria == catId);
             }
+            if (selectedUnitId) {
+                produtos = produtos.filter(p => p.id_unidade == selectedUnitId || !p.id_unidade);
+            }
+            
+            produtos = produtos.filter(p => !p.inativo);
+            
+            const tbody = document.getElementById('table-relatorio-controle-manual-body');
+            const divResult = document.getElementById('relatorio-controle-manual-resultado');
+            const btnImprimir = document.getElementById('btn-imprimir-controle-manual');
+
+            if (produtos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Nenhum produto encontrado para a categoria selecionada.</td></tr>';
+            } else {
+                tbody.innerHTML = produtos.map(p => `
+                    <tr>
+                        <td><strong>${p.nome_produto}</strong></td>
+                        <td class="text-center">${p.estoque_atual}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                `).join('');
+            }
+            
+            divResult.style.display = 'block';
+            btnImprimir.style.display = 'inline-block';
         }
-        
-        document.getElementById('relatorio-controle-manual-resultado').style.display = 'block';
-        document.getElementById('btn-imprimir-controle-manual').style.display = 'inline-block';
-        
-        if(btn) btn.innerHTML = '<i class="fa-solid fa-search"></i> Gerar Planilha';
-    } catch (err) {
-        console.error(err);
-        alert('Erro ao gerar relatório.');
+    } catch (e) {
+        console.error('Erro ao gerar controle manual', e);
+        alert('Erro ao gerar planilha.');
     }
 }
 
 function imprimirRelatorioControleManual() {
-    const relatorio = document.getElementById('relatorio-controle-manual-resultado');
-    if (!relatorio || relatorio.style.display === 'none') return;
+    const tableDiv = document.getElementById('relatorio-controle-manual-resultado');
+    const categoriaTxt = document.getElementById('filter-categoria-controle-manual').options[document.getElementById('filter-categoria-controle-manual').selectedIndex].text;
     
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
-        return;
-    }
+    const dataAtual = new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString('pt-BR');
+    const nomeUsuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.nome_usuario : 'Usuário não identificado';
     
-    const userEl = document.getElementById('user-display-name');
-    const usuario = userEl ? userEl.textContent || userEl.innerText : 'Usuário Desconhecido';
-    
-    const dataObj = new Date();
-    const dataStr = dataObj.toLocaleDateString('pt-BR');
-    const horaStr = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    
-    const html = `
+    const janela = window.open('', '', 'width=900,height=600');
+    janela.document.write(`
         <html>
         <head>
-            <title>Controle Manual</title>
+            <title>Impressão - Controle Manual de Estoque</title>
             <style>
-                @page { size: landscape; margin: 15mm; }
                 body { font-family: Arial, sans-serif; padding: 20px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 13px; }
-                th { background-color: #f2f2f2; }
                 h2 { text-align: center; margin-bottom: 5px; }
-                .report-meta { text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; }
-                .no-print { display: block; margin-bottom: 20px; text-align: center; }
-                @media print { .no-print { display: none !important; } }
+                h4 { text-align: center; margin-top: 0; color: #555; }
+                .info-meta { text-align: right; font-size: 11px; color: #555; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .text-center { text-align: center; }
+                @media print {
+                    @page { size: landscape; margin: 1cm; }
+                }
             </style>
         </head>
         <body>
-            <div class="no-print">
-                <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #0ea5e9; color: white; border: none; border-radius: 4px;">Imprimir Agora</button>
-            </div>
             <h2>Controle Manual de Estoque</h2>
-            <div class="report-meta">
-                Gerado por: <strong>${usuario}</strong> em ${dataStr} às ${horaStr}
+            <h4>Categoria: ${categoriaTxt}</h4>
+            <div class="info-meta">
+                Gerado por: <strong>${nomeUsuario}</strong> em <strong>${dataAtual}</strong>
             </div>
-            ${relatorio.innerHTML}
-            
-            <div style="margin-top: 60px; display: flex; justify-content: space-around; text-align: center; font-size: 14px; page-break-inside: avoid;">
-                <div style="width: 35%;">
-                    <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
-                    <strong>Responsável pelo estoque</strong>
-                </div>
-                <div style="width: 35%;">
-                    <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
-                    <strong>${usuario}</strong>
-                </div>
-            </div>
+            ${tableDiv.innerHTML}
+            <script>
+                window.onload = function() { window.print(); window.close(); };
+            </script>
         </body>
         </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
+    `);
+    janela.document.close();
 }

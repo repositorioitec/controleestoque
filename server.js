@@ -634,7 +634,7 @@ app.get('/api/estagios/lancamentos', async (req, res) => {
 });
 
 app.post('/api/estagios/lancamentos', async (req, res) => {
-  const { id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_validacao } = req.body;
+  const { id_lancamento, data_lancamento, status, nome_aluno, unidade, curso, turma, horas_totais, protocolo_ew, observacoes, horas_campo, horas_capacitacao, horas_laboratorio, horas_evento, horas_enf_cirurgica, horas_enf_medica, horas_saude_mulher, horas_saude_mental, horas_saude_publica, horas_emergencia, validado_coordenacao, nome_usuario_validacao, aguardando_analise } = req.body;
   const nome_usuario_registro = req.headers['x-user-nome'] || null;
 
   if (!data_lancamento || !status || !nome_aluno || !unidade || !curso) {
@@ -665,7 +665,8 @@ app.post('/api/estagios/lancamentos', async (req, res) => {
       horas_emergencia || 0,
       validado_coordenacao || false,
       nome_usuario_registro,
-      nome_usuario_validacao || null
+      nome_usuario_validacao || null,
+      aguardando_analise || false
     );
     const msg = id_lancamento ? 'Lançamento atualizado com sucesso!' : 'Lançamento criado com sucesso!';
     return res.json({ success: true, message: msg });
@@ -683,48 +684,7 @@ app.delete('/api/estagios/lancamentos/:id', async (req, res) => {
   }
 });
 
-// --- API DE DOCUMENTOS (TEMPLATES PDF) ---
-app.get('/api/documentos', async (req, res) => {
-  try {
-    const { curso } = req.query;
-    const documentos = await database.listar_documentos(curso);
-    return res.json({ success: true, documentos });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: e.message });
-  }
-});
 
-app.get('/api/documentos/:id/arquivo', async (req, res) => {
-  try {
-    const doc = await database.obter_arquivo_documento(req.params.id);
-    if (!doc) return res.status(404).json({ success: false, message: 'Documento não encontrado.' });
-    return res.json({ success: true, documento: doc });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: e.message });
-  }
-});
-
-app.post('/api/documentos', async (req, res) => {
-  try {
-    const { curso, tipo_documento, nome_arquivo, arquivo_base64 } = req.body;
-    if (!curso || !tipo_documento || !arquivo_base64 || !nome_arquivo) {
-      return res.status(400).json({ success: false, message: 'Todos os campos são obrigatórios.' });
-    }
-    const id = await database.salvar_documento(curso, tipo_documento, nome_arquivo, arquivo_base64);
-    return res.json({ success: true, id_documento: id, message: 'Documento salvo com sucesso!' });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: e.message });
-  }
-});
-
-app.delete('/api/documentos/:id', async (req, res) => {
-  try {
-    await database.excluir_documento(req.params.id);
-    return res.json({ success: true, message: 'Documento excluído com sucesso!' });
-  } catch (e) {
-    return res.status(500).json({ success: false, message: e.message });
-  }
-});
 
 // --- IMPORTAÇÃO DE PLANILHA DE ESTÁGIOS ---
 app.post('/api/estagios/importar-json', async (req, res) => {
@@ -769,6 +729,57 @@ app.post('/api/estagios/importar-json', async (req, res) => {
     importados,
     erros
   });
+});
+
+// ==========================================
+// DOCUMENTOS API
+// ==========================================
+app.get('/api/documentos', async (req, res) => {
+    try {
+        const docs = await database.documentos_listar(req.query.curso);
+        res.json({ success: true, documentos: docs });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/documentos', async (req, res) => {
+    try {
+        const { curso, tipo_documento, nome_arquivo, tipo_mime, dados_arquivo } = req.body;
+        if (!curso || !tipo_documento || !nome_arquivo || !dados_arquivo) {
+            return res.status(400).json({ success: false, message: 'Faltam dados obrigatórios.' });
+        }
+        await database.documentos_salvar(req.body);
+        res.json({ success: true, message: 'Documento salvo com sucesso!' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: 'Erro ao salvar documento: ' + e.message });
+    }
+});
+
+app.get('/api/documentos/:id', async (req, res) => {
+    try {
+        const doc = await database.documentos_obter_arquivo(req.params.id);
+        if (doc) {
+            res.json({ success: true, documento: doc });
+        } else {
+            res.status(404).json({ success: false, message: 'Documento não encontrado.' });
+        }
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.delete('/api/documentos/:id', async (req, res) => {
+    try {
+        await database.documentos_excluir(req.params.id);
+        res.json({ success: true, message: 'Documento excluído com sucesso.' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
 });
 
 const PORT = process.env.PORT || 5000;

@@ -1795,9 +1795,15 @@
                 <input type="hidden" id="estagio-id">
                 <div class="modal-body">
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label for="estagio-data">Data *</label>
-                            <input type="date" id="estagio-data" required>
+                        <div class="form-group" style="display: flex; gap: 10px; align-items: center;">
+                            <div style="flex: 1;">
+                                <label for="estagio-data">Data *</label>
+                                <input type="date" id="estagio-data" required style="width: 100%;">
+                            </div>
+                            <div style="flex: 2; padding-top: 25px; display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="estagio-aguardando-analise" style="width: auto; margin: 0;">
+                                <label for="estagio-aguardando-analise" style="font-size: 12px; margin: 0; cursor: pointer; color: white; font-weight: bold; white-space: nowrap;">Aguardando retorno do aluno</label>
+                            </div>
                         </div>
                         <input type="hidden" id="estagio-status" value="Em andamento">
                         <div class="form-group span-2">
@@ -2047,8 +2053,8 @@
                         <input type="text" id="upload-doc-tipo" class="form-control" placeholder="Ex: Termo de Compromisso" required>
                     </div>
                     <div class="form-group">
-                        <label for="upload-doc-arquivo">Arquivo (Somente PDF)</label>
-                        <input type="file" id="upload-doc-arquivo" class="form-control" accept="application/pdf" required>
+                        <label for="upload-doc-arquivo">Arquivo (.pdf, .docx, .xlsx, .xls)</label>
+                        <input type="file" id="upload-doc-arquivo" class="form-control" accept=".pdf,.docx,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
                     </div>
                     <div class="form-actions" style="margin-top: 20px; text-align: right;">
                         <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-upload-documento')">Cancelar</button>
