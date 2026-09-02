@@ -224,6 +224,7 @@ async function init_db() {
             AND table_name = 'tbl_documentos'
             AND column_name = 'arquivo_base64'
         ) THEN
+          ALTER TABLE tbl_documentos ALTER COLUMN arquivo_base64 DROP NOT NULL;
           UPDATE tbl_documentos
           SET dados_arquivo = arquivo_base64
           WHERE dados_arquivo IS NULL;
@@ -235,6 +236,7 @@ async function init_db() {
             AND table_name = 'tbl_documentos'
             AND column_name = 'data_upload'
         ) THEN
+          ALTER TABLE tbl_documentos ALTER COLUMN data_upload DROP NOT NULL;
           UPDATE tbl_documentos
           SET data_inclusao = data_upload
           WHERE data_inclusao IS NULL;
@@ -1361,12 +1363,42 @@ async function excluir_lancamento_estagio(id_lancamento) {
 
 
 async function documentos_salvar(doc) {
+    try {
+        await pool.query(`ALTER TABLE tbl_documentos ALTER COLUMN arquivo_base64 DROP NOT NULL;`);
+    } catch (e) {}
+    try {
+        await pool.query(`ALTER TABLE tbl_documentos ALTER COLUMN data_upload DROP NOT NULL;`);
+    } catch (e) {}
+
+    const colsRes = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'tbl_documentos'
+    `);
+    const existingCols = colsRes.rows.map(r => r.column_name);
+
+    const cols = ['curso', 'tipo_documento', 'nome_arquivo'];
+    const values = [doc.curso, doc.tipo_documento, doc.nome_arquivo];
+
+    if (existingCols.includes('tipo_mime')) {
+        cols.push('tipo_mime');
+        values.push(doc.tipo_mime || null);
+    }
+    if (existingCols.includes('dados_arquivo')) {
+        cols.push('dados_arquivo');
+        values.push(doc.dados_arquivo);
+    }
+    if (existingCols.includes('arquivo_base64')) {
+        cols.push('arquivo_base64');
+        values.push(doc.dados_arquivo);
+    }
+
+    const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
     const query = `
-        INSERT INTO tbl_documentos (curso, tipo_documento, nome_arquivo, tipo_mime, dados_arquivo)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO tbl_documentos (${cols.join(', ')})
+        VALUES (${placeholders})
         RETURNING *;
     `;
-    const values = [doc.curso, doc.tipo_documento, doc.nome_arquivo, doc.tipo_mime, doc.dados_arquivo];
     const { rows } = await pool.query(query, values);
     return rows[0];
 }
@@ -1389,6 +1421,14 @@ async function documentos_listar(curso) {
 
 async function documentos_obter_arquivo(id) {
     const { rows } = await pool.query(`SELECT * FROM tbl_documentos WHERE id_documento = $1`, [id]);
+    if (rows[0]) {
+        if (!rows[0].dados_arquivo && rows[0].arquivo_base64) {
+            rows[0].dados_arquivo = rows[0].arquivo_base64;
+        }
+        if (!rows[0].arquivo_base64 && rows[0].dados_arquivo) {
+            rows[0].arquivo_base64 = rows[0].dados_arquivo;
+        }
+    }
     return rows[0];
 }
 

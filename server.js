@@ -746,7 +746,7 @@ app.get('/api/documentos', async (req, res) => {
 
 app.post('/api/documentos', async (req, res) => {
     try {
-        const { curso, tipo_documento, nome_arquivo, tipo_mime, dados_arquivo } = req.body;
+        const { curso, tipo_documento, nome_arquivo, tipo_mime, dados_arquivo } = req.body || {};
         if (!curso || !tipo_documento || !nome_arquivo || !dados_arquivo) {
             return res.status(400).json({ success: false, message: 'Faltam dados obrigatórios.' });
         }

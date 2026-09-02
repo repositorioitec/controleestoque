@@ -783,6 +783,44 @@ const LocalDB = {
             return { success: true, data: relatorio };
         }
 
+        // --- DOCUMENTOS ---
+        if (path === '/api/documentos' && method === 'GET') {
+            let docs = this.get('documentos') || [];
+            const curso = params.get('curso');
+            if (curso) docs = docs.filter(d => d.curso === curso);
+            return { success: true, documentos: docs };
+        }
+        if (path === '/api/documentos' && method === 'POST') {
+            const docs = this.get('documentos') || [];
+            const parsedBody = typeof body === 'string' ? JSON.parse(body) : (body || {});
+            const novo = {
+                id_documento: Date.now(),
+                curso: parsedBody.curso,
+                tipo_documento: parsedBody.tipo_documento,
+                nome_arquivo: parsedBody.nome_arquivo,
+                tipo_mime: parsedBody.tipo_mime,
+                dados_arquivo: parsedBody.dados_arquivo,
+                data_inclusao: new Date().toISOString()
+            };
+            docs.push(novo);
+            this.set('documentos', docs);
+            return { success: true, message: 'Documento salvo com sucesso!' };
+        }
+        if (path.match(/\/api\/documentos\/\d+/) && method === 'GET') {
+            const id = parseInt(path.split('/')[3]);
+            const docs = this.get('documentos') || [];
+            const doc = docs.find(d => d.id_documento === id);
+            if (doc) return { success: true, documento: doc };
+            return { success: false, message: 'Documento não encontrado' };
+        }
+        if (path.match(/\/api\/documentos\/\d+/) && method === 'DELETE') {
+            const id = parseInt(path.split('/')[3]);
+            let docs = this.get('documentos') || [];
+            docs = docs.filter(d => d.id_documento !== id);
+            this.set('documentos', docs);
+            return { success: true, message: 'Documento excluído com sucesso!' };
+        }
+
         return { success: false, message: 'Rota não encontrada' };
     }
 };
@@ -802,6 +840,9 @@ async function safeFetch(url, options = {}) {
 
     try {
         if (!options.headers) options.headers = {};
+        if (options.body && typeof options.body === 'string' && !options.headers['Content-Type'] && !(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+        }
         if (typeof currentUser !== 'undefined' && currentUser && currentUser.id_usuario) {
             options.headers['X-User-Id'] = currentUser.id_usuario;
             options.headers['X-User-Nivel'] = currentUser.nivel_acesso;
@@ -5283,6 +5324,7 @@ async function salvarDocumento() {
         
         const res = await safeFetch('/api/documentos', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(docData)
         });
         

@@ -720,6 +720,9 @@ async function safeFetch(url, options = {}) {
 
     try {
         if (!options.headers) options.headers = {};
+        if (options.body && typeof options.body === 'string' && !options.headers['Content-Type'] && !(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+        }
         if (typeof currentUser !== 'undefined' && currentUser && currentUser.id_usuario) {
             options.headers['X-User-Id'] = currentUser.id_usuario;
             options.headers['X-User-Nivel'] = currentUser.nivel_acesso;
