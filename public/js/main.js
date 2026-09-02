@@ -276,6 +276,7 @@ const LocalDB = {
                         if (body.horas_saude_mental !== undefined) l.horas_saude_mental = body.horas_saude_mental;
                         if (body.horas_saude_publica !== undefined) l.horas_saude_publica = body.horas_saude_publica;
                         if (body.horas_emergencia !== undefined) l.horas_emergencia = body.horas_emergencia;
+                        if (body.aguardando_analise !== undefined) l.aguardando_analise = body.aguardando_analise;
                     }
                 } else {
                     lancamentos.push({
@@ -298,6 +299,7 @@ const LocalDB = {
                         horas_saude_mental: body.horas_saude_mental || 0,
                         horas_saude_publica: body.horas_saude_publica || 0,
                         horas_emergencia: body.horas_emergencia || 0,
+                        aguardando_analise: body.aguardando_analise || false,
                         data_cadastro: new Date().toISOString()
                     });
                 }
@@ -820,6 +822,9 @@ const LocalDB = {
             this.set('documentos', docs);
             return { success: true, message: 'Documento excluído com sucesso!' };
         }
+        if (path === '/api/db-last-update' && method === 'GET') {
+            return { success: true, time: new Date().toISOString() };
+        }
 
         return { success: false, message: 'Rota não encontrada' };
     }
@@ -858,8 +863,30 @@ async function safeFetch(url, options = {}) {
     }
 }
 
+async function carregarDataAtualizacaoBanco() {
+    const el = document.getElementById('db-last-update-label');
+    if (!el) return;
+    try {
+        const res = await safeFetch('/api/db-last-update');
+        if (res && res.success && res.time) {
+            const dateObj = new Date(res.time);
+            const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            el.innerText = `ATUALIZADO: ${dateStr} ${timeStr}`;
+            return;
+        }
+    } catch (e) {
+        console.error("Erro ao carregar data de atualização do banco:", e);
+    }
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    el.innerText = `ATUALIZADO: ${dateStr} ${timeStr}`;
+}
+
 // Inicialização da aplicação ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
+    carregarDataAtualizacaoBanco();
     checarSessaoUsuario();
     configurarNavegacao();
 });
@@ -1111,6 +1138,7 @@ async function iniciarAplicacao() {
     
     // Start inactivity watcher after login
     resetInatividadeTimer();
+    carregarDataAtualizacaoBanco();
 
     const selectGlobal = document.getElementById('select-global-unidade');
     if (currentUser.nivel_acesso === 'Administrador') {
@@ -1270,6 +1298,7 @@ function trocarUnidadeAtiva(unitId) {
             if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
             if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
             if (viewId === 'view-estagios-relatorio-horas-validadas') iniciarRelatorioHorasValidadas();
+            if (viewId === 'view-estagios-relatorio-aguardando-retorno') iniciarRelatorioAguardandoRetorno();
         }
         showToast(unitId ? 'Filtro atualizado para a unidade selecionada.' : 'Visualizando estoque de todas as unidades permitidas.', 'info');
     }
@@ -1333,7 +1362,8 @@ function navegarParaView(viewId) {
             'view-estagios-validacao': 'Validação Coordenação (Estágios)',
             'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno',
             'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade',
-            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas'
+            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas',
+            'view-estagios-relatorio-aguardando-retorno': 'Relatório: Aguardando Retorno do Aluno'
         };
         document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
 
@@ -1362,12 +1392,14 @@ function navegarParaView(viewId) {
         if (viewId === 'view-estagios-relatorio-horas-aluno') iniciarRelatorioHorasAluno();
         if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
         if (viewId === 'view-estagios-relatorio-horas-validadas') iniciarRelatorioHorasValidadas();
+        if (viewId === 'view-estagios-relatorio-aguardando-retorno') iniciarRelatorioAguardandoRetorno();
     }
 }
 
 // --- DASHBOARD ---
 
 async function carregarDashboard() {
+    carregarDataAtualizacaoBanco();
     try {
         let url = '/api/dashboard';
         if (selectedUnitId) {
@@ -3042,7 +3074,8 @@ const TODOS_MENUS = [
     { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
     { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
     { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
-    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' }
+    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' },
+    { key: 'estagios-relatorio-aguardando-retorno', label: 'Aguardando retorno do aluno' }
 ];
 
 function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
@@ -4044,6 +4077,7 @@ async function abrirModalLancamentoEstagio() {
     document.getElementById('modal-estagio-title').innerText = 'Novo Lançamento de Horas';
     document.getElementById('estagio-data').value = new Date().toISOString().split('T')[0];
     document.getElementById('estagio-status').value = 'Em andamento';
+    document.getElementById('estagio-horas').value = '';
 
     // Popula opções de unidades no modal
     await preencherSelectUnidadesModalEstagio();
@@ -4117,7 +4151,8 @@ async function salvarLancamentoEstagio(event) {
         horas_capacitacao: 0,
         horas_laboratorio: 0,
         horas_evento: 0,
-        validado_coordenacao: false
+        validado_coordenacao: false,
+        aguardando_analise: document.getElementById('estagio-aguardando-analise') ? document.getElementById('estagio-aguardando-analise').checked : false
     };
 
     try {
@@ -4287,9 +4322,13 @@ async function editarLancamentoEstagio(id) {
 
     document.getElementById('estagio-curso').value = (l.curso || '').trim().toUpperCase();
     document.getElementById('estagio-turma').value = l.turma || '';
-    document.getElementById('estagio-horas').value = l.horas_totais;
+    document.getElementById('estagio-horas').value = (l.horas_totais !== null && l.horas_totais !== undefined) ? Math.round(parseFloat(l.horas_totais) || 0) : '';
     document.getElementById('estagio-protocolo').value = l.protocolo_ew || '';
     document.getElementById('estagio-observacoes').value = l.observacoes || '';
+    const cbAnalise = document.getElementById('estagio-aguardando-analise');
+    if (cbAnalise) {
+        cbAnalise.checked = l.aguardando_analise === true || l.aguardando_analise === 'true' || l.aguardando_analise === 1 || l.aguardando_analise === '1';
+    }
     
     document.getElementById('modal-estagio-title').innerText = 'Editar Lançamento de Horas';
     document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
@@ -4970,14 +5009,58 @@ function imprimirRelatorioHorasAluno() {
 // RELATÓRIO: HORAS VALIDADAS
 // ============================================================================
 
+async function popularSelectUnidadesRelatorio(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    if (!window.unidadesCache || window.unidadesCache.length === 0) {
+        try {
+            const dataU = await safeFetch('/api/unidades');
+            if (dataU.success && dataU.unidades) {
+                window.unidadesCache = dataU.unidades;
+            }
+        } catch (e) {}
+    }
+
+    const setUnidades = new Set();
+    if (window.unidadesCache) {
+        window.unidadesCache.forEach(u => {
+            if (u.nome_unidade) setUnidades.add(u.nome_unidade.trim().toUpperCase());
+        });
+    }
+    if (estagiosCache) {
+        estagiosCache.forEach(l => {
+            if (l.unidade) setUnidades.add(l.unidade.trim().toUpperCase());
+        });
+    }
+    if (currentUser && currentUser.nome_unidade) {
+        setUnidades.add(currentUser.nome_unidade.trim().toUpperCase());
+    }
+
+    const lista = Array.from(setUnidades).sort();
+    let padrao = obterUnidadePadraoUsuario();
+    if (padrao) padrao = padrao.trim().toUpperCase();
+
+    if (currentUser && currentUser.nivel_acesso !== 'Administrador' && padrao) {
+        select.innerHTML = `<option value="${padrao}" selected>${padrao}</option>`;
+        select.disabled = true;
+    } else {
+        const valAtual = select.value;
+        select.innerHTML = '<option value="">SELECIONE UMA UNIDADE...</option>' +
+            lista.map(u => `<option value="${u}">${u}</option>`).join('');
+        if (valAtual && lista.includes(valAtual)) {
+            select.value = valAtual;
+        }
+        select.disabled = false;
+    }
+}
+
 async function iniciarRelatorioHorasValidadas() {
     try {
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
-            const unidadeSelecionada = getGlobalSelectedUnitName();
-            estagiosCache = unidadeSelecionada
-                ? res.lancamentos.filter(l => (l.unidade || '').trim().toUpperCase() === unidadeSelecionada.toUpperCase())
-                : res.lancamentos;
+            estagiosCache = res.lancamentos;
+            await popularSelectUnidadesRelatorio('relatorio-hv-unidade');
             gerarRelatorioHorasValidadas();
         }
     } catch (e) {
@@ -4988,16 +5071,22 @@ async function iniciarRelatorioHorasValidadas() {
 function limparRelatorioHorasValidadas() {
     document.getElementById('relatorio-hv-data-inicio').value = '';
     document.getElementById('relatorio-hv-data-fim').value = '';
+    const selectU = document.getElementById('relatorio-hv-unidade');
+    if (selectU && !selectU.disabled) selectU.value = '';
     gerarRelatorioHorasValidadas();
 }
 
 function gerarRelatorioHorasValidadas() {
     const dataInicio = document.getElementById('relatorio-hv-data-inicio').value;
     const dataFim = document.getElementById('relatorio-hv-data-fim').value;
+    const selectUnidade = document.getElementById('relatorio-hv-unidade');
+    const unidadeFiltro = (selectUnidade ? selectUnidade.value : '').trim().toUpperCase();
+
     const resultados = estagiosCache
         .filter(l => l.validado_coordenacao === true)
         .filter(l => !dataInicio || (l.data_validacao || '') >= dataInicio)
         .filter(l => !dataFim || (l.data_validacao || '') <= dataFim)
+        .filter(l => !unidadeFiltro || (l.unidade || '').trim().toUpperCase() === unidadeFiltro)
         .sort((a, b) => (b.data_validacao || '').localeCompare(a.data_validacao || '') ||
             (b.horas_totais || 0) - (a.horas_totais || 0));
 
@@ -5037,17 +5126,143 @@ function imprimirRelatorioHorasValidadas() {
         alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
         return;
     }
+    const selectUnidade = document.getElementById('relatorio-hv-unidade');
+    const unidadeFiltro = selectUnidade && selectUnidade.value ? selectUnidade.options[selectUnidade.selectedIndex].text : 'Todas as Unidades';
+
     printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório - Horas Validadas</title><style>
         @page { size: A4 landscape; margin: 12mm; }
         body { font-family: Arial, sans-serif; color: #1e293b; }
         .no-print { display: flex; justify-content: flex-end; margin-bottom: 18px; }
-        button { padding: 9px 16px; background:#2563eb; color:#fff; border:0; border-radius:5px; cursor:pointer; }
-        h2 { text-align:center; font-size:20px; border-bottom:2px solid #e2e8f0; padding-bottom:10px; }
+        button { padding: 9px 16px; background:#2563eb; color:#fff; border:0; border-radius:5px; cursor:pointer; font-weight:bold; }
+        h2 { text-align:center; font-size:20px; border-bottom:2px solid #e2e8f0; padding-bottom:8px; margin-bottom: 4px; }
+        .sub-header { text-align:center; font-size:12px; color:#64748b; margin-bottom:15px; }
         table { width:100%; border-collapse:collapse; font-size:12px; }
         th, td { border:1px solid #cbd5e1; padding:8px; text-align:left; }
-        th, tfoot { background:#f1f5f9; text-transform:uppercase; }
+        th, tfoot { background:#f1f5f9; text-transform:uppercase; font-size:11px; }
         @media print { .no-print { display:none; } }
-    </style></head><body><div class="no-print"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div><h2>Relatório de Horas Validadas</h2><p>Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>${relatorio.innerHTML}</body></html>`);
+    </style></head><body>
+        <div class="no-print"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div>
+        <h2>Relatório: Horas Validadas</h2>
+        <div class="sub-header">Unidade: <strong>${unidadeFiltro}</strong> | Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
+        ${relatorio.innerHTML}
+    </body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+}
+
+// ============================================================================
+// RELATÓRIO: AGUARDANDO RETORNO DO ALUNO
+// ============================================================================
+
+async function iniciarRelatorioAguardandoRetorno() {
+    try {
+        const res = await safeFetch('/api/estagios/lancamentos');
+        if (res.success && res.lancamentos) {
+            estagiosCache = res.lancamentos;
+            await popularSelectUnidadesRelatorio('relatorio-ara-unidade');
+            gerarRelatorioAguardandoRetorno();
+        }
+    } catch (e) {
+        console.error('Erro ao carregar lançamentos para aguardando retorno:', e);
+    }
+}
+
+function limparRelatorioAguardandoRetorno() {
+    document.getElementById('relatorio-ara-data-inicio').value = '';
+    document.getElementById('relatorio-ara-data-fim').value = '';
+    const selectU = document.getElementById('relatorio-ara-unidade');
+    if (selectU && !selectU.disabled) selectU.value = '';
+    gerarRelatorioAguardandoRetorno();
+}
+
+function gerarRelatorioAguardandoRetorno() {
+    const dataInicio = document.getElementById('relatorio-ara-data-inicio').value;
+    const dataFim = document.getElementById('relatorio-ara-data-fim').value;
+    const selectUnidade = document.getElementById('relatorio-ara-unidade');
+    const unidadeFiltro = (selectUnidade ? selectUnidade.value : '').trim().toUpperCase();
+
+    const resultados = estagiosCache
+        .filter(l => l.aguardando_analise === true || l.aguardando_analise === 'true' || l.aguardando_analise === 1 || l.aguardando_analise === '1')
+        .filter(l => !dataInicio || (l.data_lancamento || '') >= dataInicio)
+        .filter(l => !dataFim || (l.data_lancamento || '') <= dataFim)
+        .filter(l => !unidadeFiltro || (l.unidade || '').trim().toUpperCase() === unidadeFiltro)
+        .sort((a, b) => (b.data_lancamento || '').localeCompare(a.data_lancamento || '') ||
+            (b.horas_totais || 0) - (a.horas_totais || 0));
+
+    const resultadoEl = document.getElementById('relatorio-ara-resultado');
+    const vazioEl = document.getElementById('relatorio-ara-vazio');
+    const inicialEl = document.getElementById('relatorio-ara-inicial');
+    const btnImprimir = document.getElementById('btn-imprimir-ara');
+    const tbody = document.getElementById('table-relatorio-ara-body');
+    const tfoot = document.getElementById('table-relatorio-ara-footer');
+    inicialEl.style.display = 'none';
+
+    if (!resultados.length) {
+        resultadoEl.style.display = 'none';
+        vazioEl.style.display = 'block';
+        btnImprimir.style.display = 'none';
+        return;
+    }
+
+    const formatarData = data => data ? data.split('-').reverse().join('/') : '-';
+    let totalHoras = 0;
+    tbody.innerHTML = resultados.map(l => {
+        const horas = Math.round(parseFloat(l.horas_totais) || 0);
+        totalHoras += horas;
+        return `
+            <tr>
+                <td>${formatarData(l.data_lancamento)}</td>
+                <td><strong>${l.nome_aluno || '-'}</strong></td>
+                <td>${l.unidade || '-'}</td>
+                <td>${l.curso || '-'}</td>
+                <td>${l.turma || '-'}</td>
+                <td><strong>${horas}</strong></td>
+                <td>${l.protocolo_ew || '-'}</td>
+                <td style="max-width: 250px; font-size: 12px;">${l.observacoes || '-'}</td>
+                <td><small style="color: var(--text-muted);">${l.nome_usuario_registro || '-'}</small></td>
+            </tr>
+        `;
+    }).join('');
+    tfoot.innerHTML = `<tr><td colspan="5" style="text-align:right; font-weight:bold;">TOTAL:</td><td colspan="4" style="font-weight:bold;">${totalHoras} horas (${resultados.length} lançamento${resultados.length > 1 ? 's' : ''} aguardando retorno)</td></tr>`;
+    vazioEl.style.display = 'none';
+    resultadoEl.style.display = 'block';
+    btnImprimir.style.display = 'inline-block';
+}
+
+function imprimirRelatorioAguardandoRetorno() {
+    const relatorio = document.getElementById('relatorio-ara-resultado');
+    if (!relatorio || relatorio.style.display === 'none') return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Por favor, permita pop-ups no navegador para visualizar o relatório.');
+        return;
+    }
+    const selectUnidade = document.getElementById('relatorio-ara-unidade');
+    const unidadeFiltro = selectUnidade && selectUnidade.value ? selectUnidade.options[selectUnidade.selectedIndex].text : 'Todas as Unidades';
+    const dataInicio = document.getElementById('relatorio-ara-data-inicio').value;
+    const dataFim = document.getElementById('relatorio-ara-data-fim').value;
+    let periodoTxt = 'Todos os registros';
+    if (dataInicio && dataFim) periodoTxt = `De ${dataInicio.split('-').reverse().join('/')} até ${dataFim.split('-').reverse().join('/')}`;
+    else if (dataInicio) periodoTxt = `A partir de ${dataInicio.split('-').reverse().join('/')}`;
+    else if (dataFim) periodoTxt = `Até ${dataFim.split('-').reverse().join('/')}`;
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório - Aguardando Retorno do Aluno</title><style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: Arial, sans-serif; color: #1e293b; }
+        .no-print { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+        button { padding: 9px 16px; background:#2563eb; color:#fff; border:0; border-radius:5px; cursor:pointer; font-weight:bold; }
+        h2 { text-align:center; font-size:20px; border-bottom:2px solid #e2e8f0; padding-bottom:8px; margin-bottom: 4px; }
+        .sub-header { text-align:center; font-size:12px; color:#64748b; margin-bottom:15px; }
+        table { width:100%; border-collapse:collapse; font-size:12px; }
+        th, td { border:1px solid #cbd5e1; padding:8px; text-align:left; }
+        th, tfoot { background:#f1f5f9; text-transform:uppercase; font-size:11px; }
+        @media print { .no-print { display:none; } }
+    </style></head><body>
+        <div class="no-print"><button onclick="window.print()">🖨️ Imprimir / Salvar PDF</button></div>
+        <h2>Relatório: Aguardando Retorno do Aluno</h2>
+        <div class="sub-header">Unidade: <strong>${unidadeFiltro}</strong> | Período: <strong>${periodoTxt}</strong> | Emissão: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
+        ${relatorio.innerHTML}
+    </body></html>`);
     printWindow.document.close();
     printWindow.focus();
 }
@@ -5371,9 +5586,9 @@ async function filtrarDocumentos() {
         
         tbody.innerHTML = res.documentos.map(d => `
             <tr>
-                <td><strong>${d.nome_arquivo}</strong></td>
-                <td>${d.tipo_documento}</td>
                 <td>${d.curso}</td>
+                <td>${d.tipo_documento}</td>
+                <td><strong>${d.nome_arquivo}</strong></td>
                 <td>${new Date(d.data_inclusao).toLocaleString('pt-BR')}</td>
                 <td class="text-right">
                     <button class="btn btn-sm btn-primary" onclick="visualizarDocumento(${d.id_documento})" title="Visualizar / Baixar"><i class="fa-solid fa-eye"></i> Visualizar</button>
@@ -5387,22 +5602,259 @@ async function filtrarDocumentos() {
     }
 }
 
+let docAtualVisualizando = null;
+let currentDocBlob = null;
+let currentDocBlobUrl = null;
+
+function base64ToBlob(base64Data, defaultMime = 'application/octet-stream') {
+    let raw = base64Data;
+    let mime = defaultMime;
+    if (base64Data.startsWith('data:')) {
+        const parts = base64Data.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        if (mimeMatch) mime = mimeMatch[1];
+        raw = parts[1];
+    }
+    const byteCharacters = atob(raw);
+    const byteArrays = [];
+    const sliceSize = 1024;
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+        byteArrays.push(new Uint8Array(byteNumbers));
+    }
+    return new Blob(byteArrays, { type: mime });
+}
+
 async function visualizarDocumento(id) {
     const res = await safeFetch(`/api/documentos/${id}`);
-    if (res.success && res.documento) {
-        const doc = res.documento;
-        // Verifica se é PDF ou DOCX/XLSX
-        if (doc.tipo_mime === 'application/pdf') {
-            document.getElementById('visualizar-doc-titulo').innerText = doc.nome_arquivo;
-            document.getElementById('iframe-visualizar-doc').src = doc.dados_arquivo;
-            document.getElementById('modal-visualizar-documento').classList.remove('hidden');
-        } else {
-            // Outros arquivos (Word, Excel) forçam o download pois o iframe não consegue renderizar facilmente
-            baixarArquivo(doc.dados_arquivo, doc.nome_arquivo);
-        }
-    } else {
-        showToast('Erro ao abrir documento', 'error');
+    if (!res.success || !res.documento) {
+        showToast('Erro ao abrir documento.', 'error');
+        return;
     }
+
+    const doc = res.documento;
+    docAtualVisualizando = doc;
+
+    if (currentDocBlobUrl) {
+        URL.revokeObjectURL(currentDocBlobUrl);
+        currentDocBlobUrl = null;
+    }
+
+    const modal = document.getElementById('modal-visualizar-documento');
+    const titulo = document.getElementById('visualizar-doc-titulo');
+    const iframe = document.getElementById('iframe-visualizar-doc');
+    const containerCustom = document.getElementById('container-visualizar-doc-custom');
+
+    titulo.innerText = doc.nome_arquivo;
+    titulo.title = doc.nome_arquivo;
+
+    const ext = (doc.nome_arquivo.split('.').pop() || '').toLowerCase();
+    const mime = (doc.tipo_mime || '').toLowerCase();
+    const isPdf = mime === 'application/pdf' || ext === 'pdf';
+    const isImage = mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
+    const isWord = ['doc', 'docx'].includes(ext) || mime.includes('word');
+    const isExcel = ['xls', 'xlsx', 'csv'].includes(ext) || mime.includes('excel') || mime.includes('spreadsheet');
+
+    try {
+        currentDocBlob = base64ToBlob(doc.dados_arquivo, mime || (isPdf ? 'application/pdf' : 'application/octet-stream'));
+        currentDocBlobUrl = URL.createObjectURL(currentDocBlob);
+    } catch (e) {
+        console.error('Erro ao converter base64 em blob:', e);
+    }
+
+    if (isPdf && currentDocBlobUrl) {
+        iframe.style.display = 'block';
+        containerCustom.style.display = 'none';
+        iframe.src = currentDocBlobUrl;
+    } else if (isImage) {
+        iframe.style.display = 'none';
+        containerCustom.style.display = 'flex';
+        containerCustom.innerHTML = `
+            <div style="display:flex; justify-content:center; align-items:center; width:100%; height:100%; padding:15px;">
+                <img src="${doc.dados_arquivo}" alt="${doc.nome_arquivo}" style="max-width:100%; max-height:80vh; object-fit:contain; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.5);" />
+            </div>
+        `;
+    } else {
+        iframe.style.display = 'none';
+        containerCustom.style.display = 'flex';
+        
+        let iconClass = 'fa-file-lines';
+        let iconColor = '#3b82f6';
+        let tipoNome = 'Documento';
+
+        if (isWord) {
+            iconClass = 'fa-file-word';
+            iconColor = '#2563eb';
+            tipoNome = 'Microsoft Word (.docx)';
+        } else if (isExcel) {
+            iconClass = 'fa-file-excel';
+            iconColor = '#10b981';
+            tipoNome = 'Microsoft Excel (.xlsx)';
+        }
+
+        containerCustom.innerHTML = `
+            <div style="text-align: center; max-width: 520px; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 36px 28px; box-shadow: 0 16px 40px rgba(0,0,0,0.5);">
+                <div style="width: 80px; height: 80px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border-radius: 50%;">
+                    <i class="fa-solid ${iconClass}" style="font-size: 42px; color: ${iconColor};"></i>
+                </div>
+                <h3 style="color: #fff; font-size: 18px; margin-bottom: 8px; font-weight: 600; word-break: break-word;">${doc.nome_arquivo}</h3>
+                <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">
+                    <span style="color: #e2e8f0; font-weight: 500;">${doc.tipo_documento}</span> &bull; 
+                    <span>${doc.curso}</span>
+                </p>
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; margin-bottom: 24px; text-align: left; font-size: 12px; color: #cbd5e1; line-height: 1.6;">
+                    <div><strong>Formato:</strong> ${tipoNome}</div>
+                    <div><strong>Data de Inclusão:</strong> ${new Date(doc.data_inclusao || Date.now()).toLocaleString('pt-BR')}</div>
+                    <div style="margin-top: 8px; color: #94a3b8; font-size: 11px;">
+                        <i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> Este tipo de arquivo pode ser impresso em ficha de protocolo ou baixado para edição completa no computador.
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-primary" onclick="imprimirDocumentoAtual()" style="padding: 10px 20px;">
+                        <i class="fa-solid fa-print"></i> Imprimir
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="baixarDocumentoAtual()" style="background-color: #10b981; border-color: #10b981; padding: 10px 20px;">
+                        <i class="fa-solid fa-download"></i> Baixar Arquivo
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function imprimirDocumentoAtual() {
+    if (!docAtualVisualizando) {
+        showToast('Nenhum documento selecionado para impressão.', 'warning');
+        return;
+    }
+
+    const doc = docAtualVisualizando;
+    const ext = (doc.nome_arquivo.split('.').pop() || '').toLowerCase();
+    const mime = (doc.tipo_mime || '').toLowerCase();
+    const isPdf = mime === 'application/pdf' || ext === 'pdf';
+    const isImage = mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
+
+    if (isPdf && currentDocBlobUrl) {
+        const iframe = document.getElementById('iframe-visualizar-doc');
+        try {
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+                return;
+            }
+        } catch (e) {
+            console.warn('Iframe print falhou, abrindo janela auxiliar de impressão:', e);
+        }
+
+        const printWin = window.open(currentDocBlobUrl, '_blank');
+        if (printWin) {
+            printWin.focus();
+            printWin.onload = () => printWin.print();
+        } else {
+            showToast('Permita popups no navegador para imprimir o PDF.', 'warning');
+        }
+        return;
+    }
+
+    if (isImage) {
+        const printWin = window.open('', '_blank');
+        if (printWin) {
+            printWin.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${doc.nome_arquivo}</title>
+                    <style>
+                        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
+                        img { max-width: 100%; max-height: 98vh; object-fit: contain; }
+                    </style>
+                </head>
+                <body>
+                    <img src="${doc.dados_arquivo}" onload="window.print(); window.close();" />
+                </body>
+                </html>
+            `);
+            printWin.document.close();
+        }
+        return;
+    }
+
+    // Outros formatos (Word, Excel) geram a folha de identificação/impressão
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+        printWin.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Ficha - ${doc.nome_arquivo}</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; }
+                    .header { border-bottom: 3px solid #3b82f6; padding-bottom: 15px; margin-bottom: 30px; }
+                    h1 { margin: 0 0 8px 0; font-size: 22px; color: #0f172a; }
+                    p.sub { margin: 0; color: #64748b; font-size: 14px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 12px 16px; text-align: left; }
+                    th { background-color: #f8fafc; font-weight: 600; width: 30%; color: #334155; }
+                    .footer { margin-top: 40px; font-size: 12px; color: #94a3b8; text-align: right; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>CONTROLE DE ESTOQUES & ESTÁGIOS</h1>
+                    <p class="sub">Protocolo de Registro de Documento</p>
+                </div>
+                <table>
+                    <tr><th>Nome do Arquivo</th><td><strong>${doc.nome_arquivo}</strong></td></tr>
+                    <tr><th>Tipo de Documento</th><td>${doc.tipo_documento}</td></tr>
+                    <tr><th>Curso Vinculado</th><td>${doc.curso}</td></tr>
+                    <tr><th>Data de Inclusão</th><td>${new Date(doc.data_inclusao || Date.now()).toLocaleString('pt-BR')}</td></tr>
+                    <tr><th>Status do Registro</th><td>Anexado ao Banco de Dados</td></tr>
+                </table>
+                <div class="footer">
+                    Impresso em: ${new Date().toLocaleString('pt-BR')}
+                </div>
+                <script>
+                    window.onload = function() { window.print(); };
+                </script>
+            </body>
+            </html>
+        `);
+        printWin.document.close();
+    }
+}
+
+function baixarDocumentoAtual() {
+    if (!docAtualVisualizando) {
+        showToast('Nenhum documento selecionado para download.', 'warning');
+        return;
+    }
+    baixarArquivo(docAtualVisualizando.dados_arquivo, docAtualVisualizando.nome_arquivo);
+}
+
+function fecharModalVisualizarDocumento() {
+    fecharModal('modal-visualizar-documento');
+    const iframe = document.getElementById('iframe-visualizar-doc');
+    if (iframe) {
+        iframe.src = 'about:blank';
+        iframe.style.display = 'none';
+    }
+    const containerCustom = document.getElementById('container-visualizar-doc-custom');
+    if (containerCustom) {
+        containerCustom.innerHTML = '';
+        containerCustom.style.display = 'none';
+    }
+    if (currentDocBlobUrl) {
+        URL.revokeObjectURL(currentDocBlobUrl);
+        currentDocBlobUrl = null;
+    }
+    currentDocBlob = null;
+    docAtualVisualizando = null;
 }
 
 function baixarArquivo(base64Data, filename) {

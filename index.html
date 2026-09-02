@@ -152,6 +152,9 @@
                                     <li class="nav-item" data-target="view-estagios-relatorio-horas-validadas" data-menu-key="estagios-relatorio-horas-validadas">
                                         <a href="#"><i class="fa-solid fa-calendar-check"></i> <span>Horas Validadas</span></a>
                                     </li>
+                                    <li class="nav-item" data-target="view-estagios-relatorio-aguardando-retorno" data-menu-key="estagios-relatorio-aguardando-retorno">
+                                        <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> <span>Aguardando retorno do aluno</span></a>
+                                    </li>
                                 </ul>
                             </li>
                         </ul>
@@ -1252,6 +1255,50 @@
                     </div>
                 </section>
 
+                <!-- VIEW: RELATÓRIO DE AGUARDANDO RETORNO DO ALUNO -->
+                <section id="view-estagios-relatorio-aguardando-retorno" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h3><i class="fa-solid fa-clock-rotate-left text-primary"></i> Relatório: Aguardando retorno do aluno</h3>
+                                <small style="color: var(--text-muted);">Consulte e imprima os lançamentos aguardando retorno do aluno por período</small>
+                            </div>
+                        </div>
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                            <div class="form-group" style="margin:0; min-width: 180px;">
+                                <label for="relatorio-ara-data-inicio" style="font-size: 12px;"><i class="fa-solid fa-calendar-day"></i> VALIDAÇÃO DE</label>
+                                <input type="date" id="relatorio-ara-data-inicio" class="form-control">
+                            </div>
+                            <div class="form-group" style="margin:0; min-width: 180px;">
+                                <label for="relatorio-ara-data-fim" style="font-size: 12px;"><i class="fa-solid fa-calendar-day"></i> VALIDAÇÃO ATÉ</label>
+                                <input type="date" id="relatorio-ara-data-fim" class="form-control">
+                            </div>
+                            <div class="form-group" style="margin:0; min-width: 200px;">
+                                <label for="relatorio-ara-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> UNIDADE</label>
+                                <select id="relatorio-ara-unidade" class="form-control">
+                                    <option value="">SELECIONE UMA UNIDADE...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" onclick="gerarRelatorioAguardandoRetorno()"><i class="fa-solid fa-search"></i> Pesquisar</button>
+                                <button class="btn btn-secondary" onclick="limparRelatorioAguardandoRetorno()" style="margin-left: 8px;"><i class="fa-solid fa-broom"></i> Limpar</button>
+                                <button class="btn btn-success" onclick="imprimirRelatorioAguardandoRetorno()" id="btn-imprimir-ara" style="margin-left: 8px; display: none;"><i class="fa-solid fa-print"></i> Imprimir</button>
+                            </div>
+                        </div>
+                        <div id="relatorio-ara-resultado" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead><tr><th>Data</th><th>Aluno(a)</th><th>Unidade</th><th>Curso</th><th>Turma</th><th>Total Horas</th><th>Protocolo</th><th>Observações</th><th>Registrado por</th></tr></thead>
+                                    <tbody id="table-relatorio-ara-body"></tbody>
+                                    <tfoot id="table-relatorio-ara-footer"></tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="relatorio-ara-vazio" style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">Nenhum lançamento aguardando retorno do aluno encontrado para os filtros informados.</div>
+                        <div id="relatorio-ara-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">Selecione os filtros desejados e clique em Pesquisar.</div>
+                    </div>
+                </section>
+
                 <section id="view-relatorio-controle-manual" class="app-view">
                     <div class="panel">
                         <div class="panel-header">
@@ -1686,6 +1733,201 @@
     </div>
 
     <!-- MODAL LANÇAMENTO ESTÁGIO -->
+                    <div class="form-group">
+                        <label for="mov-obs">Observação / Nota Fiscal / Motivo</label>
+                        <textarea id="mov-obs" rows="2" placeholder="Ex: Compra NF 1234 ou Venda balcão"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-movimentacao')">Cancelar</button>
+                    <button type="submit" id="btn-submit-mov" class="btn btn-primary">Confirmar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: CATEGORIA -->
+    <div id="modal-categoria" class="modal-overlay hidden">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>Cadastrar Nova Categoria</h3>
+                <button class="modal-close" onclick="fecharModal('modal-categoria')">&times;</button>
+            </div>
+            <form id="form-categoria" onsubmit="salvarCategoria(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="cat-nome">Nome da Categoria *</label>
+                        <input type="text" id="cat-nome" placeholder="Ex: Acessórios" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-categoria')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Categoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: FORNECEDOR -->
+    <div id="modal-fornecedor" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cadastrar Novo Fornecedor</h3>
+                <button class="modal-close" onclick="fecharModal('modal-fornecedor')">&times;</button>
+            </div>
+            <form id="form-fornecedor" onsubmit="salvarFornecedor(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="forn-id">
+                    <div class="form-group">
+                        <label for="forn-nome">Razão Social / Nome *</label>
+                        <input type="text" id="forn-nome" placeholder="Ex: Distribuidora Silva LTDA" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="forn-razao-reduzida">Razão Reduzida</label>
+                        <input type="text" id="forn-razao-reduzida" placeholder="Ex: Dist. Silva">
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="forn-cnpj">CNPJ / CPF</label>
+                            <input type="text" id="forn-cnpj" placeholder="00.000.000/0001-00">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-tel">Telefone</label>
+                            <input type="text" id="forn-tel" placeholder="(11) 99999-8888">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="forn-email">E-mail</label>
+                        <input type="email" id="forn-email" placeholder="contato@fornecedor.com">
+                    </div>
+                    <!-- Campos de Endereço -->
+                    <div class="form-grid" style="grid-template-columns: 1fr 2fr;">
+                        <div class="form-group">
+                            <label for="forn-cep">CEP</label>
+                            <input type="text" id="forn-cep" placeholder="00000-000" onblur="buscarEnderecoPorCep(this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-endereco">Endereço</label>
+                            <input type="text" id="forn-endereco" placeholder="Rua, Avenida...">
+                        </div>
+                    </div>
+                    <div class="form-grid" style="grid-template-columns: 1fr 2fr;">
+                        <div class="form-group">
+                            <label for="forn-numero">Número</label>
+                            <input type="text" id="forn-numero" placeholder="Ex: 123">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-complemento">Complemento</label>
+                            <input type="text" id="forn-complemento" placeholder="Sala, Apto, Galpão...">
+                        </div>
+                    </div>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="form-group">
+                            <label for="forn-bairro">Bairro</label>
+                            <input type="text" id="forn-bairro" placeholder="Bairro">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-cidade">Cidade</label>
+                            <input type="text" id="forn-cidade" placeholder="Cidade">
+                        </div>
+                        <div class="form-group">
+                            <label for="forn-estado">UF</label>
+                            <input type="text" id="forn-estado" placeholder="UF" maxlength="2" style="text-transform: uppercase;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-fornecedor')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Fornecedor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 5: CENTRO DE CUSTO -->
+    <div id="modal-centro-custo" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-centro-custo-title">Cadastrar Novo Centro de Custo</h3>
+                <button class="modal-close" onclick="fecharModal('modal-centro-custo')">&times;</button>
+            </div>
+            <form id="form-centro-custo" onsubmit="salvarCentroCusto(event)">
+                <input type="hidden" id="cc-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="cc-codigo">Código *</label>
+                        <input type="text" id="cc-codigo" placeholder="Ex: CC001" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cc-nome">Nome *</label>
+                        <input type="text" id="cc-nome" placeholder="Ex: Operacional / Logística" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cc-descricao">Descrição</label>
+                        <textarea id="cc-descricao" rows="3" placeholder="Descrição detalhada do centro de custo"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-centro-custo')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Centro de Custo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE PERMISSÕES DE MENU -->
+    <div id="modal-permissoes-menu" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Permissões de Menu <small id="perm-menu-username" style="font-weight:normal; font-size:14px;"></small></h3>
+                <button class="modal-close" onclick="fecharModal('modal-permissoes-menu')">&times;</button>
+            </div>
+            <form id="form-permissoes-menu" onsubmit="salvarPermissoesMenu(event)">
+                <input type="hidden" id="perm-menu-id">
+                <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Selecione os menus e submenus que este usuário pode acessar:</p>
+                    <div id="permissoes-menu-list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Checkboxes serão gerados aqui dinamicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-permissoes-menu')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Permissões</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 6: TROCAR SENHA -->
+    <div id="modal-trocar-senha" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Trocar Senha</h3>
+                <button class="modal-close" onclick="fecharModal('modal-trocar-senha')">&times;</button>
+            </div>
+            <form id="form-trocar-senha" onsubmit="solicitarTrocaSenha(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="ts-senha-atual">Senha Atual *</label>
+                        <input type="password" id="ts-senha-atual" placeholder="Sua senha atual" required autocomplete="current-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="ts-nova-senha">Nova Senha *</label>
+                        <input type="password" id="ts-nova-senha" placeholder="Sua nova senha" required autocomplete="new-password">
+                    </div>
+                    <div class="info-box" style="margin-bottom: 1rem; font-size: 0.85rem;">
+                        <i class="fa-solid fa-circle-info"></i> A nova senha ficará <strong>Pendente</strong> de aprovação do Administrador. A senha atual continuará funcionando até lá.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-trocar-senha')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Solicitar Troca</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL LANÇAMENTO ESTÁGIO -->
     <div id="modal-estagios-lancamento" class="modal-overlay hidden">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -1696,55 +1938,17 @@
                 <input type="hidden" id="estagio-id">
                 <div class="modal-body">
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label for="estagio-data">Data *</label>
-                            <input type="date" id="estagio-data" required>
+                        <div class="form-group" style="display: flex; gap: 10px; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <label for="estagio-data">Data *</label>
+                                <input type="date" id="estagio-data" required>
+                            </div>
+                            <div style="flex: 2; padding-top: 25px; display: flex; align-items: center; gap: 5px;">
+                                <input type="checkbox" id="estagio-aguardando-analise" style="width: auto; margin: 0;">
+                                <label for="estagio-aguardando-analise" style="font-size: 12px; margin: 0; cursor: pointer; color: white; font-weight: bold; white-space: nowrap;">Aguardando retorno do aluno</label>
+                            </div>
                         </div>
                         <input type="hidden" id="estagio-status" value="Em andamento">
-                        <div class="form-group span-2">
-                            <label for="estagio-aluno">Aluno(a) *</label>
-                            <input type="text" id="estagio-aluno" placeholder="NOME DO ALUNO" required list="lista-alunos" style="text-transform: uppercase;">
-                        </div>
-                        <div class="form-group">
-                            <label for="estagio-unidade">Unidade *</label>
-                            <select id="estagio-unidade" required>
-                                <option value="">Selecione a Unidade...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="estagio-curso">Curso *</label>
-                            <select id="estagio-curso" required>
-                                <option value="">SELECIONE...</option>
-                                <option value="CUIDADOR DE IDOSO">CUIDADOR DE IDOSO</option>
-                                <option value="ESPECIALIZACAO EM MAMOGRAFIA">ESPECIALIZACAO EM MAMOGRAFIA</option>
-                                <option value="INSTRUMENTACAO CIRURGICA">INSTRUMENTACAO CIRURGICA</option>
-                                <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
-                                <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>
-                                <option value="TECNICO EM ESTETICA">TECNICO EM ESTETICA</option>
-                                <option value="TECNICO EM FARMACIA">TECNICO EM FARMACIA</option>
-                                <option value="TECNICO EM RADIOLOGIA">TECNICO EM RADIOLOGIA</option>
-                                <option value="OUTROS">OUTROS</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="estagio-turma">Turma</label>
-                            <input type="text" id="estagio-turma" placeholder="Ex: T01-M" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '')">
-                        </div>
-                        <div class="form-group">
-                            <label for="estagio-horas">Horas Totais</label>
-                            <input type="number" id="estagio-horas" step="0.5" min="0" value="0">
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="estagio-protocolo">Protocolo EW</label>
-                            <input type="text" id="estagio-protocolo" placeholder="Apenas Números" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-                        </div>
-                        <div class="form-group span-2">
-                            <label for="estagio-observacoes">Observações</label>
-                            <textarea id="estagio-observacoes" rows="2" placeholder="Informações adicionais..." style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase()"></textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-estagios-lancamento')">Cancelar</button>
                     <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
                 </div>
@@ -1906,6 +2110,9 @@
             <div class="modal-body" style="padding: 24px;">
                 <img id="foto-usuario-ampliada" src="" alt="Foto do usuário" style="max-width: 100%; max-height: 420px; border-radius: 12px; object-fit: contain; border: 2px solid var(--accent-blue);">
             </div>
+        </div>
+    </div>
+
     <!-- MODAL SOBRE -->
     <div id="modal-sobre" class="modal-overlay hidden">
         <div class="modal-content modal-sm" style="max-width: 350px; text-align: center;">
@@ -1922,8 +2129,6 @@
             <div class="modal-footer" style="justify-content: center;">
                 <button class="btn btn-secondary" onclick="fecharModal('modal-sobre')">Fechar</button>
             </div>
-        </div>
-    </div>
         </div>
     </div>
     <script>
@@ -1945,6 +2150,6 @@
             }
         }
     </script>
-    <script src="js/main.js"></script>
+    <script src="js/main.js?v=20260902_2"></script>
 </body>
 </html>

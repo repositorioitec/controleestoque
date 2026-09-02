@@ -1437,7 +1437,32 @@ async function documentos_excluir(id) {
     return true;
 }
 
+async function get_last_db_update() {
+    try {
+        const res = await pool.query(`
+            SELECT MAX(ts) AS ultima_atualizacao FROM (
+                SELECT MAX(data_movimentacao) AS ts FROM tbl_movimentacoes
+                UNION ALL
+                SELECT MAX(data_cadastro) AS ts FROM tbl_estagios_lancamentos
+                UNION ALL
+                SELECT MAX(data_validacao) AS ts FROM tbl_estagios_lancamentos
+                UNION ALL
+                SELECT MAX(data_cadastro) AS ts FROM tbl_produtos
+                UNION ALL
+                SELECT MAX(data_inclusao) AS ts FROM tbl_documentos
+            ) AS sub
+        `);
+        if (res.rows.length > 0 && res.rows[0].ultima_atualizacao) {
+            return res.rows[0].ultima_atualizacao;
+        }
+    } catch (e) {
+        console.error("Erro ao obter get_last_db_update:", e);
+    }
+    return new Date().toISOString();
+}
+
 module.exports = {
+    get_last_db_update,
     documentos_salvar,
     documentos_listar,
     documentos_obter_arquivo,

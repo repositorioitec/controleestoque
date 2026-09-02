@@ -199,6 +199,9 @@
                                     <li class="nav-item" data-target="view-estagios-relatorio-horas-validadas" data-menu-key="estagios-relatorio-horas-validadas">
                                         <a href="#"><i class="fa-solid fa-calendar-check"></i> <span>Horas Validadas</span></a>
                                     </li>
+                                    <li class="nav-item" data-target="view-estagios-relatorio-aguardando-retorno" data-menu-key="estagios-relatorio-aguardando-retorno">
+                                        <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> <span>Aguardando retorno do aluno</span></a>
+                                    </li>
                                 </ul>
                             </li>
                         </ul>
@@ -1305,8 +1308,52 @@
                         <div id="relatorio-hv-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">Selecione o período de validação, se desejar, e clique em Pesquisar.</div>
                     </div>
                 </section>
+
+                <!-- VIEW: RELATÓRIO DE AGUARDANDO RETORNO DO ALUNO -->
+                <section id="view-estagios-relatorio-aguardando-retorno" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div>
+                                <h3><i class="fa-solid fa-clock-rotate-left text-primary"></i> Relatório: Aguardando retorno do aluno</h3>
+                                <small style="color: var(--text-muted);">Consulte e imprima os lançamentos aguardando retorno do aluno por período</small>
+                            </div>
+                        </div>
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin: 15px 0; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                            <div class="form-group" style="margin:0; min-width: 180px;">
+                                <label for="relatorio-ara-data-inicio" style="font-size: 12px;"><i class="fa-solid fa-calendar-day"></i> VALIDAÇÃO DE</label>
+                                <input type="date" id="relatorio-ara-data-inicio" class="form-control">
+                            </div>
+                            <div class="form-group" style="margin:0; min-width: 180px;">
+                                <label for="relatorio-ara-data-fim" style="font-size: 12px;"><i class="fa-solid fa-calendar-day"></i> VALIDAÇÃO ATÉ</label>
+                                <input type="date" id="relatorio-ara-data-fim" class="form-control">
+                            </div>
+                            <div class="form-group" style="margin:0; min-width: 200px;">
+                                <label for="relatorio-ara-unidade" style="font-size: 12px;"><i class="fa-solid fa-building"></i> UNIDADE</label>
+                                <select id="relatorio-ara-unidade" class="form-control">
+                                    <option value="">SELECIONE UMA UNIDADE...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" onclick="gerarRelatorioAguardandoRetorno()"><i class="fa-solid fa-search"></i> Pesquisar</button>
+                                <button class="btn btn-secondary" onclick="limparRelatorioAguardandoRetorno()" style="margin-left: 8px;"><i class="fa-solid fa-broom"></i> Limpar</button>
+                                <button class="btn btn-success" onclick="imprimirRelatorioAguardandoRetorno()" id="btn-imprimir-ara" style="margin-left: 8px; display: none;"><i class="fa-solid fa-print"></i> Imprimir</button>
+                            </div>
+                        </div>
+                        <div id="relatorio-ara-resultado" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead><tr><th>Data</th><th>Aluno(a)</th><th>Unidade</th><th>Curso</th><th>Turma</th><th>Total Horas</th><th>Protocolo</th><th>Observações</th><th>Registrado por</th></tr></thead>
+                                    <tbody id="table-relatorio-ara-body"></tbody>
+                                    <tfoot id="table-relatorio-ara-footer"></tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="relatorio-ara-vazio" style="text-align: center; padding: 40px; color: var(--text-muted); display: none;">Nenhum lançamento aguardando retorno do aluno encontrado para os filtros informados.</div>
+                        <div id="relatorio-ara-inicial" style="text-align: center; padding: 40px; color: var(--text-muted);">Selecione os filtros desejados e clique em Pesquisar.</div>
+                    </div>
+                </section>
             
-                                <!-- VIEW: DOCUMENTOS -->
+                <!-- VIEW: DOCUMENTOS -->
                 <section id="view-documentos" class="app-view">
                     <div class="panel">
                         <div class="panel-header" style="flex-wrap: wrap; gap: 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; margin-bottom: 15px;">
@@ -1837,7 +1884,7 @@
                         </div>
                         <div class="form-group">
                             <label for="estagio-horas">Horas Totais</label>
-                            <input type="number" id="estagio-horas" step="0.5" min="0" value="0">
+                            <input type="number" id="estagio-horas" step="1" min="0" placeholder="0" onkeydown="if(['e','E','+','-','.',','].includes(event.key)) event.preventDefault();" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="if(this.value) this.value = Math.round(parseFloat(this.value.toString().replace(',', '.')) || 0);" required>
                         </div>
                         <div class="form-group span-2">
                             <label for="estagio-protocolo">Protocolo EW</label>
@@ -2028,7 +2075,6 @@
             }
         }
     </script>
-    <script src="js/main.js"></script>
 
     <!-- MODAL: UPLOAD DOCUMENTO -->
     <div class="modal-overlay hidden" id="modal-upload-documento">
@@ -2067,20 +2113,32 @@
 
 
     <!-- MODAL: VISUALIZAR DOCUMENTO -->
-    <div class="modal-overlay hidden" id="modal-visualizar-documento">
-        <div class="modal-content" style="max-width: 900px; width: 95%; height: 90vh; display: flex; flex-direction: column;">
-            <div class="modal-header">
-                <h2 id="visualizar-doc-titulo" style="text-transform: uppercase;">Visualizar Documento</h2>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-primary" id="btn-imprimir-doc-modal"><i class="fa-solid fa-print"></i> Imprimir</button>
-                    <button class="btn-close" onclick="fecharModal('modal-visualizar-documento')" style="margin-left: 10px;"><i class="fa-solid fa-xmark"></i></button>
+    <div class="modal-overlay hidden" id="modal-visualizar-documento" onclick="if(event.target === this) fecharModalVisualizarDocumento();">
+        <div class="modal-content" style="max-width: 960px; width: 95%; height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                    <i class="fa-solid fa-file-lines" style="color: #3b82f6; font-size: 20px;"></i>
+                    <h3 id="visualizar-doc-titulo" style="margin: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px; color: #fff;">Visualizar Documento</h3>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="imprimirDocumentoAtual()" title="Imprimir Documento">
+                        <i class="fa-solid fa-print"></i> Imprimir
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success" onclick="baixarDocumentoAtual()" style="background-color: #10b981; border-color: #10b981;" title="Baixar Arquivo">
+                        <i class="fa-solid fa-download"></i> Baixar
+                    </button>
+                    <button type="button" class="btn-close" onclick="fecharModalVisualizarDocumento()" style="background: none; border: none; font-size: 18px; color: #94a3b8; cursor: pointer; margin-left: 8px;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
             </div>
-            <div class="modal-body" style="flex: 1; padding: 0;">
-                <iframe id="iframe-visualizar-doc" style="width: 100%; height: 100%; border: none;"></iframe>
+            <div class="modal-body" id="visualizar-doc-corpo" style="flex: 1; padding: 0; position: relative; background: #0f172a; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+                <iframe id="iframe-visualizar-doc" style="width: 100%; height: 100%; border: none; display: none;"></iframe>
+                <div id="container-visualizar-doc-custom" style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; padding: 20px; overflow: auto;"></div>
             </div>
         </div>
     </div>
 
+    <script src="js/main.js?v=20260902_5"></script>
 </body>
 </html>
