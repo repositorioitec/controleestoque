@@ -197,6 +197,50 @@ async function init_db() {
       ADD COLUMN IF NOT EXISTS aguardando_analise BOOLEAN DEFAULT FALSE;
     `);
 
+
+    // A versão inicial da biblioteca usava os nomes arquivo_base64 e data_upload.
+    // Mantemos os dados existentes e completamos o esquema esperado pela API atual.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tbl_documentos (
+        id_documento SERIAL PRIMARY KEY,
+        curso VARCHAR(100) NOT NULL,
+        tipo_documento VARCHAR(100) NOT NULL,
+        nome_arquivo VARCHAR(255) NOT NULL,
+        tipo_mime VARCHAR(100),
+        dados_arquivo TEXT NOT NULL,
+        data_inclusao TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE tbl_documentos
+        ADD COLUMN IF NOT EXISTS tipo_mime VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS dados_arquivo TEXT,
+        ADD COLUMN IF NOT EXISTS data_inclusao TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'tbl_documentos'
+            AND column_name = 'arquivo_base64'
+        ) THEN
+          UPDATE tbl_documentos
+          SET dados_arquivo = arquivo_base64
+          WHERE dados_arquivo IS NULL;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'tbl_documentos'
+            AND column_name = 'data_upload'
+        ) THEN
+          UPDATE tbl_documentos
+          SET data_inclusao = data_upload
+          WHERE data_inclusao IS NULL;
+        END IF;
+      END $$;
+    `);
     // Registra como "Legado" os lançamentos antigos que não possuem usuário
     await client.query(`
       UPDATE tbl_estagios_lancamentos

@@ -48,9 +48,6 @@ const LocalDB = {
                 { id_categoria: 3, nome_categoria: "Informática" }
             ]));
         }
-        if (!localStorage.getItem('gh_documentos')) {
-            localStorage.setItem('gh_documentos', JSON.stringify([]));
-        }
         if (!localStorage.getItem('gh_fornecedores')) {
             localStorage.setItem('gh_fornecedores', JSON.stringify([
                 { id_fornecedor: 1, nome_fornecedor: "Tech Brasil LTDA", cnpj_cpf: "12.345.678/0001-90", telefone: "(11) 98888-7777", email: "contato@techbrasil.com" }
@@ -786,44 +783,7 @@ const LocalDB = {
             return { success: true, data: relatorio };
         }
 
-                // --- DOCUMENTOS ---
-        if (path === '/api/documentos' && method === 'GET') {
-            let docs = this.get('documentos');
-            const curso = params.get('curso');
-            if (curso) docs = docs.filter(d => d.curso === curso);
-            return { success: true, documentos: docs };
-        }
-        if (path === '/api/documentos' && method === 'POST') {
-            const docs = this.get('documentos');
-            const novo = {
-                id_documento: Date.now(),
-                curso: body.curso,
-                tipo_documento: body.tipo_documento,
-                nome_arquivo: body.nome_arquivo,
-                tipo_mime: body.tipo_mime,
-                dados_arquivo: body.dados_arquivo,
-                data_inclusao: new Date().toISOString()
-            };
-            docs.push(novo);
-            this.set('documentos', docs);
-            return { success: true, message: 'Documento salvo offline' };
-        }
-        if (path.match(/\/api\/documentos\/\d+/) && method === 'GET') {
-            const id = parseInt(path.split('/')[3]);
-            const docs = this.get('documentos');
-            const doc = docs.find(d => d.id_documento === id);
-            if (doc) return { success: true, documento: doc };
-            return { success: false, message: 'Documento não encontrado' };
-        }
-        if (path.match(/\/api\/documentos\/\d+/) && method === 'DELETE') {
-            const id = parseInt(path.split('/')[3]);
-            let docs = this.get('documentos');
-            docs = docs.filter(d => d.id_documento !== id);
-            this.set('documentos', docs);
-            return { success: true, message: 'Documento excluído' };
-        }
-
-return { success: false, message: 'Rota não encontrada' };
+        return { success: false, message: 'Rota não encontrada' };
     }
 };
 
@@ -1408,12 +1368,6 @@ async function carregarDashboard() {
                         <td><strong>${m.quantidade}</strong></td>
                     </tr>
                 `).join('');
-            }
-            
-            const lastUpdateLabel = document.getElementById('db-last-update-label');
-            if (lastUpdateLabel) {
-                const now = new Date();
-                lastUpdateLabel.textContent = `ATUALIZADO: ${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}`;
             }
         }
     } catch (error) {
