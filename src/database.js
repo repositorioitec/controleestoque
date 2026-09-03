@@ -1103,7 +1103,11 @@ async function gerar_relatorio_sugestao_compras(id_unidade = null, id_categoria 
     const consumo_periodo = Math.round(parseFloat(consumoRes.rows[0]?.consumo || 0));
     const media_consumo = dias_periodo > 0 ? (consumo_periodo / dias_periodo) : 0;
     const consumo_adicional_entrega = media_consumo * dias_ate_entrega;
-    const sugestao_pedido = Math.max(0, Math.ceil(consumo_periodo + consumo_adicional_entrega + estoque_minimo - estoque_real));
+    
+    // Novo cálculo do estoque mínimo
+    const estoque_minimo_calculado = Math.ceil(consumo_adicional_entrega * 1.05);
+    
+    const sugestao_pedido = Math.max(0, Math.ceil(consumo_periodo + consumo_adicional_entrega + estoque_minimo_calculado - estoque_real));
 
     const preco_custo = preco_custo_calculado;
     const valor_sugestao = sugestao_pedido > 0 ? sugestao_pedido * preco_custo : 0;
@@ -1118,7 +1122,7 @@ async function gerar_relatorio_sugestao_compras(id_unidade = null, id_categoria 
       dias_ate_entrega,
       consumo_adicional_entrega: Math.round(consumo_adicional_entrega),
       consumo_diario: parseFloat(media_consumo.toFixed(2)),
-      estoque_minimo,
+      estoque_minimo: estoque_minimo_calculado,
       sugestao_pedido,
       preco_custo,
       valor_sugestao

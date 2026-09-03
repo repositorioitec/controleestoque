@@ -1075,7 +1075,6 @@ async function carregarDashboard() {
                 tbodyBaixo.innerHTML = data.produtos_baixo_estoque.map(p => `
                     <tr>
                         <td><strong>${p.nome_produto}</strong></td>
-                        <td>${p.estoque_minimo}</td>
                         <td><strong>${p.estoque_atual}</strong></td>
                         <td><span class="badge ${p.status_estoque === 'Zerado' ? 'badge-danger' : 'badge-warning'}">${p.status_estoque}</span></td>
                     </tr>
@@ -1234,7 +1233,6 @@ function renderizarTabelaProdutos(produtos) {
                 <td><strong>${p.nome_produto}</strong></td>
                 <td>${p.nome_categoria}</td>
                 <td>${p.nome_unidade || 'Todas'}</td>
-                <td>${p.estoque_minimo}</td>
                 <td ${dblClickCusto}><span ${tipoCusto} data-valor="${p.preco_custo || 0}">${formatarMoeda(p.preco_custo)}</span></td>
                 <td ${dblClickVenda}><span ${tipoVenda} data-valor="${p.preco_venda || 0}">${formatarMoeda(p.preco_venda)}</span></td>
                 <td><strong style="font-size: 15px;">${p.estoque_atual}</strong></td>
@@ -2806,6 +2804,7 @@ function imprimirRelatorioEstoque() {
 function definirPeriodoPadraoSugestaoCompras() {
     const inputInicio = document.getElementById('filter-rel-sug-inicio');
     const inputFim = document.getElementById('filter-rel-sug-fim');
+    const inputEntrega = document.getElementById('filter-rel-sug-entrega');
     if (!inputInicio || !inputFim) return;
 
     if (!inputInicio.value || !inputFim.value) {
@@ -2814,6 +2813,12 @@ function definirPeriodoPadraoSugestaoCompras() {
         inicio.setDate(inicio.getDate() - 30);
         inputFim.value = hoje.toISOString().split('T')[0];
         inputInicio.value = inicio.toISOString().split('T')[0];
+    }
+
+    if (inputEntrega && !inputEntrega.value && inputFim.value) {
+        const dataFim = new Date(inputFim.value + 'T00:00:00');
+        dataFim.setDate(dataFim.getDate() + 10);
+        inputEntrega.value = dataFim.toISOString().split('T')[0];
     }
 }
 
