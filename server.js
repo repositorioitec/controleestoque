@@ -610,12 +610,13 @@ app.get('/api/relatorios/sugestao-compras', async (req, res) => {
   const id_categoria = req.query.id_categoria ? parseInt(req.query.id_categoria) : null;
   const data_inicio = req.query.data_inicio || null;
   const data_fim = req.query.data_fim || null;
+  const data_entrega = req.query.data_entrega || null;
 
   const id_usuario = req.headers['x-user-id'] ? parseInt(req.headers['x-user-id']) : null;
   const nivel_acesso = req.headers['x-user-nivel'] || null;
 
   try {
-    const relatorio = await database.gerar_relatorio_sugestao_compras(id_unidade, id_categoria, data_inicio, data_fim, id_usuario, nivel_acesso);
+    const relatorio = await database.gerar_relatorio_sugestao_compras(id_unidade, id_categoria, data_inicio, data_fim, id_usuario, nivel_acesso, data_entrega);
     return res.json({ success: true, data: relatorio });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });

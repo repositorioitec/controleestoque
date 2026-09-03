@@ -726,18 +726,35 @@ const LocalDB = {
             const catId = params.get('id_categoria');
             let dataInicio = params.get('data_inicio');
             let dataFim = params.get('data_fim');
+            let dataEntrega = params.get('data_entrega');
+
+            const hoje = new Date();
+            const ano = hoje.getFullYear();
+            const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoje.getDate()).padStart(2, '0');
+            const hojeLocal = `${ano}-${mes}-${dia}`;
 
             if (!dataInicio || !dataFim) {
-                const hoje = new Date();
-                dataFim = dataFim || hoje.toISOString().split('T')[0];
+                dataFim = dataFim || hojeLocal;
                 const inicio = new Date(hoje);
                 inicio.setDate(inicio.getDate() - 30);
-                dataInicio = dataInicio || inicio.toISOString().split('T')[0];
+                const anoI = inicio.getFullYear();
+                const mesI = String(inicio.getMonth() + 1).padStart(2, '0');
+                const diaI = String(inicio.getDate()).padStart(2, '0');
+                dataInicio = dataInicio || `${anoI}-${mesI}-${diaI}`;
             }
 
-            const dtInicio = new Date(dataInicio);
-            const dtFim = new Date(dataFim);
+            const dtInicio = new Date(dataInicio + 'T00:00:00');
+            const dtFim = new Date(dataFim + 'T00:00:00');
             const diasPeriodo = Math.max(1, Math.round((dtFim - dtInicio) / (1000 * 60 * 60 * 24)) + 1);
+
+            let diasAteEntrega = 0;
+            if (dataEntrega) {
+                const dtEntrega = new Date(dataEntrega + 'T00:00:00');
+                const refStr = (dataFim && dataFim < hojeLocal) ? dataFim : hojeLocal;
+                const dtRef = new Date(refStr + 'T00:00:00');
+                diasAteEntrega = Math.max(0, Math.round((dtEntrega - dtRef) / (1000 * 60 * 60 * 24)));
+            }
 
             let prods = this.get('produtos').filter(p => !p.inativo);
             if (catId) prods = prods.filter(p => p.id_categoria == catId);
@@ -756,15 +773,17 @@ const LocalDB = {
                 let consumoPeriodo = movs
                     .filter(m => {
                         if (m.id_produto != p.id_produto) return false;
-                        if (m.tipo_movimentacao !== 'SAIDA') return false;
-                        if (unidId && m.id_unidade != unidId) return false;
+                        const t = (m.tipo_movimentacao || '').toUpperCase();
+                        if (t !== 'SAIDA' && t !== 'SAÍDA') return false;
+                        if (unidId && m.id_unidade && m.id_unidade != unidId) return false;
                         const dt = m.data_movimentacao ? m.data_movimentacao.substring(0, 10) : '';
                         return dt >= dataInicio && dt <= dataFim;
                     })
                     .reduce((sum, m) => sum + parseInt(m.quantidade || 0), 0);
 
-                const mediaConsumo = consumoPeriodo / diasPeriodo;
-                const sugestaoPedido = Math.max(0, Math.ceil(mediaConsumo * diasPeriodo + estoqueMinimo - estoqueReal));
+                const mediaConsumo = diasPeriodo > 0 ? (consumoPeriodo / diasPeriodo) : 0;
+                const consumoAdicionalEntrega = mediaConsumo * diasAteEntrega;
+                const sugestaoPedido = Math.max(0, Math.ceil(consumoPeriodo + consumoAdicionalEntrega + estoqueMinimo - estoqueReal));
 
                 const precoCusto = this.obterUltimoCustoProduto(p.id_produto, p.preco_custo);
 
@@ -774,6 +793,7 @@ const LocalDB = {
                     nome_unidade: nomeUnidadeRelatorio,
                     nome_categoria: c ? c.nome_categoria : "Sem Categoria",
                     estoque_real: estoqueReal,
+                    consumo_periodo: consumoPeriodo,
                     estoque_minimo: estoqueMinimo,
                     sugestao_pedido: sugestaoPedido,
                     preco_custo: precoCusto,
@@ -3621,6 +3641,7 @@ async function carregarRelatorioSugestaoCompras() {
     const categoria = document.getElementById('filter-rel-sug-categoria')?.value || '';
     const dataInicio = document.getElementById('filter-rel-sug-inicio')?.value || '';
     const dataFim = document.getElementById('filter-rel-sug-fim')?.value || '';
+    const dataEntrega = document.getElementById('filter-rel-sug-entrega')?.value || '';
 
     if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
         unidade = currentUser.id_unidade || '';
@@ -3635,12 +3656,13 @@ async function carregarRelatorioSugestaoCompras() {
     if (categoria) url += `id_categoria=${categoria}&`;
     if (dataInicio) url += `data_inicio=${encodeURIComponent(dataInicio)}&`;
     if (dataFim) url += `data_fim=${encodeURIComponent(dataFim)}&`;
+    if (dataEntrega) url += `data_entrega=${encodeURIComponent(dataEntrega)}&`;
 
     const tbody = document.getElementById('table-relatorios-sugestao-body');
     if (!tbody) return;
 
     try {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">Carregando dados do relatório...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center">Carregando dados do relatório...</td></tr>';
         const res = await safeFetch(url);
 
         if (res.success) {
@@ -3651,7 +3673,7 @@ async function carregarRelatorioSugestaoCompras() {
                 const msg = ocultarZero && res.data.length > 0
                     ? 'Nenhum produto com sugestão de pedido acima de zero. <a href="#" onclick="document.getElementById(\'filter-rel-sug-ocultar-zero\').click(); return false;">Mostrar todos</a>'
                     : 'Nenhum produto encontrado para os filtros selecionados.';
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">${msg}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">${msg}</td></tr>`;
                 const kpiTotal = document.getElementById('kpi-total-sugerido-compras');
                 if (kpiTotal) kpiTotal.textContent = 'R$ 0,00';
                 return;
@@ -3672,18 +3694,19 @@ async function carregarRelatorioSugestaoCompras() {
                     <td>${r.nome_unidade}</td>
                     <td>${r.nome_categoria}</td>
                     <td><span class="badge ${r.estoque_real <= r.estoque_minimo ? 'badge-danger' : 'badge-primary'}">${r.estoque_real}</span></td>
+                    <td><span class="badge" style="background: rgba(249, 115, 22, 0.15); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.3); font-weight: 600;">${r.consumo_periodo ?? 0}</span></td>
                     <td><span class="badge badge-warning">${r.estoque_minimo}</span></td>
                     <td><span class="badge ${r.sugestao_pedido > 0 ? 'badge-success' : 'badge-secondary'}">${r.sugestao_pedido}</span></td>
                     <td><span style="font-weight:600; color: var(--accent-teal);">${valorFmt}</span></td>
                 </tr>
             `}).join('');
         } else {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro ao carregar relatório.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Erro ao carregar relatório.</td></tr>';
             showToast(res.message || 'Erro ao carregar relatório', 'error');
         }
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erro de conexão ao carregar relatório.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Erro de conexão ao carregar relatório.</td></tr>';
     }
 }
 
@@ -3713,18 +3736,26 @@ function imprimirRelatorioSugestaoCompras() {
 
     const dataInicio = document.getElementById('filter-rel-sug-inicio')?.value || '';
     const dataFim = document.getElementById('filter-rel-sug-fim')?.value || '';
+    const dataEntrega = document.getElementById('filter-rel-sug-entrega')?.value || '';
 
     const tbody = document.getElementById('table-relatorios-sugestao-body')?.innerHTML || '';
     const now = new Date().toLocaleDateString('pt-BR');
 
     let filtrosTexto = [];
     if (dataInicio && dataFim) filtrosTexto.push(`Período: <strong>${dataInicio.split('-').reverse().join('/')} a ${dataFim.split('-').reverse().join('/')}</strong>`);
+    if (dataEntrega) filtrosTexto.push(`Previsão de Entrega: <strong>${dataEntrega.split('-').reverse().join('/')}</strong>`);
     if (nomeUnidade && nomeUnidade !== 'Todas as Unidades') filtrosTexto.push(`Unidade: <strong>${nomeUnidade}</strong>`);
     if (nomeCategoria && nomeCategoria !== 'Todas as Categorias') filtrosTexto.push(`Categoria: <strong>${nomeCategoria}</strong>`);
     const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros específicos';
 
     const totalSugeridoEl = document.getElementById('kpi-total-sugerido-compras');
     const totalSugeridoTexto = totalSugeridoEl ? totalSugeridoEl.textContent : 'R$ 0,00';
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        showToast('Erro ao abrir janela de impressão. Verifique se há bloqueio de pop-ups.', 'error');
+        return;
+    }
 
     const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -3762,31 +3793,25 @@ function imprimirRelatorioSugestaoCompras() {
     <table>
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Produto</th>
-                <th>Categoria</th>
                 <th>Unidade</th>
-                <th>Estoque Atual</th>
+                <th>Categoria</th>
+                <th>Estoque Real</th>
+                <th>Consumo Período</th>
                 <th>Estoque Mínimo</th>
-                <th>A Comprar</th>
-                <th>Custo Médio</th>
-                <th>Subtotal</th>
+                <th>Sugestão Pedido</th>
+                <th>Valor Sugerido</th>
             </tr>
         </thead>
         <tbody>
-            ${linhasSugeridasHtml}
+            ${tbody}
         </tbody>
     </table>
 </body>
-</html>
-    `;
-    
-    // Fallback se printWindow falhar
-    if (!printWindow) {
-        showToast('Erro ao abrir janela de impressão. Verifique se há bloqueio de pop-ups.', 'error');
-        return;
-    }
+</html>`;
 
-    printWindow.document.write(htmlContent);
+    printWindow.document.write(html);
     printWindow.document.close();
 
     printWindow.onload = function() {
