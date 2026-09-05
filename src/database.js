@@ -701,32 +701,47 @@ async function listar_produtos(busca = "", categoria_id = null, id_unidade = nul
   return produtos;
 }
 
-async function obter_produto_por_id(id_produto) {
+async function obter_produto_por_id(id_produto, id_unidade = null) {
   const res = await pool.query("SELECT * FROM tbl_produtos WHERE id_produto = $1", [id_produto]);
   if (res.rows.length === 0) return null;
-  return res.rows[0];
+  const produto = res.rows[0];
+  produto.estoque_atual = await calcular_estoque_produto(id_produto, id_unidade);
+  return produto;
 }
 
 async function salvar_produto(dados) {
-  const { id_produto, codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario } = dados;
+  const { id_produto, codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario, inativo } = dados;
+  const is_inativo = inativo === true;
+  
+  if (is_inativo && id_produto) {
+    const estoque_atual = await calcular_estoque_produto(id_produto);
+    if (estoque_atual > 0) {
+      throw new Error("Não é possível inativar o produto pois ele possui estoque.");
+    }
+  }
+
   if (id_produto) {
     await pool.query(`
       UPDATE tbl_produtos 
       SET codigo_barras = $1, nome_produto = $2, id_categoria = $3, id_fornecedor = $4, id_unidade = $5,
-          estoque_minimo = $6, preco_custo = $7, preco_venda = $8, id_usuario = COALESCE($9, id_usuario)
-      WHERE id_produto = $10
-    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, id_produto]);
+          estoque_minimo = $6, preco_custo = $7, preco_venda = $8, id_usuario = COALESCE($9, id_usuario), inativo = $10
+      WHERE id_produto = $11
+    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, is_inativo, id_produto]);
     return id_produto;
   } else {
     const res = await pool.query(`
-      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id_produto
-    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null]);
+      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario, inativo)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id_produto
+    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, is_inativo]);
     return res.rows[0].id_produto;
   }
 }
 
 async function excluir_produto(id_produto) {
+  const estoque_atual = await calcular_estoque_produto(id_produto);
+  if (estoque_atual > 0) {
+    throw new Error("Não é possível inativar o produto pois ele possui estoque.");
+  }
   await pool.query("UPDATE tbl_produtos SET inativo = TRUE WHERE id_produto = $1", [id_produto]);
   return true;
 }

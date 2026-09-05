@@ -1188,6 +1188,9 @@ async function iniciarAplicacao() {
             selectGlobal.value = savedAdminUnit;
             selectedUnitId = savedAdminUnit ? parseInt(savedAdminUnit) : null;
             selectGlobal.disabled = false;
+
+            // Atualiza o badge de usuários pendentes
+            atualizarBadgeUsuariosPendentes();
         }
     } else {
         const unidades_usuario = currentUser.unidades_acesso || [];
@@ -3839,8 +3842,26 @@ function imprimirRelatorioSugestaoCompras() {
         printWindow.focus();
         setTimeout(() => {
             printWindow.print();
-        }, 500);
+        }, 300);
     };
+}
+
+async function atualizarBadgeUsuariosPendentes() {
+    if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+        const result = await safeFetch('/api/auth/users');
+        if (result.success && result.users) {
+            const pendentes = result.users.filter(u => u.status_aprovacao === 'Pendente').length;
+            const badges = document.querySelectorAll('#badge-usuarios-pendentes');
+            badges.forEach(badge => {
+                if (pendentes > 0) {
+                    badge.textContent = pendentes;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            });
+        }
+    }
 }
 
 // ============================================================================
@@ -4773,8 +4794,9 @@ function gerarRelatorioHorasAluno() {
         totalLaboratorio += hLaboratorio;
         totalEvento += hEvento;
         
+        const trStyle = l.aguardando_analise ? ' style="background-color: rgba(255, 193, 7, 0.15);"' : '';
         return `
-            <tr>
+            <tr${trStyle}>
                 <td>${dataFormatada}</td>
                 <td>${l.turma || '-'}</td>
                 <td>
@@ -4792,6 +4814,8 @@ function gerarRelatorioHorasAluno() {
         `;
     }).join('');
     
+    const aguardandoCount = filtrados.filter(l => l.aguardando_analise).length;
+    
     tfoot.innerHTML = `
         <tr style="background: rgba(99, 102, 241, 0.15); font-weight: 700; border-top: 2px solid var(--accent-blue);">
             <td colspan="4" style="text-align: right; padding-right: 12px;">
@@ -4803,6 +4827,13 @@ function gerarRelatorioHorasAluno() {
             <td style="color: var(--accent-teal); text-align: center; font-weight: 700;"><strong>${totalEvento}</strong></td>
             <td style="font-size: 16px; text-align: center; font-weight: 700;"><strong>${totalHoras} h</strong></td>
         </tr>
+        ${aguardandoCount > 0 ? `
+        <tr style="background: transparent; border: none;">
+            <td colspan="9" style="text-align: right; padding-right: 12px; padding-top: 8px; color: #b45309; font-weight: 600; font-size: 13px; border: none;">
+                <i class="fa-solid fa-clock-rotate-left"></i> Contém ${aguardandoCount} lançamento(s) marcado(s) como "Aguardando retorno do aluno".
+            </td>
+        </tr>
+        ` : ''}
     `;
 }
 

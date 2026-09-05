@@ -65,7 +65,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   try {
-    await database.cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso, id_unidade, "Pendente");
+    await database.cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso, id_unidade);
     return res.json({ success: true, message: `Usuário "${usuario}" cadastrado! Aguarde a aprovação do administrador para acessar o sistema.` });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
