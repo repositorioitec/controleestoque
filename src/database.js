@@ -16,7 +16,10 @@ function getDbUrl() {
 }
 
 const pool = new Pool({
-  connectionString: getDbUrl()
+  connectionString: getDbUrl(),
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
 });
 
 async function init_db() {
@@ -225,6 +228,31 @@ async function init_db() {
         END IF;
       END $$;
     `).catch(e => console.error("Aviso ao ajustar tbl_documentos:", e.message));
+
+    // Criando Índices de Performance (Foreign Keys e Filtros)
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_produtos_categoria ON tbl_produtos(id_categoria);
+      CREATE INDEX IF NOT EXISTS idx_produtos_fornecedor ON tbl_produtos(id_fornecedor);
+      CREATE INDEX IF NOT EXISTS idx_produtos_unidade ON tbl_produtos(id_unidade);
+      CREATE INDEX IF NOT EXISTS idx_produtos_usuario ON tbl_produtos(id_usuario);
+      CREATE INDEX IF NOT EXISTS idx_produtos_codigo_barras ON tbl_produtos(codigo_barras);
+      CREATE INDEX IF NOT EXISTS idx_produtos_nome ON tbl_produtos(nome_produto);
+      
+      CREATE INDEX IF NOT EXISTS idx_mov_produto ON tbl_movimentacoes(id_produto);
+      CREATE INDEX IF NOT EXISTS idx_mov_unidade ON tbl_movimentacoes(id_unidade);
+      CREATE INDEX IF NOT EXISTS idx_mov_fornecedor ON tbl_movimentacoes(id_fornecedor);
+      CREATE INDEX IF NOT EXISTS idx_mov_usuario ON tbl_movimentacoes(id_usuario);
+      CREATE INDEX IF NOT EXISTS idx_mov_centro_custo ON tbl_movimentacoes(id_centro_custo);
+      CREATE INDEX IF NOT EXISTS idx_mov_data ON tbl_movimentacoes(data_movimentacao);
+      CREATE INDEX IF NOT EXISTS idx_mov_tipo ON tbl_movimentacoes(tipo_movimentacao);
+      
+      CREATE INDEX IF NOT EXISTS idx_usuarios_unidade ON tbl_usuarios(id_unidade);
+      
+      CREATE INDEX IF NOT EXISTS idx_estagios_data ON tbl_estagios_lancamentos(data_lancamento);
+      CREATE INDEX IF NOT EXISTS idx_estagios_status ON tbl_estagios_lancamentos(status);
+      CREATE INDEX IF NOT EXISTS idx_estagios_unidade ON tbl_estagios_lancamentos(unidade);
+      CREATE INDEX IF NOT EXISTS idx_estagios_curso ON tbl_estagios_lancamentos(curso);
+    `).catch(e => console.error("Aviso ao criar índices:", e.message));
 
     // Admin default
     const resAdm = await client.query("SELECT * FROM tbl_usuarios WHERE usuario = 'admin'");
@@ -527,22 +555,24 @@ async function listar_fornecedores() {
   return res.rows;
 }
 
-async function cadastrar_fornecedor(nome_fornecedor, cnpj_cpf = "", telefone = "", email = "", razao_reduzida = "", cep = "", endereco = "", numero = "", complemento = "", bairro = "", cidade = "", estado = "") {
+async function cadastrar_fornecedor(dados) {
+  const { nome_fornecedor, cnpj_cpf, telefone, email, razao_reduzida, cep, endereco, numero, complemento, bairro, cidade, estado } = dados;
   await pool.query(`
     INSERT INTO tbl_fornecedores (nome_fornecedor, cnpj_cpf, telefone, email, razao_reduzida, cep, endereco, numero, complemento, bairro, cidade, estado)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-  `, [nome_fornecedor.trim(), cnpj_cpf.trim(), telefone.trim(), email.trim(), razao_reduzida.trim(), cep.trim(), endereco.trim(), numero.trim(), complemento.trim(), bairro.trim(), cidade.trim(), estado.trim()]);
+  `, [(nome_fornecedor || '').trim(), (cnpj_cpf || '').trim(), (telefone || '').trim(), (email || '').trim(), (razao_reduzida || '').trim(), (cep || '').trim(), (endereco || '').trim(), (numero || '').trim(), (complemento || '').trim(), (bairro || '').trim(), (cidade || '').trim(), (estado || '').trim()]);
   return true;
 }
 
-async function atualizar_fornecedor(id_fornecedor, nome_fornecedor, cnpj_cpf = "", telefone = "", email = "", razao_reduzida = "", cep = "", endereco = "", numero = "", complemento = "", bairro = "", cidade = "", estado = "") {
+async function atualizar_fornecedor(id_fornecedor, dados) {
+  const { nome_fornecedor, cnpj_cpf, telefone, email, razao_reduzida, cep, endereco, numero, complemento, bairro, cidade, estado } = dados;
   await pool.query(`
     UPDATE tbl_fornecedores
     SET nome_fornecedor = $1, cnpj_cpf = $2, telefone = $3, email = $4,
         razao_reduzida = $5, cep = $6, endereco = $7, numero = $8, complemento = $9,
         bairro = $10, cidade = $11, estado = $12
     WHERE id_fornecedor = $13
-  `, [nome_fornecedor.trim(), cnpj_cpf.trim(), telefone.trim(), email.trim(), razao_reduzida.trim(), cep.trim(), endereco.trim(), numero.trim(), complemento.trim(), bairro.trim(), cidade.trim(), estado.trim(), id_fornecedor]);
+  `, [(nome_fornecedor || '').trim(), (cnpj_cpf || '').trim(), (telefone || '').trim(), (email || '').trim(), (razao_reduzida || '').trim(), (cep || '').trim(), (endereco || '').trim(), (numero || '').trim(), (complemento || '').trim(), (bairro || '').trim(), (cidade || '').trim(), (estado || '').trim(), id_fornecedor]);
   return true;
 }
 
@@ -677,20 +707,21 @@ async function obter_produto_por_id(id_produto) {
   return res.rows[0];
 }
 
-async function salvar_produto(id_produto, codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario = null) {
+async function salvar_produto(dados) {
+  const { id_produto, codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario } = dados;
   if (id_produto) {
     await pool.query(`
       UPDATE tbl_produtos 
       SET codigo_barras = $1, nome_produto = $2, id_categoria = $3, id_fornecedor = $4, id_unidade = $5,
           estoque_minimo = $6, preco_custo = $7, preco_venda = $8, id_usuario = COALESCE($9, id_usuario)
       WHERE id_produto = $10
-    `, [codigo_barras || null, nome_produto.trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, id_produto]);
+    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, id_produto]);
     return id_produto;
   } else {
     const res = await pool.query(`
       INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id_produto
-    `, [codigo_barras || null, nome_produto.trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null]);
+    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null]);
     return res.rows[0].id_produto;
   }
 }

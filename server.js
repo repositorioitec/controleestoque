@@ -128,7 +128,7 @@ app.post('/api/auth/users/:id_usuario/aprovar', async (req, res) => {
   }
 
   try {
-    await database.aprovar_usuario(id_usuario, unidades_acesso, nivel_acesso, categorias_acesso);
+    await database.aprovar_usuario(id_usuario, nivel_acesso, unidades_acesso[0] || null, null, unidades_acesso, categorias_acesso);
     return res.json({ success: true, message: 'Usuário aprovado com sucesso!' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -156,7 +156,12 @@ app.post('/api/auth/users/:id_usuario/editar', async (req, res) => {
   }
 
   try {
-    await database.atualizar_usuario(id_usuario, unidades_acesso, nivel_acesso, categorias_acesso);
+    const usuarios = await database.listar_usuarios();
+    const usuario = usuarios.find(u => u.id_usuario === id_usuario);
+    if (!usuario) {
+      return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+    }
+    await database.atualizar_usuario(id_usuario, usuario.nome_usuario, nivel_acesso, unidades_acesso[0] || null, usuario.menus_permitidos, unidades_acesso, categorias_acesso);
     return res.json({ success: true, message: 'Permissões do usuário atualizadas com sucesso!' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });

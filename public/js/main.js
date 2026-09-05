@@ -5755,14 +5755,8 @@ async function visualizarDocumento(id) {
                 <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; margin-bottom: 24px; text-align: left; font-size: 12px; color: #cbd5e1; line-height: 1.6;">
                     <div><strong>Formato:</strong> ${tipoNome}</div>
                     <div><strong>Data de Inclusão:</strong> ${new Date(doc.data_inclusao || Date.now()).toLocaleString('pt-BR')}</div>
-                    <div style="margin-top: 8px; color: #94a3b8; font-size: 11px;">
-                        <i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> Este tipo de arquivo pode ser impresso em ficha de protocolo ou baixado para edição completa no computador.
-                    </div>
                 </div>
                 <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-                    <button type="button" class="btn btn-primary" onclick="imprimirDocumentoAtual()" style="padding: 10px 20px;">
-                        <i class="fa-solid fa-print"></i> Imprimir
-                    </button>
                     <button type="button" class="btn btn-success" onclick="baixarDocumentoAtual()" style="background-color: #10b981; border-color: #10b981; padding: 10px 20px;">
                         <i class="fa-solid fa-download"></i> Baixar Arquivo
                     </button>
