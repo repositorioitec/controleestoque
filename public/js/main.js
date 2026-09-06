@@ -1194,8 +1194,8 @@ async function iniciarAplicacao() {
         }
     } else {
         const unidades_usuario = currentUser.unidades_acesso || [];
-        if (unidades_usuario.length > 1) {
-            // Usuário com múltiplas unidades pode trocar entre elas
+        if (unidades_usuario.length > 0) {
+            // Usuário com permissões de unidade pode trocar entre elas
             selectGlobal.innerHTML = '<option value="">Todas as Minhas Unidades</option>' +
                 unidades_usuario.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
             selectGlobal.disabled = false;
@@ -1317,7 +1317,7 @@ function abrirPrimeiroMenuESubmenu() {
 }
 
 function trocarUnidadeAtiva(unitId) {
-    const isAdminOrMultiUnit = isAdmin() || (currentUser && (currentUser.unidades_acesso || []).length > 1);
+    const isAdminOrMultiUnit = isAdmin() || (currentUser && (currentUser.unidades_acesso || []).length > 0);
     if (isAdminOrMultiUnit) {
         selectedUnitId = unitId ? parseInt(unitId) : null;
         if (isAdmin()) {
@@ -3256,10 +3256,7 @@ function renderizarTabelaUsuarios() {
                        <i class="fa-solid fa-user-check"></i> Reativar
                    </button>`;
             acoesHtml = `
-                <button class="btn btn-sm btn-outline" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Editar Unidade / Nível">
-                    <i class="fa-solid fa-pen-to-square"></i> Editar
-                </button>
-                <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalPermissoesMenu(${u.id_usuario}, '${u.nome_usuario}', ${menusPermJson})" title="Permissões de Menu">
+                <button class="btn btn-sm btn-outline" style="color: var(--primary);" onclick="abrirModalUsuario(${u.id_usuario}, 'editar')" title="Permissões do Usuário">
                     <i class="fa-solid fa-list-check"></i> Permissões
                 </button>
                 ${btnInativar}
@@ -3366,6 +3363,31 @@ function toggleTodasUnidades(checkbox) {
     });
 }
 
+const TODOS_MENUS = [
+    { key: 'controle-estoques', label: 'Controle de Estoques (Menu Pai)', isParent: true },
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'produtos', label: 'Produtos' },
+    { key: 'movimentacoes', label: 'Movimentações (Grupo)' },
+    { key: 'historico', label: 'Histórico' },
+    { key: 'transferencias', label: 'Transferências' },
+    { key: 'cadastros', label: 'Cadastros (Grupo)' },
+    { key: 'centros-custo', label: 'Centros de Custo' },
+    { key: 'unidades', label: 'Unidades' },
+    { key: 'categorias', label: 'Categorias' },
+    { key: 'fornecedores', label: 'Fornecedores' },
+    { key: 'relatorios', label: 'Relatórios (Grupo)' },
+    { key: 'estoque-atual', label: 'Estoque Atual' },
+    { key: 'sugestao-compras', label: 'Sugestão de Compras' },
+    { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
+    { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
+    { key: 'estagios-validacao', label: 'Validação Coordenação' },
+    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
+    { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
+    { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
+    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' },
+    { key: 'estagios-relatorio-aguardando-retorno', label: 'Aguardando retorno do aluno' }
+];
+
 async function abrirModalUsuario(id_usuario, modo = 'editar') {
     const u = _userDataMap[id_usuario] || {};
     const nome_usuario = u.nome_usuario || '';
@@ -3377,7 +3399,7 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
     document.getElementById('aprovar-user-nome').textContent = nome_usuario;
     document.getElementById('aprovar-user-modo').value = modo;
 
-    const title = modo === 'aprovar' ? 'Aprovar e Vincular Usuário' : 'Editar Unidade e Nível de Acesso';
+    const title = modo === 'aprovar' ? 'Aprovar Usuário e Permissões' : 'Permissões do Usuário';
     document.getElementById('modal-user-title').textContent = title;
 
     // Carregar unidades
@@ -3431,6 +3453,43 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
         }).join('');
     }
 
+    // Carregar menus
+    const permitidos = u.menus_permitidos || [];
+    const grupoAtual = { key: null };
+    const grupoDoItem = {};
+    TODOS_MENUS.forEach(m => {
+        if (m.isParent) {
+            grupoAtual.key = m.key;
+        } else if (grupoAtual.key) {
+            grupoDoItem[m.key] = grupoAtual.key;
+        }
+    });
+
+    const menuContainer = document.getElementById('permissoes-menu-list');
+    if (menuContainer) {
+        menuContainer.innerHTML = TODOS_MENUS.map(m => {
+            const isChecked = !u.menus_permitidos || permitidos.includes(m.key) ? 'checked' : '';
+            const boldStyle = m.isParent ? 'font-weight: bold;' : 'margin-left: 15px;';
+            const parentAttr = m.isParent ? `data-parent-key="${m.key}"` : '';
+            const groupAttr = grupoDoItem[m.key] ? `data-group="${grupoDoItem[m.key]}"` : '';
+            return `
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; ${boldStyle}">
+                    <input type="checkbox" name="menu-permission" value="${m.key}" ${isChecked} ${parentAttr} ${groupAttr}>
+                    ${m.label}
+                </label>
+            `;
+        }).join('');
+
+        menuContainer.querySelectorAll('input[data-parent-key]').forEach(parentCb => {
+            parentCb.addEventListener('change', function () {
+                const key = this.getAttribute('data-parent-key');
+                menuContainer.querySelectorAll(`input[data-group="${key}"]`).forEach(child => {
+                    child.checked = this.checked;
+                });
+            });
+        });
+    }
+
     document.getElementById('modal-aprovar-usuario').classList.remove('hidden');
 }
 
@@ -3456,6 +3515,9 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
     const categoriasSelecionadas = Array.from(document.querySelectorAll('input[name="usuario-categoria"]:checked'))
                                         .map(cb => parseInt(cb.value));
 
+    const menusSelecionados = Array.from(document.querySelectorAll('input[name="menu-permission"]:checked'))
+                                   .map(cb => cb.value);
+
     const endpoint = modo === 'aprovar' 
         ? `/api/auth/users/${userId}/aprovar` 
         : `/api/auth/users/${userId}/editar`;
@@ -3472,6 +3534,11 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
     });
 
     if (result.success) {
+        await safeFetch(`/api/auth/users/${userId}/menus`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ menus: menusSelecionados })
+        });
         showToast(result.message, 'success');
         fecharModal('modal-aprovar-usuario');
         carregarUsuarios();
@@ -3486,98 +3553,6 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
     }
 }
 
-const TODOS_MENUS = [
-    { key: 'controle-estoques', label: 'Controle de Estoques (Menu Pai)', isParent: true },
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'produtos', label: 'Produtos' },
-    { key: 'movimentacoes', label: 'Movimentações (Grupo)' },
-    { key: 'historico', label: 'Histórico' },
-    { key: 'transferencias', label: 'Transferências' },
-    { key: 'cadastros', label: 'Cadastros (Grupo)' },
-    { key: 'centros-custo', label: 'Centros de Custo' },
-    { key: 'unidades', label: 'Unidades' },
-    { key: 'categorias', label: 'Categorias' },
-    { key: 'fornecedores', label: 'Fornecedores' },
-    { key: 'relatorios', label: 'Relatórios (Grupo)' },
-    { key: 'estoque-atual', label: 'Estoque Atual' },
-    { key: 'sugestao-compras', label: 'Sugestão de Compras' },
-    { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
-    { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
-    { key: 'estagios-validacao', label: 'Validação Coordenação' },
-    { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
-    { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
-    { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
-    { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' },
-    { key: 'estagios-relatorio-aguardando-retorno', label: 'Aguardando retorno do aluno' }
-];
-
-function abrirModalPermissoesMenu(id_usuario, nome_usuario, menus_permitidos) {
-    document.getElementById('perm-menu-id').value = id_usuario;
-    document.getElementById('perm-menu-username').textContent = `- ${nome_usuario}`;
-
-    const permitidos = menus_permitidos || [];
-
-    // Monta mapa de pai → filhos para cascata de checkboxes
-    const grupoAtual = { key: null };
-    const grupoDoItem = {};
-    TODOS_MENUS.forEach(m => {
-        if (m.isParent) {
-            grupoAtual.key = m.key;
-        } else if (grupoAtual.key) {
-            grupoDoItem[m.key] = grupoAtual.key;
-        }
-    });
-
-    const container = document.getElementById('permissoes-menu-list');
-    container.innerHTML = TODOS_MENUS.map(m => {
-        // Se null/undefined (antes da feature), assume que pode ver (fallback).
-        const isChecked = !menus_permitidos || permitidos.includes(m.key) ? 'checked' : '';
-        const boldStyle = m.isParent ? 'font-weight: bold;' : 'margin-left: 15px;';
-        const parentAttr = m.isParent ? `data-parent-key="${m.key}"` : '';
-        const groupAttr = grupoDoItem[m.key] ? `data-group="${grupoDoItem[m.key]}"` : '';
-
-        return `
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; ${boldStyle}">
-                <input type="checkbox" name="menu-permission" value="${m.key}" ${isChecked} ${parentAttr} ${groupAttr}>
-                ${m.label}
-            </label>
-        `;
-    }).join('');
-
-    // Cascata: ao marcar/desmarcar um pai, marca/desmarca todos os filhos do grupo
-    container.querySelectorAll('input[data-parent-key]').forEach(parentCb => {
-        parentCb.addEventListener('change', function () {
-            const key = this.getAttribute('data-parent-key');
-            container.querySelectorAll(`input[data-group="${key}"]`).forEach(child => {
-                child.checked = this.checked;
-            });
-        });
-    });
-
-    document.getElementById('modal-permissoes-menu').classList.remove('hidden');
-}
-
-async function salvarPermissoesMenu(event) {
-    event.preventDefault();
-    const id_usuario = document.getElementById('perm-menu-id').value;
-    
-    const checkboxes = document.querySelectorAll('input[name="menu-permission"]:checked');
-    const menus = Array.from(checkboxes).map(cb => cb.value);
-
-    const result = await safeFetch(`/api/auth/users/${id_usuario}/menus`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ menus })
-    });
-
-    if (result.success) {
-        showToast(result.message, 'success');
-        fecharModal('modal-permissoes-menu');
-        carregarUsuarios(); // recarregar a lista para pegar as permissões novas
-    } else {
-        showToast(result.message, 'error');
-    }
-}
 
 async function rejeitarUsuario(id_usuario) {
     if (!confirm('Deseja rejeitar este usuário?')) return;

@@ -1617,6 +1617,13 @@
                         </div>
                         <small style="color: var(--text-muted); margin-top: 5px; display: block;">Selecione as categorias que este usuário pode visualizar e movimentar.</small>
                     </div>
+                    <div class="form-group">
+                        <label>Menus Permitidos</label>
+                        <div id="permissoes-menu-list" class="checkbox-group" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Checkboxes de menus serão gerados aqui dinamicamente -->
+                        </div>
+                        <small style="color: var(--text-muted); margin-top: 5px; display: block;">Selecione os menus e submenus que este usuário pode acessar.</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-aprovar-usuario')">Cancelar</button>
@@ -1985,26 +1992,6 @@
         </div>
     </div>
 
-    <!-- MODAL DE PERMISSÕES DE MENU -->
-    <div id="modal-permissoes-menu" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h3>Permissões de Menu <small id="perm-menu-username" style="font-weight:normal; font-size:14px;"></small></h3>
-                <button class="modal-close" onclick="fecharModal('modal-permissoes-menu')">&times;</button>
-            </div>
-            <form id="form-permissoes-menu" onsubmit="salvarPermissoesMenu(event)">
-                <input type="hidden" id="perm-menu-id">
-                <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-                    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Selecione os menus e submenus que este usuário pode acessar:</p>
-                    <div id="permissoes-menu-list" style="display: flex; flex-direction: column; gap: 8px;">
-                        <!-- Checkboxes serão gerados aqui dinamicamente -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-permissoes-menu')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar Permissões</button>
-                </div>
-            </form>
         </div>
     </div>
 

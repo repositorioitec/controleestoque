@@ -299,7 +299,19 @@ async function atualizar_unidade(id_unidade, nome_unidade, endereco = "", cnpj =
 
 async function autenticar_usuario(usuario, senha) {
   const res = await pool.query(
-    `SELECT u.*, un.nome_unidade 
+    `SELECT u.*, un.nome_unidade,
+            COALESCE(
+              (SELECT json_agg(json_build_object('id_unidade', uu.id_unidade, 'nome_unidade', un2.nome_unidade))
+               FROM tbl_usuario_unidades uu
+               JOIN tbl_unidades_operacionais un2 ON uu.id_unidade = un2.id_unidade
+               WHERE uu.id_usuario = u.id_usuario), '[]'::json
+            ) as unidades_acesso,
+            COALESCE(
+              (SELECT json_agg(json_build_object('id_categoria', uc.id_categoria, 'nome_categoria', c.nome_categoria))
+               FROM tbl_usuario_categorias uc
+               JOIN tbl_categorias c ON uc.id_categoria = c.id_categoria
+               WHERE uc.id_usuario = u.id_usuario), '[]'::json
+            ) as categorias_acesso
      FROM tbl_usuarios u
      LEFT JOIN tbl_unidades_operacionais un ON u.id_unidade = un.id_unidade
      WHERE LOWER(u.usuario) = LOWER($1) AND u.senha = $2`,
@@ -325,7 +337,9 @@ async function autenticar_usuario(usuario, senha) {
     nome_unidade: user.nome_unidade,
     status_aprovacao: user.status_aprovacao,
     menus_permitidos: user.menus_permitidos || null,
-    avatar_base64: user.avatar_base64 || null
+    avatar_base64: user.avatar_base64 || null,
+    unidades_acesso: user.unidades_acesso || [],
+    categorias_acesso: user.categorias_acesso || []
   };
 }
 
@@ -377,13 +391,13 @@ async function listar_usuarios() {
               FROM tbl_usuario_unidades uu
               JOIN tbl_unidades_operacionais un2 ON uu.id_unidade = un2.id_unidade
               WHERE uu.id_usuario = u.id_usuario), '[]'::json
-           ) as unidades_vinculadas,
+           ) as unidades_acesso,
            COALESCE(
              (SELECT json_agg(json_build_object('id_categoria', uc.id_categoria, 'nome_categoria', c.nome_categoria))
               FROM tbl_usuario_categorias uc
               JOIN tbl_categorias c ON uc.id_categoria = c.id_categoria
               WHERE uc.id_usuario = u.id_usuario), '[]'::json
-           ) as categorias_vinculadas
+           ) as categorias_acesso
     FROM tbl_usuarios u
     LEFT JOIN tbl_unidades_operacionais un ON u.id_unidade = un.id_unidade
     ORDER BY u.nome_usuario ASC
