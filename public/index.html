@@ -384,6 +384,7 @@
                                 <thead>
                                     <tr>
                                         <th>ID</th>
+                                        <th style="width: 50px; text-align: center;">IMAGEM</th>
                                         <th>Cód. Barras</th>
                                         <th>Produto</th>
                                         <th>Categoria</th>
@@ -407,20 +408,14 @@
                 <!-- VIEW 3: MOVIMENTAÇÕES E RELATÓRIOS -->
                 <section id="view-movimentacoes" class="app-view">
                     <div class="panel">
-                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px;">
+                        <div class="panel-header" style="flex-wrap: wrap; gap: 12px; align-items: center; background: rgba(15, 23, 42, 0.4); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                             <div>
-                                <h3><i class="fa-solid fa-file-invoice-dollar text-primary"></i> Relatório e Histórico de Movimentações</h3>
-                                <small style="color: var(--text-muted);">Pesquise e filtre movimentações por período, unidade ou produto</small>
+                                <h3 style="text-transform: uppercase; margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-file-invoice-dollar text-primary"></i> RELATÓRIO E HISTÓRICO DE MOVIMENTAÇÕES</h3>
+                                <small style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; margin-top: 4px; display: block;">PESQUISE E FILTRE MOVIMENTAÇÕES POR PERÍODO, UNIDADE OU PRODUTO</small>
                             </div>
-                            <div class="action-buttons">
-                                <button class="btn btn-outline" onclick="abrirModalMovimentacao('ENTRADA')">
-                                    <i class="fa-solid fa-circle-plus"></i> Registrar Entrada
-                                </button>
-                                <button class="btn btn-warning" onclick="abrirModalMovimentacao('SAIDA')">
-                                    <i class="fa-solid fa-circle-minus"></i> Registrar Saída
-                                </button>
-                                <button class="btn btn-primary" onclick="imprimirRelatorioMovimentacoes()">
-                                    <i class="fa-solid fa-print"></i> Imprimir Relatório
+                            <div class="action-buttons" style="display: flex; gap: 10px; margin-left: auto;">
+                                <button class="btn btn-primary" style="padding: 8px 16px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px;" onclick="abrirModalMovimentacaoLote('ENTRADA')">
+                                    <i class="fa-solid fa-plus-minus"></i> Registrar Movimentação de estoques
                                 </button>
                             </div>
                         </div>
@@ -1642,6 +1637,16 @@
                 <input type="hidden" id="prod-id">
                 <div class="modal-body">
                     <div class="form-grid">
+                        <div class="form-group span-2" style="display: flex; gap: 15px; align-items: flex-end;">
+                            <div style="flex: 1;">
+                                <label for="prod-imagem">Imagem do Produto (Max: 2MB)</label>
+                                <input type="file" id="prod-imagem" accept="image/*" class="form-control" onchange="previewImagemProduto(event)">
+                            </div>
+                            <div style="width: 60px; height: 60px; background: rgba(15, 23, 42, 0.4); border: 1px dashed var(--border-color); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                <img id="prod-imagem-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                <i id="prod-imagem-icon" class="fa-solid fa-camera" style="color: var(--text-muted); font-size: 20px;"></i>
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label for="prod-codigo">Código de Barras</label>
                             <input type="text" id="prod-codigo" placeholder="7891234567890">
@@ -1689,69 +1694,163 @@
         </div>
     </div>
 
-    <!-- MODAL 2: MOVIMENTAÇÃO DE ESTOQUE (ENTRADA OU SAÍDA) -->
+    <!-- MODAL 2: MOVIMENTAÇÃO DE ESTOQUE (LOTE) -->
     <div id="modal-movimentacao" class="modal-overlay hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-movimentacao-title">Registrar Movimentação de Estoque</h3>
+        <div class="modal-content" style="max-width: 1000px; width: 95%;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <h3 id="modal-movimentacao-title" style="text-transform: uppercase; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-box-open" style="font-size: 24px;"></i> REGISTRAR NOVA SAÍDA DE ESTOQUE
+                </h3>
                 <button class="modal-close" onclick="fecharModal('modal-movimentacao')">&times;</button>
             </div>
-            <form id="form-movimentacao" onsubmit="salvarMovimentacao(event)">
-                <input type="hidden" id="mov-tipo">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="mov-data">Data da Operação *</label>
-                        <input type="date" id="mov-data" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="mov-unidade">Unidade Operacional *</label>
-                        <select id="mov-unidade" onchange="atualizarProdutosPorUnidadeMovimentacao()" required>
-                            <option value="">Selecione a Unidade...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="mov-produto">Selecione o Produto *</label>
-                        <select id="mov-produto" onchange="atualizarDadosProdutoMovimentacao()" required>
-                            <option value="">Carregando produtos...</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="group-mov-fornecedor">
-                        <label for="mov-fornecedor">Fornecedor</label>
-                        <select id="mov-fornecedor">
-                            <option value="">Selecione o Fornecedor...</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="group-mov-nf" style="display: none;">
-                        <label for="mov-nf"><i class="fa-solid fa-file-invoice" style="color: var(--accent-blue);"></i> Número da Nota Fiscal</label>
-                        <input type="text" id="mov-nf" class="form-control" placeholder="Ex: 12345 ou NF-e 00001234" maxlength="50">
-                    </div>
-                    <div class="form-group" id="group-mov-centro-custo" style="display: none;">
-                        <label for="mov-centro-custo">Centro de Custo *</label>
-                        <select id="mov-centro-custo">
-                            <option value="">Carregando centros de custo...</option>
-                        </select>
-                    </div>
-                    <div id="mov-saldo-info" class="info-box hidden">
-                        <span>Saldo em estoque: <strong id="mov-saldo-qtd">0</strong> unidades</span>
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="mov-quantidade">Quantidade *</label>
-                            <input type="number" id="mov-quantidade" min="1" value="1" required>
+            <p style="color: var(--text-muted); font-size: 13px; margin: 5px 20px 20px;">Informe os dados da movimentação e selecione os produtos.</p>
+            
+            <form id="form-movimentacao" onsubmit="salvarMovimentacaoLote(event)">
+                <div class="modal-body" style="padding-top: 0;">
+                    
+                    <div class="movimentacao-tipo-group" style="margin-bottom: 20px;">
+                        <label style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: block;">TIPO DE MOVIMENTAÇÃO *</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" id="btn-toggle-entrada" class="btn-toggle-mov active" onclick="setTipoMovimentacaoLote('ENTRADA')">
+                                <i class="fa-solid fa-arrow-up text-green"></i> Entrada
+                            </button>
+                            <button type="button" id="btn-toggle-saida" class="btn-toggle-mov" onclick="setTipoMovimentacaoLote('SAIDA')">
+                                <i class="fa-solid fa-arrow-down text-red"></i> Saída
+                            </button>
                         </div>
-                        <div class="form-group">
-                            <label for="mov-valor" id="mov-valor-label">Valor Unitário (R$)</label>
-                            <input type="number" step="0.01" id="mov-valor" value="0.00" required>
+                        <input type="hidden" id="mov-tipo-lote" value="ENTRADA">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="mov-data-lote" style="font-size: 11px; text-transform: uppercase;">DATA DA OPERAÇÃO *</label>
+                            <input type="date" id="mov-data-lote" class="form-control" required style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="mov-unidade-lote" style="font-size: 11px; text-transform: uppercase;">UNIDADE OPERACIONAL *</label>
+                            <select id="mov-unidade-lote" class="form-control" onchange="carregarProdutosLote()" required style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                                <option value="">Selecione a Unidade...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;" id="group-centro-custo-lote">
+                            <label for="mov-centro-custo-lote" style="font-size: 11px; text-transform: uppercase;">CENTRO DE CUSTO *</label>
+                            <select id="mov-centro-custo-lote" class="form-control" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                                <option value="">Geral</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;" id="group-fornecedor-lote">
+                            <label for="mov-fornecedor-lote" style="font-size: 11px; text-transform: uppercase;">FORNECEDOR</label>
+                            <select id="mov-fornecedor-lote" class="form-control" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                                <option value="">Selecione o Fornecedor...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;" id="group-nf-lote">
+                            <label for="mov-nf-lote" style="font-size: 11px; text-transform: uppercase;">NOTA FISCAL (OPCIONAL)</label>
+                            <input type="text" id="mov-nf-lote" class="form-control" placeholder="Número da NF" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="mov-categoria-lote" style="font-size: 11px; text-transform: uppercase;">CATEGORIA *</label>
+                            <select id="mov-categoria-lote" class="form-control" onchange="filtrarProdutosLote()" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                                <option value="">Todas as categorias</option>
+                            </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="mov-obs">Observação / Nota Fiscal / Motivo</label>
-                        <textarea id="mov-obs" rows="2" placeholder="Ex: Compra NF 1234 ou Venda balcão"></textarea>
+
+                    <div class="form-group" style="position: relative; margin-bottom: 20px;">
+                        <i class="fa-solid fa-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                        <input type="text" id="mov-busca-lote" class="form-control" placeholder="Pesquisar produto..." oninput="filtrarProdutosLote()" style="padding-left: 40px; background: rgba(15, 23, 42, 0.5); border-radius: 8px; color: #fff;">
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 350px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <table class="table" style="margin: 0;">
+                            <thead style="position: sticky; top: 0; background: #0f172a; z-index: 10;">
+                                <tr>
+                                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="mov-check-all" onclick="toggleTodosProdutosLote(this)"></th>
+                                    <th>PRODUTO</th>
+                                    <th style="text-align: center; width: 120px;">ESTOQUE ATUAL</th>
+                                    <th style="width: 200px;">QUANTIDADE <span style="font-size: 9px; color: var(--text-muted);">(ENTRADA/SAÍDA)</span> *</th>
+                                    <th>OBSERVAÇÕES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-produtos-lote">
+                                <tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Selecione uma unidade operacional para carregar os produtos.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+                <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px;">
+                        <i class="fa-solid fa-circle-info text-primary"></i> A movimentação será registrada para todos os produtos selecionados.
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn" style="background: transparent; border: none; color: var(--text-muted);" onclick="fecharModal('modal-movimentacao')">Cancelar</button>
+                        <button type="submit" id="btn-submit-mov-lote" class="btn btn-primary" style="border-radius: 6px; padding: 8px 20px;"><i class="fa-solid fa-save"></i> Confirmar Lançamento</button>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-movimentacao')">Cancelar</button>
-                    <button type="submit" id="btn-submit-mov" class="btn btn-primary">Confirmar Registro</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE IMAGEM AMPLIADA -->
+    <div id="modal-imagem-ampliada" class="modal-overlay hidden" style="backdrop-filter: blur(8px); z-index: 9999; display: flex; justify-content: center; align-items: center;" onclick="if(event.target === this) fecharModal('modal-imagem-ampliada')">
+        <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <button class="modal-close" style="position: absolute; top: -40px; right: -40px; color: #fff; background: rgba(255,255,255,0.2); width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px;" onclick="fecharModal('modal-imagem-ampliada')">&times;</button>
+            <img id="img-ampliada-src" src="" style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); object-fit: contain; background: #000;">
+        </div>
+    </div>
+
+    <!-- MODAL DE EDIÇÃO DE MOVIMENTAÇÃO -->
+    <div id="modal-movimentacao-edit" class="modal-overlay hidden" style="backdrop-filter: blur(5px);">
+        <div class="modal-content" style="background: var(--navy); color: #fff; border: 1px solid var(--border-color); width: min(100%, 500px);">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 20px;">
+                <div>
+                    <h3 id="modal-movimentacao-edit-title" style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-pen text-primary"></i> EDITAR MOVIMENTAÇÃO</h3>
+                    <small style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; margin-top: 5px; display: block;">ALTERE AS QUANTIDADES E VALORES DESTE LANÇAMENTO</small>
+                </div>
+                <button type="button" class="modal-close" style="color: #fff; background: rgba(255,255,255,0.1); width: 28px; height: 28px; border-radius: 4px;" onclick="fecharModal('modal-movimentacao-edit')">&times;</button>
+            </div>
+            <form id="form-movimentacao-edit" onsubmit="salvarMovimentacaoEdit(event)">
+                <input type="hidden" id="edit-mov-id">
+                <input type="hidden" id="edit-mov-produto">
+                <input type="hidden" id="edit-mov-tipo">
+                <input type="hidden" id="edit-mov-unidade">
+                <input type="hidden" id="edit-mov-centro-custo">
+                <input type="hidden" id="edit-mov-fornecedor">
+                <input type="hidden" id="edit-mov-nf">
+                
+                <div class="modal-body" style="padding: 20px; background: rgba(15, 23, 42, 0.4);">
+                    <div style="margin-bottom: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">PRODUTO</div>
+                        <div id="edit-mov-produto-nome" style="font-weight: 600; font-size: 14px; margin-top: 4px;">-</div>
+                        <div style="display: flex; gap: 15px; margin-top: 6px;">
+                            <span id="edit-mov-tipo-badge" class="badge"></span>
+                            <span style="font-size: 12px; color: var(--text-muted);" id="edit-mov-unidade-nome"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="edit-mov-data" style="font-size: 11px; text-transform: uppercase;">Data da Operação *</label>
+                            <input type="date" id="edit-mov-data" class="form-control" required style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="edit-mov-qtd" style="font-size: 11px; text-transform: uppercase;">Quantidade *</label>
+                            <input type="number" id="edit-mov-qtd" class="form-control" required min="1" style="background: rgba(15, 23, 42, 0.5); color: #fff;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="edit-mov-valor" style="font-size: 11px; text-transform: uppercase;">Valor Unitário (R$) *</label>
+                            <input type="number" id="edit-mov-valor" class="form-control" required min="0" step="0.01" style="background: rgba(15, 23, 42, 0.5); color: #fff;">
+                        </div>
+                        <div class="form-group full-width" style="margin: 0;">
+                            <label for="edit-mov-obs" style="font-size: 11px; text-transform: uppercase;">Observações</label>
+                            <input type="text" id="edit-mov-obs" class="form-control" placeholder="Anotações opcionais" style="background: rgba(15, 23, 42, 0.5); color: #fff;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding: 15px 20px;">
+                    <button type="button" class="btn" style="background: transparent; border: none; color: var(--text-muted);" onclick="fecharModal('modal-movimentacao-edit')">Cancelar</button>
+                    <button type="submit" id="btn-submit-mov-edit" class="btn btn-primary" style="border-radius: 6px; padding: 8px 20px;"><i class="fa-solid fa-save"></i> Salvar Alterações</button>
                 </div>
             </form>
         </div>

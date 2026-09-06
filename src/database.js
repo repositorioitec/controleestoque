@@ -137,6 +137,10 @@ async function init_db() {
     `);
 
     await client.query(`
+      ALTER TABLE tbl_produtos ADD COLUMN IF NOT EXISTS imagem TEXT;
+    `);
+
+    await client.query(`
       ALTER TABLE tbl_movimentacoes 
       ADD COLUMN IF NOT EXISTS id_centro_custo INT REFERENCES tbl_centros_custo(id_centro_custo) ON DELETE SET NULL;
     `);
@@ -710,7 +714,7 @@ async function obter_produto_por_id(id_produto, id_unidade = null) {
 }
 
 async function salvar_produto(dados) {
-  const { id_produto, codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario, inativo } = dados;
+  const { id_produto, codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario, inativo, imagem } = dados;
   const is_inativo = inativo === true;
   
   if (is_inativo && id_produto) {
@@ -721,18 +725,28 @@ async function salvar_produto(dados) {
   }
 
   if (id_produto) {
-    await pool.query(`
+    let query = `
       UPDATE tbl_produtos 
       SET codigo_barras = $1, nome_produto = $2, id_categoria = $3, id_fornecedor = $4, id_unidade = $5,
           estoque_minimo = $6, preco_custo = $7, preco_venda = $8, id_usuario = COALESCE($9, id_usuario), inativo = $10
-      WHERE id_produto = $11
-    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, is_inativo, id_produto]);
+    `;
+    const params = [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, is_inativo];
+    
+    if (imagem !== undefined) {
+      query += `, imagem = $11 WHERE id_produto = $12`;
+      params.push(imagem, id_produto);
+    } else {
+      query += ` WHERE id_produto = $11`;
+      params.push(id_produto);
+    }
+
+    await pool.query(query, params);
     return id_produto;
   } else {
     const res = await pool.query(`
-      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario, inativo)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id_produto
-    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, is_inativo]);
+      INSERT INTO tbl_produtos (codigo_barras, nome_produto, id_categoria, id_fornecedor, id_unidade, estoque_minimo, preco_custo, preco_venda, id_usuario, inativo, imagem)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id_produto
+    `, [codigo_barras || null, (nome_produto || '').trim(), id_categoria || null, id_fornecedor || null, id_unidade || null, parseInt(estoque_minimo) || 0, parseFloat(preco_custo) || 0.0, parseFloat(preco_venda) || 0.0, id_usuario || null, is_inativo, imagem || null]);
     return res.rows[0].id_produto;
   }
 }

@@ -974,3 +974,49 @@ select option {
 .hidden {
     display: none !important;
 }
+
+/* Estilos para Modal de Movimentação em Lote */
+.btn-toggle-mov {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-toggle-mov:hover {
+    border-color: var(--primary);
+    color: #fff;
+}
+.btn-toggle-mov.active {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: var(--accent-green);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px var(--accent-green);
+}
+.btn-toggle-mov:nth-child(2).active {
+    border-color: var(--accent-red);
+    box-shadow: inset 0 0 0 1px var(--accent-red);
+}
+#table-produtos-lote input.form-control {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 6px 10px;
+    height: 36px;
+    border-radius: 6px;
+    transition: border 0.2s;
+    font-size: 13px;
+}
+#table-produtos-lote input.form-control:focus, #table-produtos-lote input.form-control:hover {
+    border: 1px solid var(--border-color);
+    background: rgba(15, 23, 42, 0.4);
+}
+#table-produtos-lote tr.selected {
+    background: rgba(59, 130, 246, 0.05);
+}

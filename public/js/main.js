@@ -1612,9 +1612,12 @@ function renderizarTabelaProdutos(produtos) {
         const tipoCusto = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-warning);"` : '';
         const tipoVenda = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-green);"` : '';
 
+        const imgHtml = p.imagem ? `<img src="${p.imagem}" onclick="abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+
         return `
             <tr style="${opacidade}">
                 <td>#${p.id_produto}</td>
+                <td style="text-align: center; vertical-align: middle;">${imgHtml}</td>
                 <td><code>${p.codigo_barras || '-'}</code></td>
                 <td><strong>${p.nome_produto}</strong></td>
                 <td>${p.nome_categoria}</td>
@@ -1701,9 +1704,57 @@ function editarPrecoCelula(td, id_produto, campo) {
     input.addEventListener('blur', () => setTimeout(confirmar, 120));
 }
 
+let imagemProdutoBase64 = null;
+
+function previewImagemProduto(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        imagemProdutoBase64 = null;
+        document.getElementById('prod-imagem-preview').style.display = 'none';
+        document.getElementById('prod-imagem-icon').style.display = 'block';
+        return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('A imagem excede o tamanho máximo de 2MB.', 'warning');
+        event.target.value = '';
+        imagemProdutoBase64 = null;
+        document.getElementById('prod-imagem-preview').style.display = 'none';
+        document.getElementById('prod-imagem-icon').style.display = 'block';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        imagemProdutoBase64 = e.target.result;
+        const imgEl = document.getElementById('prod-imagem-preview');
+        imgEl.src = imagemProdutoBase64;
+        imgEl.style.display = 'block';
+        document.getElementById('prod-imagem-icon').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+function abrirImagemAmpliada(src) {
+    if (!src) return;
+    const imgEl = document.getElementById('img-ampliada-src');
+    if (imgEl) {
+        imgEl.src = src;
+        document.getElementById('modal-imagem-ampliada').classList.remove('hidden');
+    }
+}
+
 async function abrirModalProduto(id_produto = null) {
     document.getElementById('form-produto').reset();
     document.getElementById('prod-id').value = '';
+    
+    imagemProdutoBase64 = null;
+    const imgEl = document.getElementById('prod-imagem-preview');
+    if (imgEl) {
+        imgEl.src = '';
+        imgEl.style.display = 'none';
+        document.getElementById('prod-imagem-icon').style.display = 'block';
+    }
     document.getElementById('modal-produto-title').textContent = id_produto ? 'Editar Produto' : 'Cadastrar Novo Produto';
     
     const inativoEl = document.getElementById('prod-inativo');
@@ -1742,6 +1793,16 @@ async function abrirModalProduto(id_produto = null) {
             document.getElementById('prod-custo').value = p.preco_custo ?? 0;
             document.getElementById('prod-venda').value = p.preco_venda;
             
+            if (p.imagem) {
+                imagemProdutoBase64 = p.imagem;
+                const imgEl = document.getElementById('prod-imagem-preview');
+                if (imgEl) {
+                    imgEl.src = p.imagem;
+                    imgEl.style.display = 'block';
+                    document.getElementById('prod-imagem-icon').style.display = 'none';
+                }
+            }
+            
             if (inativoEl) {
                 inativoEl.checked = p.inativo || false;
                 if (p.estoque_atual > 0) {
@@ -1770,7 +1831,8 @@ async function salvarProduto(event) {
         preco_custo: document.getElementById('prod-custo').value,
         preco_venda: document.getElementById('prod-venda').value,
         inativo: document.getElementById('prod-inativo') ? document.getElementById('prod-inativo').checked : false,
-        id_usuario: currentUser ? currentUser.id_usuario : null
+        id_usuario: currentUser ? currentUser.id_usuario : null,
+        imagem: imagemProdutoBase64
     };
 
     const result = await safeFetch('/api/produtos', {
@@ -2080,7 +2142,7 @@ async function carregarMovimentacoes() {
                     <td>${m.nome_usuario_movimentacao || 'Sistema'}</td>
                     <td><small class="text-muted">${m.observacao || '-'}</small></td>
                     <td class="text-right">
-                        ${isSupervisor() ? `<button class="btn btn-sm btn-outline" onclick="abrirModalMovimentacao(${m.id_movimentacao})" title="Editar"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-sm btn-danger" onclick="excluirMovimentacao(${m.id_movimentacao})" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        ${isSupervisor() ? `<button class="btn btn-sm btn-outline" onclick="abrirModalMovimentacaoEdit(${m.id_movimentacao})" title="Editar"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-sm btn-danger" onclick="excluirMovimentacao(${m.id_movimentacao})" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
                     </td>
                 </tr>
             `;
@@ -2468,6 +2530,339 @@ async function salvarMovimentacao(event) {
     }
 }
 
+// --- NOVA LÓGICA DE MOVIMENTAÇÃO EM LOTE ---
+async function abrirModalMovimentacaoLote(tipo) {
+    document.getElementById('form-movimentacao').reset();
+    document.getElementById('table-produtos-lote').innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Selecione uma unidade operacional para carregar os produtos.</td></tr>';
+    
+    setTipoMovimentacaoLote(tipo);
+    document.getElementById('mov-data-lote').value = getFormattedLocalDateTime();
+    document.getElementById('modal-movimentacao').classList.remove('hidden');
+
+    // Carregar selects
+    await carregarCategoriasEFornecedores();
+    const selectCat = document.getElementById('mov-categoria-lote');
+    if (selectCat && categoriasCache) {
+        selectCat.innerHTML = '<option value="">Todas as categorias</option>' + 
+            categoriasCache.map(c => `<option value="${c.id_categoria}">${c.nome_categoria}</option>`).join('');
+    }
+
+    const selectForn = document.getElementById('mov-fornecedor-lote');
+    if (selectForn && window._fornecedoresCache) {
+        selectForn.innerHTML = '<option value="">Selecione o Fornecedor...</option>' + 
+            window._fornecedoresCache.map(f => `<option value="${f.id_fornecedor}">${f.razao_social || f.nome_fornecedor || f.nome}</option>`).join('');
+    }
+
+    const selectCC = document.getElementById('mov-centro-custo-lote');
+    if (selectCC) {
+        if (!centrosCustoCache || centrosCustoCache.length === 0) {
+            const result = await safeFetch('/api/centros-custo');
+            if (result.success) centrosCustoCache = result.centros;
+        }
+        selectCC.innerHTML = centrosCustoCache.map(c => `<option value="${c.id_centro_custo}">${c.codigo} — ${c.nome}</option>`).join('');
+    }
+
+    const selectU = document.getElementById('mov-unidade-lote');
+    const dataU = await safeFetch('/api/unidades');
+    if (dataU.success) {
+        unidadesCache = dataU.unidades;
+        selectU.innerHTML = '<option value="">Selecione a Unidade...</option>' +
+            unidadesCache.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
+        
+        let targetUnit = selectedUnitId || (currentUser ? currentUser.id_unidade : null) || (unidadesCache.length > 0 ? unidadesCache[0].id_unidade : null);
+        if (targetUnit) {
+            selectU.value = targetUnit;
+            await carregarProdutosLote();
+        }
+    }
+}
+
+function setTipoMovimentacaoLote(tipo) {
+    document.getElementById('mov-tipo-lote').value = tipo;
+    const btnE = document.getElementById('btn-toggle-entrada');
+    const btnS = document.getElementById('btn-toggle-saida');
+    const title = document.getElementById('modal-movimentacao-title');
+    
+    const grpForn = document.getElementById('group-fornecedor-lote');
+    const grpNF = document.getElementById('group-nf-lote');
+    const grpCC = document.getElementById('group-centro-custo-lote');
+    
+    if (tipo === 'ENTRADA') {
+        btnE.classList.add('active');
+        btnS.classList.remove('active');
+        title.innerHTML = '<i class="fa-solid fa-box-open" style="font-size: 24px;"></i> REGISTRAR NOVA ENTRADA DE ESTOQUE';
+        if (grpForn) grpForn.style.display = '';
+        if (grpNF) grpNF.style.display = '';
+        if (grpCC) grpCC.style.display = 'none';
+    } else {
+        btnS.classList.add('active');
+        btnE.classList.remove('active');
+        title.innerHTML = '<i class="fa-solid fa-box-open" style="font-size: 24px;"></i> REGISTRAR NOVA SAÍDA DE ESTOQUE';
+        if (grpForn) grpForn.style.display = 'none';
+        if (grpNF) grpNF.style.display = 'none';
+        if (grpCC) grpCC.style.display = '';
+    }
+}
+
+async function carregarProdutosLote() {
+    const movUnid = document.getElementById('mov-unidade-lote').value;
+    const tbody = document.getElementById('table-produtos-lote');
+    
+    if (!movUnid) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Selecione uma unidade operacional para carregar os produtos.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando produtos...</td></tr>';
+    
+    const data = await safeFetch(`/api/produtos?id_unidade=${movUnid}`);
+    if (data.success) {
+        produtosCache = data.produtos;
+        renderizarProdutosLote();
+    }
+}
+
+function renderizarProdutosLote() {
+    const tbody = document.getElementById('table-produtos-lote');
+    const filtroTexto = (document.getElementById('mov-busca-lote').value || '').toLowerCase();
+    const filtroCat = document.getElementById('mov-categoria-lote').value;
+
+    let html = '';
+    let cont = 0;
+
+    for (const p of produtosCache) {
+        if (filtroCat && p.id_categoria != filtroCat) continue;
+        if (filtroTexto && !p.nome_produto.toLowerCase().includes(filtroTexto) && !(p.codigo_barras || '').toLowerCase().includes(filtroTexto)) continue;
+        
+        cont++;
+        const imgHtmlLote = p.imagem ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+        
+        html += `
+        <tr data-prod-id="${p.id_produto}" onclick="document.getElementById('chk-mov-${p.id_produto}').click()" style="cursor: pointer;">
+            <td style="text-align: center;" onclick="event.stopPropagation()">
+                <input type="checkbox" class="chk-mov-lote" id="chk-mov-${p.id_produto}" value="${p.id_produto}" onchange="this.closest('tr').classList.toggle('selected', this.checked)">
+            </td>
+            <td>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    ${imgHtmlLote}
+                    <div>
+                        <div style="font-weight: 600; font-size: 13px;">${p.nome_produto}</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">COD: ${p.codigo_barras || p.id_produto}</div>
+                    </div>
+                </div>
+            </td>
+            <td style="text-align: center; font-weight: 600;">${p.estoque_atual}</td>
+            <td onclick="event.stopPropagation()">
+                <input type="number" class="form-control input-qtd-lote" id="qtd-mov-${p.id_produto}" placeholder="Digite a quantidade" min="1">
+                <input type="hidden" id="valor-mov-${p.id_produto}" value="${p.preco_venda || 0}">
+            </td>
+            <td onclick="event.stopPropagation()">
+                <input type="text" class="form-control input-obs-lote" id="obs-mov-${p.id_produto}" placeholder="Observações...">
+            </td>
+        </tr>`;
+    }
+
+    if (cont === 0) {
+        html = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Nenhum produto encontrado.</td></tr>';
+    }
+
+    tbody.innerHTML = html;
+    document.getElementById('mov-check-all').checked = false;
+}
+
+function filtrarProdutosLote() {
+    renderizarProdutosLote();
+}
+
+function toggleTodosProdutosLote(chkAll) {
+    const checkboxes = document.querySelectorAll('.chk-mov-lote');
+    checkboxes.forEach(chk => {
+        chk.checked = chkAll.checked;
+        chk.closest('tr').classList.toggle('selected', chk.checked);
+    });
+}
+
+async function salvarMovimentacaoLote(event) {
+    event.preventDefault();
+    const movUnid = document.getElementById('mov-unidade-lote').value;
+    const movCC = document.getElementById('mov-centro-custo-lote').value;
+    const movForn = document.getElementById('mov-fornecedor-lote') ? document.getElementById('mov-fornecedor-lote').value : null;
+    const movNF = document.getElementById('mov-nf-lote') ? document.getElementById('mov-nf-lote').value.trim() : null;
+    const movData = document.getElementById('mov-data-lote').value;
+    const movTipo = document.getElementById('mov-tipo-lote').value;
+
+    if (!movUnid) {
+        showToast('Selecione uma Unidade Operacional.', 'warning');
+        return;
+    }
+
+    const selecionados = Array.from(document.querySelectorAll('.chk-mov-lote:checked'));
+    
+    if (selecionados.length === 0) {
+        showToast('Selecione pelo menos um produto para movimentar.', 'warning');
+        return;
+    }
+
+    let itensInvalidos = false;
+    const payloads = selecionados.map(chk => {
+        const id_produto = chk.value;
+        const quantidade = document.getElementById(`qtd-mov-${id_produto}`).value;
+        const observacao = document.getElementById(`obs-mov-${id_produto}`).value;
+        const valor_unit = document.getElementById(`valor-mov-${id_produto}`).value;
+        
+        if (!quantidade || parseInt(quantidade) <= 0) {
+            itensInvalidos = true;
+        }
+
+        return {
+            id_produto: id_produto,
+            tipo_movimentacao: movTipo,
+            quantidade: quantidade,
+            valor_unitario: valor_unit,
+            observacao: observacao.trim(),
+            data_movimentacao: movData,
+            id_unidade: parseInt(movUnid),
+            id_fornecedor: (movTipo === 'ENTRADA' && movForn) ? parseInt(movForn) : null,
+            id_centro_custo: (movTipo === 'SAIDA' && movCC) ? parseInt(movCC) : null,
+            numero_nf: (movTipo === 'ENTRADA' && movNF) ? movNF : null,
+            id_usuario: currentUser ? currentUser.id_usuario : null
+        };
+    });
+
+    if (itensInvalidos) {
+        showToast('Verifique as quantidades informadas. Devem ser maiores que zero.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('btn-submit-mov-lote');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+    btn.disabled = true;
+
+    try {
+        let sucessoTotal = true;
+        for (const payload of payloads) {
+            const result = await safeFetch('/api/movimentacoes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!result.success) {
+                sucessoTotal = false;
+                console.error('Erro ao salvar movimentação:', result.message);
+            }
+        }
+
+        if (sucessoTotal) {
+            showToast('Lançamento em lote realizado com sucesso!', 'success');
+            fecharModal('modal-movimentacao');
+            carregarMovimentacoes();
+            carregarProdutos();
+            carregarDashboard();
+        } else {
+            showToast('Lançamento concluído, porém com alguns erros. Verifique o console.', 'warning');
+            carregarMovimentacoes();
+            carregarProdutos();
+        }
+    } catch (e) {
+        showToast('Erro inesperado: ' + e.message, 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// --- LÓGICA DE EDIÇÃO ÚNICA DE MOVIMENTAÇÃO ---
+function abrirModalMovimentacaoEdit(id) {
+    document.getElementById('form-movimentacao-edit').reset();
+    
+    const mov = movimentacoesCache.find(m => m.id_movimentacao == id);
+    if (!mov) {
+        showToast('Movimentação não encontrada no cache.', 'error');
+        return;
+    }
+    
+    // Set hidden fields
+    document.getElementById('edit-mov-id').value = mov.id_movimentacao;
+    document.getElementById('edit-mov-produto').value = mov.id_produto;
+    document.getElementById('edit-mov-tipo').value = mov.tipo_movimentacao;
+    document.getElementById('edit-mov-unidade').value = mov.id_unidade;
+    document.getElementById('edit-mov-centro-custo').value = mov.id_centro_custo || '';
+    document.getElementById('edit-mov-fornecedor').value = mov.id_fornecedor || '';
+    document.getElementById('edit-mov-nf').value = mov.numero_nf || '';
+
+    // Populate visual UI info
+    document.getElementById('edit-mov-produto-nome').textContent = mov.nome_produto || 'Produto Desconhecido';
+    document.getElementById('edit-mov-unidade-nome').textContent = mov.nome_unidade || '';
+    
+    const badge = document.getElementById('edit-mov-tipo-badge');
+    badge.textContent = mov.tipo_movimentacao;
+    badge.className = `badge ${mov.tipo_movimentacao === 'ENTRADA' ? 'badge-success' : 'badge-warning'}`;
+    
+    // Populate form fields
+    let dt = mov.data_movimentacao;
+    document.getElementById('edit-mov-data').value = dt ? dt.substring(0, 10) : getFormattedLocalDateTime();
+    document.getElementById('edit-mov-qtd').value = mov.quantidade;
+    document.getElementById('edit-mov-valor').value = mov.valor_unitario;
+    document.getElementById('edit-mov-obs').value = mov.observacao || '';
+
+    document.getElementById('modal-movimentacao-edit').classList.remove('hidden');
+}
+
+async function salvarMovimentacaoEdit(event) {
+    event.preventDefault();
+    
+    const id = document.getElementById('edit-mov-id').value;
+    const qtd = document.getElementById('edit-mov-qtd').value;
+    
+    if (!qtd || parseInt(qtd) <= 0) {
+        showToast('Quantidade deve ser maior que zero.', 'warning');
+        return;
+    }
+
+    const payload = {
+        id_produto: document.getElementById('edit-mov-produto').value,
+        tipo_movimentacao: document.getElementById('edit-mov-tipo').value,
+        quantidade: qtd,
+        valor_unitario: document.getElementById('edit-mov-valor').value,
+        observacao: document.getElementById('edit-mov-obs').value.trim(),
+        data_movimentacao: document.getElementById('edit-mov-data').value,
+        id_unidade: document.getElementById('edit-mov-unidade').value,
+        id_fornecedor: document.getElementById('edit-mov-fornecedor').value || null,
+        id_centro_custo: document.getElementById('edit-mov-centro-custo').value || null,
+        numero_nf: document.getElementById('edit-mov-nf').value || null,
+        id_usuario: currentUser ? currentUser.id_usuario : null
+    };
+
+    const btn = document.getElementById('btn-submit-mov-edit');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+    btn.disabled = true;
+
+    try {
+        const result = await safeFetch(`/api/movimentacoes/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (result.success) {
+            showToast('Lançamento atualizado com sucesso!', 'success');
+            fecharModal('modal-movimentacao-edit');
+            carregarMovimentacoes();
+            carregarProdutos();
+            carregarDashboard();
+        } else {
+            showToast(result.message || 'Erro ao editar movimentação.', 'error');
+        }
+    } catch (e) {
+        showToast('Erro inesperado: ' + e.message, 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
 // --- CATEGORIAS, FORNECEDORES & UNIDADES ---
 
 async function carregarCategoriasEFornecedores() {
@@ -2488,6 +2883,7 @@ async function carregarCategoriasEFornecedores() {
     }
 
     if (dataForn.success) {
+        window._fornecedoresCache = dataForn.fornecedores;
         const optionsForn = '<option value="">Selecione...</option>' +
             dataForn.fornecedores.map(f => `<option value="${f.id_fornecedor}">${f.nome_fornecedor}</option>`).join('');
 
