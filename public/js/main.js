@@ -1612,7 +1612,7 @@ function renderizarTabelaProdutos(produtos) {
         const tipoCusto = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-warning);"` : '';
         const tipoVenda = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-green);"` : '';
 
-        const imgHtml = p.imagem ? `<img src="${p.imagem}" onclick="abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+        const imgHtml = p.imagem ? `<img src="${p.imagem}" onclick="abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='scale(4)'; this.style.zIndex='9999'; this.style.position='relative';" onmouseout="this.style.transform='scale(1)'; this.style.zIndex='1'; this.style.position='static';">` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
 
         return `
             <tr style="${opacidade}">
@@ -1894,15 +1894,34 @@ async function preencherOpcoesFiltrosMovimentacoes() {
     if (dataU.success && selectU) {
         const valAtual = selectU.value;
         let html = '<option value="">Todas as Unidades</option>';
-        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
-            html = `<option value="${currentUser.id_unidade}">${currentUser.nome_unidade || 'Sua Unidade'}</option>`;
+        
+        let permitidas = [];
+        if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+            permitidas = dataU.unidades;
+        } else if (currentUser) {
+            const permitidasIds = new Set();
+            if (currentUser.id_unidade) permitidasIds.add(String(currentUser.id_unidade));
+            if (currentUser.unidades_acesso) {
+                currentUser.unidades_acesso.forEach(u => permitidasIds.add(String(u.id_unidade)));
+            }
+            permitidas = dataU.unidades.filter(un => permitidasIds.has(String(un.id_unidade)));
+            if (permitidas.length === 0 && currentUser.id_unidade) {
+                permitidas = [{ id_unidade: currentUser.id_unidade, nome_unidade: currentUser.nome_unidade || 'Sua Unidade' }];
+            }
+        } else {
+            permitidas = dataU.unidades;
+        }
+
+        if (permitidas.length === 1 && currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            html = `<option value="${permitidas[0].id_unidade}">${permitidas[0].nome_unidade}</option>`;
             selectU.disabled = true;
         } else {
-            dataU.unidades.forEach(un => {
+            permitidas.forEach(un => {
                 html += `<option value="${un.id_unidade}">${un.nome_unidade}</option>`;
             });
             selectU.disabled = false;
         }
+        
         selectU.innerHTML = html;
         if (valAtual) selectU.value = valAtual;
     }
@@ -2566,10 +2585,38 @@ async function abrirModalMovimentacaoLote(tipo) {
     const dataU = await safeFetch('/api/unidades');
     if (dataU.success) {
         unidadesCache = dataU.unidades;
-        selectU.innerHTML = '<option value="">Selecione a Unidade...</option>' +
-            unidadesCache.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
+        
+        let permitidas = [];
+        if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+            permitidas = dataU.unidades;
+        } else if (currentUser) {
+            const permitidasIds = new Set();
+            if (currentUser.id_unidade) permitidasIds.add(String(currentUser.id_unidade));
+            if (currentUser.unidades_acesso) {
+                currentUser.unidades_acesso.forEach(u => permitidasIds.add(String(u.id_unidade)));
+            }
+            permitidas = dataU.unidades.filter(un => permitidasIds.has(String(un.id_unidade)));
+            if (permitidas.length === 0 && currentUser.id_unidade) {
+                permitidas = [{ id_unidade: currentUser.id_unidade, nome_unidade: currentUser.nome_unidade || 'Sua Unidade' }];
+            }
+        } else {
+            permitidas = dataU.unidades;
+        }
+
+        if (permitidas.length === 1 && currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            selectU.innerHTML = `<option value="${permitidas[0].id_unidade}">${permitidas[0].nome_unidade}</option>`;
+            selectU.disabled = true;
+        } else {
+            selectU.innerHTML = '<option value="">Selecione a Unidade...</option>' +
+                permitidas.map(u => `<option value="${u.id_unidade}">${u.nome_unidade}</option>`).join('');
+            selectU.disabled = false;
+        }
         
         let targetUnit = selectedUnitId || (currentUser ? currentUser.id_unidade : null) || (unidadesCache.length > 0 ? unidadesCache[0].id_unidade : null);
+        if (permitidas.length === 1 && currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            targetUnit = permitidas[0].id_unidade;
+        }
+        
         if (targetUnit) {
             selectU.value = targetUnit;
             await carregarProdutosLote();
@@ -2635,7 +2682,7 @@ function renderizarProdutosLote() {
         if (filtroTexto && !p.nome_produto.toLowerCase().includes(filtroTexto) && !(p.codigo_barras || '').toLowerCase().includes(filtroTexto)) continue;
         
         cont++;
-        const imgHtmlLote = p.imagem ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+        const imgHtmlLote = p.imagem ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='scale(4)'; this.style.zIndex='9999'; this.style.position='relative';" onmouseout="this.style.transform='scale(1)'; this.style.zIndex='1'; this.style.position='static';">` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
         
         html += `
         <tr data-prod-id="${p.id_produto}" onclick="document.getElementById('chk-mov-${p.id_produto}').click()" style="cursor: pointer;">
@@ -3389,7 +3436,7 @@ const TODOS_MENUS = [
 ];
 
 async function abrirModalUsuario(id_usuario, modo = 'editar') {
-    const u = _userDataMap[id_usuario] || {};
+    const u = (window._usuariosCache || []).find(usr => usr.id_usuario === id_usuario) || {};
     const nome_usuario = u.nome_usuario || '';
     const unidades_atuais = u.unidades_acesso || [];
     const nivel_atual = u.nivel_acesso || 'Operador';
@@ -3411,7 +3458,8 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
         const todasMarcadas = idsAtuais.length > 0 && idsAtuais.length === data.unidades.length;
 
         unidContainer.innerHTML = data.unidades.map(un => {
-            const isChecked = idsAtuais.includes(un.id_unidade) ? 'checked' : '';
+            // Usa String(id) para garantir que números e strings sejam comparados corretamente
+            const isChecked = idsAtuais.some(id => String(id) === String(un.id_unidade)) ? 'checked' : '';
             const isDisabled = todasMarcadas ? 'disabled' : '';
             return `
                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
@@ -3443,7 +3491,7 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
     const catContainer = document.getElementById('aprovar-categorias');
     if (catContainer) {
         catContainer.innerHTML = cats.map(c => {
-            const isChecked = categorias_acesso.includes(c.id_categoria) ? 'checked' : '';
+            const isChecked = categorias_acesso.some(id => String(id) === String(c.id_categoria)) ? 'checked' : '';
             return `
                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
                     <input type="checkbox" name="usuario-categoria" value="${c.id_categoria}" ${isChecked}>
@@ -3783,16 +3831,37 @@ async function preencherOpcoesFiltrosRelatorioEstoque() {
 
     if (sUnidade) {
         let html = '<option value="">Todas as Unidades</option>';
-        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
-            html = `<option value="${currentUser.id_unidade}">${currentUser.nome_unidade || 'Sua Unidade'}</option>`;
+        let permitidas = [];
+        if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+            permitidas = unidadesCache;
+        } else if (currentUser) {
+            const permitidasIds = new Set();
+            if (currentUser.id_unidade) permitidasIds.add(String(currentUser.id_unidade));
+            if (currentUser.unidades_acesso) {
+                currentUser.unidades_acesso.forEach(u => permitidasIds.add(String(u.id_unidade)));
+            }
+            permitidas = unidadesCache.filter(un => permitidasIds.has(String(un.id_unidade)));
+            if (permitidas.length === 0 && currentUser.id_unidade) {
+                permitidas = [{ id_unidade: currentUser.id_unidade, nome_unidade: currentUser.nome_unidade || 'Sua Unidade' }];
+            }
+        } else {
+            permitidas = unidadesCache;
+        }
+
+        if (permitidas.length === 1 && currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            html = `<option value="${permitidas[0].id_unidade}">${permitidas[0].nome_unidade}</option>`;
             sUnidade.disabled = true;
         } else {
-            unidadesCache.forEach(un => {
+            permitidas.forEach(un => {
                 html += `<option value="${un.id_unidade}">${un.nome_unidade}</option>`;
             });
-            if (selectedUnitId) sUnidade.value = selectedUnitId;
+            sUnidade.disabled = false;
         }
+        
         sUnidade.innerHTML = html;
+        if (selectedUnitId && !sUnidade.disabled && permitidas.some(p => String(p.id_unidade) === String(selectedUnitId))) {
+            sUnidade.value = selectedUnitId;
+        }
     }
 
     if (sCategoria) {
@@ -4009,16 +4078,37 @@ async function preencherOpcoesFiltrosRelatorioSugestaoCompras() {
 
     if (sUnidade) {
         let html = '<option value="">Todas as Unidades</option>';
-        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
-            html = `<option value="${currentUser.id_unidade}">${currentUser.nome_unidade || 'Sua Unidade'}</option>`;
+        let permitidas = [];
+        if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+            permitidas = unidadesCache;
+        } else if (currentUser) {
+            const permitidasIds = new Set();
+            if (currentUser.id_unidade) permitidasIds.add(String(currentUser.id_unidade));
+            if (currentUser.unidades_acesso) {
+                currentUser.unidades_acesso.forEach(u => permitidasIds.add(String(u.id_unidade)));
+            }
+            permitidas = unidadesCache.filter(un => permitidasIds.has(String(un.id_unidade)));
+            if (permitidas.length === 0 && currentUser.id_unidade) {
+                permitidas = [{ id_unidade: currentUser.id_unidade, nome_unidade: currentUser.nome_unidade || 'Sua Unidade' }];
+            }
+        } else {
+            permitidas = unidadesCache;
+        }
+
+        if (permitidas.length === 1 && currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            html = `<option value="${permitidas[0].id_unidade}">${permitidas[0].nome_unidade}</option>`;
             sUnidade.disabled = true;
         } else {
-            unidadesCache.forEach(un => {
+            permitidas.forEach(un => {
                 html += `<option value="${un.id_unidade}">${un.nome_unidade}</option>`;
             });
-            if (selectedUnitId) sUnidade.value = selectedUnitId;
+            sUnidade.disabled = false;
         }
+        
         sUnidade.innerHTML = html;
+        if (selectedUnitId && !sUnidade.disabled && permitidas.some(p => String(p.id_unidade) === String(selectedUnitId))) {
+            sUnidade.value = selectedUnitId;
+        }
     }
 
     if (sCategoria) {
@@ -5489,14 +5579,28 @@ async function popularSelectUnidadesRelatorio(selectId) {
     let padrao = obterUnidadePadraoUsuario();
     if (padrao) padrao = padrao.trim().toUpperCase();
 
-    if (currentUser && currentUser.nivel_acesso !== 'Administrador' && padrao) {
-        select.innerHTML = `<option value="${padrao}" selected>${padrao}</option>`;
+    let unidadesPermitidas = [];
+    if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+        unidadesPermitidas = lista;
+    } else {
+        const permitidasSet = new Set();
+        if (padrao) permitidasSet.add(padrao);
+        if (currentUser && currentUser.unidades_acesso) {
+            currentUser.unidades_acesso.forEach(uu => {
+                if (uu.nome_unidade) permitidasSet.add(uu.nome_unidade.trim().toUpperCase());
+            });
+        }
+        unidadesPermitidas = Array.from(permitidasSet).sort();
+    }
+
+    if (unidadesPermitidas.length === 1 && currentUser && currentUser.nivel_acesso !== 'Administrador') {
+        select.innerHTML = `<option value="${unidadesPermitidas[0]}" selected>${unidadesPermitidas[0]}</option>`;
         select.disabled = true;
     } else {
         const valAtual = select.value;
         select.innerHTML = '<option value="">SELECIONE UMA UNIDADE...</option>' +
-            lista.map(u => `<option value="${u}">${u}</option>`).join('');
-        if (valAtual && lista.includes(valAtual)) {
+            unidadesPermitidas.map(u => `<option value="${u}">${u}</option>`).join('');
+        if (valAtual && unidadesPermitidas.includes(valAtual)) {
             select.value = valAtual;
         }
         select.disabled = false;
