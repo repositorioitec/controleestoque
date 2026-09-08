@@ -1612,7 +1612,7 @@ function renderizarTabelaProdutos(produtos) {
         const tipoCusto = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-warning);"` : '';
         const tipoVenda = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-green);"` : '';
 
-        const imgHtml = p.imagem ? `<img src="${p.imagem}" onclick="abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='scale(4)'; this.style.zIndex='9999'; this.style.position='relative';" onmouseout="this.style.transform='scale(1)'; this.style.zIndex='1'; this.style.position='static';">` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+        const imgHtml = p.imagem ? `<img src="${p.imagem}" onclick="abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
 
         return `
             <tr style="${opacidade}">
@@ -2682,7 +2682,7 @@ function renderizarProdutosLote() {
         if (filtroTexto && !p.nome_produto.toLowerCase().includes(filtroTexto) && !(p.codigo_barras || '').toLowerCase().includes(filtroTexto)) continue;
         
         cont++;
-        const imgHtmlLote = p.imagem ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='scale(4)'; this.style.zIndex='9999'; this.style.position='relative';" onmouseout="this.style.transform='scale(1)'; this.style.zIndex='1'; this.style.position='static';">` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+        const imgHtmlLote = p.imagem ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
         
         html += `
         <tr data-prod-id="${p.id_produto}" onclick="document.getElementById('chk-mov-${p.id_produto}').click()" style="cursor: pointer;">
@@ -3436,7 +3436,7 @@ const TODOS_MENUS = [
 ];
 
 async function abrirModalUsuario(id_usuario, modo = 'editar') {
-    const u = (window._usuariosCache || []).find(usr => usr.id_usuario === id_usuario) || {};
+    const u = _userDataMap[id_usuario] || {};
     const nome_usuario = u.nome_usuario || '';
     const unidades_atuais = u.unidades_acesso || [];
     const nivel_atual = u.nivel_acesso || 'Operador';
@@ -3458,8 +3458,7 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
         const todasMarcadas = idsAtuais.length > 0 && idsAtuais.length === data.unidades.length;
 
         unidContainer.innerHTML = data.unidades.map(un => {
-            // Usa String(id) para garantir que números e strings sejam comparados corretamente
-            const isChecked = idsAtuais.some(id => String(id) === String(un.id_unidade)) ? 'checked' : '';
+            const isChecked = idsAtuais.includes(un.id_unidade) ? 'checked' : '';
             const isDisabled = todasMarcadas ? 'disabled' : '';
             return `
                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
@@ -3491,7 +3490,7 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
     const catContainer = document.getElementById('aprovar-categorias');
     if (catContainer) {
         catContainer.innerHTML = cats.map(c => {
-            const isChecked = categorias_acesso.some(id => String(id) === String(c.id_categoria)) ? 'checked' : '';
+            const isChecked = categorias_acesso.includes(c.id_categoria) ? 'checked' : '';
             return `
                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
                     <input type="checkbox" name="usuario-categoria" value="${c.id_categoria}" ${isChecked}>
@@ -3875,9 +3874,7 @@ async function carregarRelatorioEstoque() {
     const categoria = document.getElementById('filter-rel-est-categoria')?.value || '';
     const incluirZerados = document.getElementById('filter-rel-est-zerados')?.checked || false;
 
-    if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
-        unidade = currentUser.id_unidade || '';
-    } else if (!unidade && selectedUnitId) {
+    if (!unidade && selectedUnitId) {
         unidade = selectedUnitId;
         const sUnidade = document.getElementById('filter-rel-est-unidade');
         if (sUnidade) sUnidade.value = selectedUnitId;
@@ -4128,9 +4125,7 @@ async function carregarRelatorioSugestaoCompras() {
     const dataFim = document.getElementById('filter-rel-sug-fim')?.value || '';
     const dataEntrega = document.getElementById('filter-rel-sug-entrega')?.value || '';
 
-    if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
-        unidade = currentUser.id_unidade || '';
-    } else if (!unidade && selectedUnitId) {
+    if (!unidade && selectedUnitId) {
         unidade = selectedUnitId;
         const sUnidade = document.getElementById('filter-rel-sug-unidade');
         if (sUnidade) sUnidade.value = selectedUnitId;
