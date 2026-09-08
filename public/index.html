@@ -141,21 +141,7 @@
                             <li class="nav-item" id="li-mov-transferencia" data-target="view-transferencias" style="display: none;" data-menu-key="transferencias">
                                 <a href="#"><i class="fa-solid fa-truck-fast"></i> <span>Transferências</span></a>
                             </li>
-                            <li class="nav-item supervisor-only" style="margin-top: 15px; cursor: pointer;" onclick="['li-cad-centros','li-cad-unidades','li-cad-categorias','li-cad-fornecedores'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })" data-menu-key="cadastros">
-                                <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
-                            </li>
-                            <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" style="display: none;" data-menu-key="centros-custo">
-                                <a href="#"><i class="fa-solid fa-calculator"></i> <span>Centros de Custo</span></a>
-                            </li>
-                            <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" style="display: none;" data-menu-key="unidades">
-                                <a href="#"><i class="fa-solid fa-building-user"></i> <span>Unidades</span></a>
-                            </li>
-                            <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" style="display: none;" data-menu-key="categorias">
-                                <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias</span></a>
-                            </li>
-                            <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" style="display: none;" data-menu-key="fornecedores">
-                                <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
-                            </li>
+
                             <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-estoque','li-sugestao-compras','li-controle-manual'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })" data-menu-key="relatorios">
                                 <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-folder-open"></i> <span>Relatórios</span></a>
                             </li>
@@ -203,6 +189,25 @@
                                         <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> <span>Aguardando retorno do aluno</span></a>
                                     </li>
                                 </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item supervisor-only" style="cursor: pointer;" onclick="const el = document.getElementById('ul-cadastros'); el.style.display = el.style.display === 'none' ? 'block' : 'none';" data-menu-key="cadastros">
+                        <a style="text-transform: uppercase; font-size: 13px; font-weight: 700; color: var(--text-main);"><i class="fa-solid fa-folder-plus"></i> <span>Cadastros</span></a>
+                    </li>
+                    <li style="list-style: none;">
+                        <ul id="ul-cadastros" style="display: none; padding-left: 15px; list-style: none; margin-top: 5px;">
+                            <li class="nav-item" id="li-cad-centros" data-target="view-cadastros-centros" data-menu-key="centros-custo">
+                                <a href="#"><i class="fa-solid fa-calculator"></i> <span>Centros de Custo</span></a>
+                            </li>
+                            <li class="nav-item" id="li-cad-unidades" data-target="view-cadastros-unidades" data-menu-key="unidades">
+                                <a href="#"><i class="fa-solid fa-building-user"></i> <span>Unidades</span></a>
+                            </li>
+                            <li class="nav-item" id="li-cad-categorias" data-target="view-cadastros-categorias" data-menu-key="categorias">
+                                <a href="#"><i class="fa-solid fa-tags"></i> <span>Categorias</span></a>
+                            </li>
+                            <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" data-menu-key="fornecedores">
+                                <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
                             </li>
                         </ul>
                     </li>
@@ -414,7 +419,7 @@
                                 <small style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; margin-top: 4px; display: block;">PESQUISE E FILTRE MOVIMENTAÇÕES POR PERÍODO, UNIDADE OU PRODUTO</small>
                             </div>
                             <div class="action-buttons" style="display: flex; gap: 10px; margin-left: auto;">
-                                <button class="btn btn-primary" style="padding: 8px 16px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px;" onclick="abrirModalMovimentacaoLote('ENTRADA')">
+                                <button class="btn btn-primary" style="padding: 8px 16px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px;" onclick="abrirModalMovimentacaoLote('SAIDA')">
                                     <i class="fa-solid fa-plus-minus"></i> Registrar Movimentação de estoques
                                 </button>
                             </div>
@@ -1221,11 +1226,11 @@
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
                                     <label for="select-status-todos" style="font-size: 11px; margin: 0; color: var(--text-muted); font-weight: 600; white-space: nowrap;"><i class="fa-solid fa-edit"></i> ALTERAR TODOS:</label>
                                     <select id="select-status-todos" class="form-control" style="height: 38px; font-size: 13px; padding: 0 12px; min-width: 150px;" onchange="alterarStatusTodosLancamentosRelatorio()">
-                                        <option value="">Selecione...</option>
-                                        <option value="Em andamento">Em andamento</option>
-                                        <option value="Concluído">Concluído</option>
-                                        <option value="Evadido">Evadido</option>
-                                        <option value="Cancelado">Cancelado</option>
+                                        <option value="">SELECIONE...</option>
+                                        <option value="Em andamento">EM ANDAMENTO</option>
+                                        <option value="Concluído">CONCLUÍDO</option>
+                                        <option value="Evadido">EVADIDO</option>
+                                        <option value="Cancelado">CANCELADO</option>
                                     </select>
                                 </div>
                             </div>
@@ -1731,7 +1736,7 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
                         <div class="form-group" style="margin: 0;">
                             <label for="mov-data-lote" style="font-size: 11px; text-transform: uppercase;">DATA DA OPERAÇÃO *</label>
-                            <input type="date" id="mov-data-lote" class="form-control" required style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                            <input type="date" id="mov-data-lote" class="form-control" required style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark; font-size: 16px; font-weight: bold;">
                         </div>
                         <div class="form-group" style="margin: 0;">
                             <label for="mov-unidade-lote" style="font-size: 11px; text-transform: uppercase;">UNIDADE OPERACIONAL *</label>
@@ -1839,7 +1844,7 @@
                     <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
                         <div class="form-group" style="margin: 0;">
                             <label for="edit-mov-data" style="font-size: 11px; text-transform: uppercase;">Data da Operação *</label>
-                            <input type="date" id="edit-mov-data" class="form-control" required style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                            <input type="date" id="edit-mov-data" class="form-control" required style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark; font-size: 16px; font-weight: bold;">
                         </div>
                         <div class="form-group" style="margin: 0;">
                             <label for="edit-mov-qtd" style="font-size: 11px; text-transform: uppercase;">Quantidade *</label>
@@ -2050,13 +2055,13 @@
                             <label for="estagio-aluno">Aluno(a) *</label>
                             <input type="text" id="estagio-aluno" placeholder="NOME DO ALUNO" required list="lista-alunos" style="text-transform: uppercase;">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group span-2">
                             <label for="estagio-unidade">Unidade *</label>
                             <select id="estagio-unidade" required>
                                 <option value="">Selecione a Unidade...</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group span-2">
                             <label for="estagio-curso">Curso *</label>
                             <select id="estagio-curso" required>
                                 <option value="">SELECIONE...</option>

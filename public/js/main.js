@@ -3204,14 +3204,26 @@ async function salvarFornecedor(event) {
 // --- USUÁRIOS E APROVAÇÃO ---
 
 async function carregarUsuarios() {
-    const result = await safeFetch('/api/auth/users');
+    try {
+        const result = await safeFetch('/api/auth/users');
 
-    if (result.success) {
-        window._usuariosCache = result.users;
-        renderizarTabelaUsuarios();
-    } else {
+        if (result.success) {
+            window._usuariosCache = result.users || [];
+            _userDataMap = {};
+            if (result.users && Array.isArray(result.users)) {
+                result.users.forEach(u => {
+                    _userDataMap[u.id_usuario] = u;
+                });
+            }
+            renderizarTabelaUsuarios();
+        } else {
+            const tbody = document.getElementById('table-usuarios-body');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
+        }
+    } catch (error) {
+        console.error("Erro em carregarUsuarios:", error);
         const tbody = document.getElementById('table-usuarios-body');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro inesperado: ${error.message}</td></tr>`;
     }
 }
 
@@ -3417,22 +3429,23 @@ const TODOS_MENUS = [
     { key: 'movimentacoes', label: 'Movimentações (Grupo)' },
     { key: 'historico', label: 'Histórico' },
     { key: 'transferencias', label: 'Transferências' },
-    { key: 'cadastros', label: 'Cadastros (Grupo)' },
-    { key: 'centros-custo', label: 'Centros de Custo' },
-    { key: 'unidades', label: 'Unidades' },
-    { key: 'categorias', label: 'Categorias' },
-    { key: 'fornecedores', label: 'Fornecedores' },
     { key: 'relatorios', label: 'Relatórios (Grupo)' },
     { key: 'estoque-atual', label: 'Estoque Atual' },
     { key: 'sugestao-compras', label: 'Sugestão de Compras' },
     { key: 'controle-estagios', label: 'Controle de Estágios (Menu Pai)', isParent: true },
     { key: 'estagios-lancamentos', label: 'Lançamento de horas' },
     { key: 'estagios-validacao', label: 'Validação Coordenação' },
+    { key: 'documentos', label: 'Documentos' },
     { key: 'estagios-relatorios', label: 'Relatórios (Estágios - Grupo)', isParent: true },
     { key: 'estagios-relatorio-horas-aluno', label: 'Total de Horas por Aluno' },
     { key: 'estagios-relatorio-alunos-unidade', label: 'Alunos por Unidade' },
     { key: 'estagios-relatorio-horas-validadas', label: 'Horas Validadas' },
-    { key: 'estagios-relatorio-aguardando-retorno', label: 'Aguardando retorno do aluno' }
+    { key: 'estagios-relatorio-aguardando-retorno', label: 'Aguardando retorno do aluno' },
+    { key: 'cadastros', label: 'Cadastros (Menu Pai)', isParent: true },
+    { key: 'centros-custo', label: 'Centros de Custo' },
+    { key: 'unidades', label: 'Unidades' },
+    { key: 'categorias', label: 'Categorias' },
+    { key: 'fornecedores', label: 'Fornecedores' }
 ];
 
 async function abrirModalUsuario(id_usuario, modo = 'editar') {
@@ -3489,8 +3502,9 @@ async function abrirModalUsuario(id_usuario, modo = 'editar') {
     
     const catContainer = document.getElementById('aprovar-categorias');
     if (catContainer) {
+        const catIdsAtuais = categorias_acesso.map(cc => cc.id_categoria);
         catContainer.innerHTML = cats.map(c => {
-            const isChecked = categorias_acesso.includes(c.id_categoria) ? 'checked' : '';
+            const isChecked = catIdsAtuais.includes(c.id_categoria) ? 'checked' : '';
             return `
                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal; margin-bottom: 2px;">
                     <input type="checkbox" name="usuario-categoria" value="${c.id_categoria}" ${isChecked}>
@@ -5257,7 +5271,7 @@ function gerarRelatorioHorasAluno() {
                 <td>${l.turma || '-'}</td>
                 <td>
                     <span class="badge ${statusBadge}" style="cursor: pointer;" onclick="alterarStatusLancamentoRelatorio(${l.id_lancamento})" title="Clique para alterar o status">
-                        ${l.status} <i class="fa-solid fa-pen" style="font-size: 10px; margin-left: 4px;"></i>
+                        ${(l.status || '').toUpperCase()} <i class="fa-solid fa-pen" style="font-size: 10px; margin-left: 4px;"></i>
                     </span>
                 </td>
                 <td>${l.protocolo_ew || '-'}</td>
