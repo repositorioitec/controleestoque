@@ -209,6 +209,9 @@
                             <li class="nav-item" id="li-cad-fornecedores" data-target="view-cadastros-fornecedores" data-menu-key="fornecedores">
                                 <a href="#"><i class="fa-solid fa-truck"></i> <span>Fornecedores</span></a>
                             </li>
+                            <li class="nav-item" id="li-cad-cursos" data-target="view-cadastros-cursos" data-menu-key="cursos">
+                                <a href="#"><i class="fa-solid fa-graduation-cap"></i> <span>Cursos</span></a>
+                            </li>
                         </ul>
                     </li>
                     <li class="nav-item admin-only" data-target="view-usuarios">
@@ -672,6 +675,33 @@
                                 </thead>
                                 <tbody id="table-categorias-body">
                                     <tr><td colspan="2" class="text-center">Carregando categorias...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 4.5: CADASTRO DE CURSOS -->
+                <section id="view-cadastros-cursos" class="app-view">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-graduation-cap"></i> Cursos</h3>
+                            <button class="btn btn-sm btn-primary" onclick="abrirModalCurso()">
+                                <i class="fa-solid fa-plus"></i> Novo Curso
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Nome</th>
+                                        <th>Descrição</th>
+                                        <th class="text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-cursos-body">
+                                    <tr><td colspan="4" class="text-center">Carregando cursos...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1478,9 +1508,6 @@
                             <label for="filtro-documento-curso" style="font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin: 0;">CURSO *</label>
                             <select id="filtro-documento-curso" class="form-control" onchange="filtrarDocumentos()" style="width: 100%; max-width: 400px; background-color: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
                                 <option value="">SELECIONE UM CURSO...</option>
-                                <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
-                                <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>
-                                <option value="TECNICO EM RADIOLOGIA">TECNICO EM RADIOLOGIA</option>
                             </select>
                         </div>
 
@@ -1577,6 +1604,37 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-unidade')">Cancelar</button>
                     <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Salvar Unidade</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CURSOS (SOMENTE ADMIN/SUPERVISOR) -->
+    <div id="modal-curso" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-curso-title">Cadastrar Curso</h3>
+                <button class="modal-close" onclick="fecharModal('modal-curso')">&times;</button>
+            </div>
+            <form id="form-curso" onsubmit="salvarCurso(event)">
+                <input type="hidden" id="curso-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="curso-codigo">Código *</label>
+                        <input type="text" id="curso-codigo" placeholder="Ex: C001" style="text-transform: uppercase;" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="curso-nome">Nome *</label>
+                        <input type="text" id="curso-nome" placeholder="Ex: TÉCNICO EM ENFERMAGEM" style="text-transform: uppercase;" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="curso-desc">Descrição</label>
+                        <input type="text" id="curso-desc" placeholder="Ex: CURSO TÉCNICO DE ENFERMAGEM..." style="text-transform: uppercase;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-curso')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Salvar Curso</button>
                 </div>
             </form>
         </div>
@@ -2290,9 +2348,6 @@
                         <label for="upload-doc-curso">Curso</label>
                         <select id="upload-doc-curso" class="form-control" required>
                             <option value="">Selecione...</option>
-                            <option value="TECNICO EM ANALISES CLINICAS">TECNICO EM ANALISES CLINICAS</option>
-                            <option value="TECNICO EM ENFERMAGEM">TECNICO EM ENFERMAGEM</option>
-                            <option value="TECNICO EM RADIOLOGIA">TECNICO EM RADIOLOGIA</option>
                         </select>
                     </div>
                     <div class="form-group">

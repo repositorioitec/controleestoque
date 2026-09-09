@@ -9,6 +9,7 @@ let produtosCache = [];
 let categoriasCache = [];
 let unidadesCache = [];
 let movimentacoesCache = [];
+let cursosCache = [];
 let _userDataMap = {}; // mapa id_usuario -> dados completos do usuário
 
 // --- HELPERS DE NÍVEL DE ACESSO ---
@@ -65,6 +66,9 @@ const LocalDB = {
         }
         if (!localStorage.getItem('gh_centros_custo')) {
             localStorage.setItem('gh_centros_custo', JSON.stringify([]));
+        }
+        if (!localStorage.getItem('gh_cursos')) {
+            localStorage.setItem('gh_cursos', JSON.stringify([]));
         }
         if (!localStorage.getItem('gh_estagios_lancamentos')) {
             localStorage.setItem('gh_estagios_lancamentos', JSON.stringify([]));
@@ -349,6 +353,34 @@ const LocalDB = {
                 this.set('categorias', cats);
                 return { success: true, message: 'Categoria cadastrada!' };
             }
+        }
+
+        // CURSOS
+        if (path === '/api/cursos') {
+            const cursos = this.get('cursos');
+            if (method === 'GET') return { success: true, cursos: cursos };
+            if (method === 'POST') {
+                if (body.id_curso) {
+                    const c = cursos.find(x => x.id_curso == body.id_curso);
+                    if (c) {
+                        c.codigo = body.codigo;
+                        c.nome = body.nome;
+                        c.descricao = body.descricao || '';
+                    }
+                } else {
+                    cursos.push({ id_curso: Date.now(), codigo: body.codigo, nome: body.nome, descricao: body.descricao || '' });
+                }
+                this.set('cursos', cursos);
+                return { success: true, message: 'Curso salvo com sucesso!' };
+            }
+        }
+
+        // CURSOS DELETE
+        if (path.match(/\/api\/cursos\/\d+$/) && method === 'DELETE') {
+            const id = path.split('/')[3];
+            const cursos = this.get('cursos').filter(x => x.id_curso != id);
+            this.set('cursos', cursos);
+            return { success: true, message: 'Curso excluído com sucesso!' };
         }
 
         // FORNECEDORES
@@ -1424,7 +1456,10 @@ function navegarParaView(viewId) {
             preencherOpcoesFiltrosRelatorioSugestaoCompras();
             carregarRelatorioSugestaoCompras();
         }
-        if (viewId.startsWith('view-cadastros-')) carregarCadastrosGerais();
+        if (viewId.startsWith('view-cadastros-')) {
+            carregarCadastrosGerais();
+            if (viewId === 'view-cadastros-cursos') carregarCursos();
+        }
         if (viewId === 'view-usuarios') carregarUsuarios();
         if (viewId === 'view-estagios-lancamento') carregarLancamentosEstagio();
         if (viewId === 'view-estagios-validacao') carregarValidacaoEstagios();
@@ -1432,6 +1467,7 @@ function navegarParaView(viewId) {
         if (viewId === 'view-estagios-relatorio-alunos-unidade') iniciarRelatorioAlunosUnidade();
         if (viewId === 'view-estagios-relatorio-horas-validadas') iniciarRelatorioHorasValidadas();
         if (viewId === 'view-estagios-relatorio-aguardando-retorno') iniciarRelatorioAguardandoRetorno();
+        if (viewId === 'view-documentos') iniciarDocumentos();
     }
 }
 
@@ -3445,7 +3481,8 @@ const TODOS_MENUS = [
     { key: 'centros-custo', label: 'Centros de Custo' },
     { key: 'unidades', label: 'Unidades' },
     { key: 'categorias', label: 'Categorias' },
-    { key: 'fornecedores', label: 'Fornecedores' }
+    { key: 'fornecedores', label: 'Fornecedores' },
+    { key: 'cursos', label: 'Cursos' }
 ];
 
 async function abrirModalUsuario(id_usuario, modo = 'editar') {
@@ -4484,6 +4521,22 @@ async function confirmarImportacaoPlanilha() {
 
 let estagiosCache = [];
 
+async function iniciarRelatorioAlunosUnidade() {
+    limparRelatorioAlunosUnidade();
+    try {
+        if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
+            const resCursos = await safeFetch('/api/cursos');
+            if (resCursos.success) cursosCache = resCursos.cursos;
+        }
+        const res = await safeFetch('/api/estagios/lancamentos');
+        if (res.success && res.lancamentos) {
+            // ... resto do processamento
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 async function carregarLancamentosEstagio() {
     const tbody = document.getElementById('table-estagios-lancamentos-body');
     if (!tbody) return;
@@ -4491,6 +4544,10 @@ async function carregarLancamentosEstagio() {
     tbody.innerHTML = '<tr><td colspan="9" class="text-center">Carregando estágios...</td></tr>';
     
     try {
+        if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
+            const resCursos = await safeFetch('/api/cursos');
+            if (resCursos.success) cursosCache = resCursos.cursos;
+        }
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
@@ -4526,7 +4583,12 @@ function atualizarFiltrosLancamentosEstagio() {
     const statusAtual = elStatus ? (elStatus.value || '').toUpperCase() : '';
 
     // Extrai valores únicos em MAIÚSCULO
-    const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    let cursos = [];
+    if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
+        cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
+    } else {
+        cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    }
     const turmas = [...new Set(estagiosCache.map(l => (l.turma || '').trim().toUpperCase()).filter(Boolean))].sort();
     const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
     const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
@@ -4623,7 +4685,9 @@ async function abrirModalLancamentoEstagio() {
     const selectCurso = document.getElementById('estagio-curso');
     if (selectCurso) {
         let cursos = [];
-        if (estagiosCache && estagiosCache.length > 0) {
+        if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
+            cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
+        } else if (estagiosCache && estagiosCache.length > 0) {
             cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
         }
         let html = '<option value="">SELECIONE...</option>';
@@ -4638,6 +4702,201 @@ async function abrirModalLancamentoEstagio() {
     const padraoUnidade = obterUnidadePadraoUsuario();
     const selectUnidade = document.getElementById('estagio-unidade');
     if (padraoUnidade && selectUnidade) {
+        let matched = false;
+        for (let opt of selectUnidade.options) {
+            if (opt.value.trim().toUpperCase() === padraoUnidade.trim().toUpperCase()) {
+                selectUnidade.value = opt.value;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            const newOpt = document.createElement('option');
+            newOpt.value = padraoUnidade;
+            newOpt.textContent = padraoUnidade;
+            selectUnidade.appendChild(newOpt);
+            selectUnidade.value = padraoUnidade;
+        }
+
+        // Se o usuário não for Administrador, bloqueia o select para manter fixo na sua unidade
+        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
+            selectUnidade.disabled = true;
+        } else {
+            selectUnidade.disabled = false;
+        }
+    } else if (selectUnidade) {
+        selectUnidade.disabled = false;
+    }
+
+    document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
+}
+
+async function salvarLancamentoEstagio(event) {
+    event.preventDefault();
+    const id = document.getElementById('estagio-id').value;
+    const selectUnidade = document.getElementById('estagio-unidade');
+    const unidadeValor = (selectUnidade ? selectUnidade.value : '') || obterUnidadePadraoUsuario();
+
+    const payload = {
+        id_lancamento: id || null,
+        data_lancamento: document.getElementById('estagio-data').value,
+        status: 'Em andamento',
+        nome_aluno: (document.getElementById('estagio-aluno').value || '').trim().toUpperCase(),
+        unidade: unidadeValor,
+        curso: document.getElementById('estagio-curso').value,
+        turma: (document.getElementById('estagio-turma').value || '').trim().toUpperCase() || null,
+        horas_totais: Math.round(parseFloat(document.getElementById('estagio-horas').value) || 0),
+        protocolo_ew: document.getElementById('estagio-protocolo').value,
+        observacoes: document.getElementById('estagio-observacoes').value,
+        horas_campo: 0,
+        horas_capacitacao: 0,
+        horas_laboratorio: 0,
+        horas_evento: 0,
+        validado_coordenacao: false,
+        aguardando_analise: document.getElementById('estagio-aguardando-analise') ? document.getElementById('estagio-aguardando-analise').checked : false
+    };
+
+    try {
+        const res = await fetch('/api/estagios/lancamentos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': currentUser ? currentUser.id_usuario : '',
+                'X-User-Nivel': currentUser ? currentUser.nivel_acesso : '',
+                'X-User-Nome': currentUser ? currentUser.nome_usuario : ''
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            fecharModal('modal-estagios-lancamento');
+            carregarLancamentosEstagio();
+            alert(data.message);
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    } catch (e) {
+        alert('Erro de comunicação com o servidor.');
+    }
+}
+
+function renderEstagios(lista) {
+    const tbody = document.getElementById('table-estagios-lancamentos-body');
+    if (!tbody) return;
+
+    if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nenhum registro encontrado.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = lista.map(l => {
+        let statusBadge = 'badge-secondary';
+        const stUpper = (l.status || '').toUpperCase();
+        if (stUpper === 'EM ANDAMENTO') statusBadge = 'badge-primary';
+        else if (stUpper === 'CONCLUIDO' || stUpper === 'CONCLUÍDO') statusBadge = 'badge-success';
+        else if (stUpper === 'EVADIDO') statusBadge = 'badge-warning';
+        else if (stUpper === 'CANCELADO') statusBadge = 'badge-danger';
+
+        // Formata data para DD/MM/YYYY
+        let dataFormatada = l.data_lancamento || '-';
+        if (dataFormatada.includes('-')) {
+            const parts = dataFormatada.split('-');
+            if (parts.length === 3) dataFormatada = parts[2] + '/' + parts[1] + '/' + parts[0];
+        }
+
+        const hTotal = Math.round(parseFloat(l.horas_totais) || 0);
+        const validado = l.validado_coordenacao ? '<span class="text-success"><i class="fa-solid fa-check"></i> Sim</span>' : '<span class="text-warning"><i class="fa-solid fa-clock"></i> Pendente</span>';
+
+        return `
+            <tr>
+                <td>${dataFormatada}</td>
+                <td><strong>${l.nome_aluno}</strong></td>
+                <td>${l.curso}</td>
+                <td>${l.turma || '-'}</td>
+                <td>${l.unidade}</td>
+                <td><strong>${hTotal}</strong></td>
+                <td><span class="badge ${statusBadge}">${l.status}</span></td>
+                <td>${validado}</td>
+                <td><small style="color: var(--text-muted);">${l.nome_usuario_registro || '-'}</small></td>
+                <td class="text-right">
+                    <button class="btn btn-sm btn-secondary" onclick="editarLancamentoEstagio(${l.id_lancamento})" title="Editar"><i class="fa-solid fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="excluirLancamentoEstagio(${l.id_lancamento})" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filtrarLancamentosEstagio() {
+    const elAluno = document.getElementById('filtro-lancamento-aluno');
+    const elCurso = document.getElementById('filtro-lancamento-curso');
+    const elTurma = document.getElementById('filtro-lancamento-turma');
+    const elUnidade = document.getElementById('filtro-lancamento-unidade');
+    const elStatus = document.getElementById('filtro-lancamento-status');
+
+    if (!elAluno) return; // Garante que a view existe
+
+    const termoAluno = (elAluno.value || '').trim().toUpperCase();
+    const filtroCurso = (elCurso ? elCurso.value : '').trim().toUpperCase();
+    const filtroTurma = (elTurma ? elTurma.value : '').trim().toUpperCase();
+    const filtroUnidade = (elUnidade ? elUnidade.value : '').trim().toUpperCase();
+    const filtroStatus = (elStatus ? elStatus.value : '').trim().toUpperCase();
+
+    const filtrados = estagiosCache.filter(l => {
+        const alunoUpper = (l.nome_aluno || '').trim().toUpperCase();
+        const cursoUpper = (l.curso || '').trim().toUpperCase();
+        const turmaUpper = (l.turma || '').trim().toUpperCase();
+        const unidadeUpper = (l.unidade || '').trim().toUpperCase();
+        const statusUpper = (l.status || '').trim().toUpperCase();
+
+        const matchAluno = !termoAluno || alunoUpper.includes(termoAluno);
+        const matchCurso = !filtroCurso || cursoUpper === filtroCurso;
+        const matchTurma = !filtroTurma || turmaUpper === filtroTurma;
+        const matchUnidade = !filtroUnidade || unidadeUpper === filtroUnidade;
+        const matchStatus = !filtroStatus || statusUpper === filtroStatus;
+        return matchAluno && matchCurso && matchTurma && matchUnidade && matchStatus;
+    });
+
+    renderEstagios(filtrados);
+}
+
+async function editarLancamentoEstagio(id) {
+    const l = estagiosCache.find(x => x.id_lancamento === id);
+    if (!l) return;
+
+    await preencherSelectUnidadesModalEstagio();
+
+    // Popula opções de cursos dinamicamente de acordo com a pesquisa (em maiúsculo)
+    const selectCurso = document.getElementById('estagio-curso');
+    if (selectCurso) {
+        let cursos = [];
+        if (estagiosCache && estagiosCache.length > 0) {
+            cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+        }
+        let html = '<option value="">SELECIONE...</option>';
+        cursos.forEach(c => {
+            html += `<option value="${c}">${c}</option>`;
+        });
+        html += '<option value="OUTROS">OUTROS</option>';
+        selectCurso.innerHTML = html;
+        
+        // Verifica se o curso do lançamento não está na lista principal e adiciona
+        if (l.curso) {
+            const cursoAtualUpper = l.curso.trim().toUpperCase();
+            if (!cursos.includes(cursoAtualUpper) && cursoAtualUpper !== 'OUTROS') {
+                selectCurso.innerHTML = `<option value="">SELECIONE...</option>` +
+                    `<option value="${cursoAtualUpper}">${cursoAtualUpper}</option>` +
+                    cursos.map(c => `<option value="${c}">${c}</option>`).join('') +
+                    `<option value="OUTROS">OUTROS</option>`;
+            }
+        }
+    }
+
+    document.getElementById('estagio-id').value = l.id_lancamento;
+    document.getElementById('estagio-data').value = l.data_lancamento;
+    document.getElementById('estagio-status').value = 'Em andamento';
+    document.getElementById('estagio-aluno').value = l.nome_aluno;
+if (padraoUnidade && selectUnidade) {
         let matched = false;
         for (let opt of selectUnidade.options) {
             if (opt.value.trim().toUpperCase() === padraoUnidade.trim().toUpperCase()) {
@@ -4888,6 +5147,10 @@ async function excluirLancamentoEstagio(id) {
 
 async function carregarValidacaoEstagios() {
     try {
+        if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
+            const resCursos = await safeFetch('/api/cursos');
+            if (resCursos.success) cursosCache = resCursos.cursos;
+        }
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
@@ -4917,7 +5180,12 @@ function atualizarFiltrosValidacaoEstagio() {
     const unidadeAtual = (elUnidade.value || '').toUpperCase();
     const statusAtual = elStatus ? (elStatus.value || '').toUpperCase() : '';
 
-    const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    let cursos = [];
+    if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
+        cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
+    } else {
+        cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    }
     const turmas = [...new Set(estagiosCache.map(l => (l.turma || '').trim().toUpperCase()).filter(Boolean))].sort();
     const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
     const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
@@ -5835,6 +6103,10 @@ function imprimirRelatorioAguardandoRetorno() {
 async function iniciarRelatorioAlunosUnidade() {
     limparRelatorioAlunosUnidade();
     try {
+        if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
+            const resCursos = await safeFetch('/api/cursos');
+            if (resCursos.success) cursosCache = resCursos.cursos;
+        }
         const res = await safeFetch('/api/estagios/lancamentos');
         if (res.success && res.lancamentos) {
             let data = res.lancamentos;
@@ -5858,7 +6130,12 @@ function preencherFiltrosRelatorioAlunosUnidade() {
     if (!elUnidade || !elCurso || !elStatus) return;
 
     const unidades = [...new Set(estagiosCache.map(l => (l.unidade || '').trim().toUpperCase()).filter(Boolean))].sort();
-    const cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    let cursos = [];
+    if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
+        cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
+    } else {
+        cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
+    }
     const statuses = [...new Set(estagiosCache.map(l => (l.status || '').trim().toUpperCase()).filter(Boolean))].sort();
 
     elUnidade.innerHTML = '<option value="">TODAS AS UNIDADES</option>' + 
@@ -5976,6 +6253,7 @@ function gerarRelatorioAlunosUnidade() {
     `;
 }
 
+
 function imprimirRelatorioAlunosUnidade() {
     const relatorioContent = document.getElementById('relatorio-au-resultado');
     if (!relatorioContent || relatorioContent.style.display === 'none') return;
@@ -6046,6 +6324,11 @@ function imprimirRelatorioAlunosUnidade() {
     printWindow.focus();
 }
 
+// ==========================================
+// DOCUMENTOS API
+// ==========================================
+
+
 function exportarRelatorioAlunosUnidadeExcel() {
     const tabela = document.getElementById('table-relatorio-au');
     if (!tabela) return;
@@ -6061,14 +6344,58 @@ function exportarRelatorioAlunosUnidadeExcel() {
     URL.revokeObjectURL(link.href);
 }
 
+async function abrirModalUploadDocumento() {
+    const selectCursoModal = document.getElementById('upload-doc-curso');
+    if (selectCursoModal) {
+        if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
+            const resCursos = await safeFetch('/api/cursos');
+            if (resCursos.success) cursosCache = resCursos.cursos;
+        }
+        let cursos = [];
+        if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
+            cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
+        }
+        let html = '<option value="">Selecione...</option>';
+        cursos.forEach(c => {
+            html += `<option value="${c}">${c}</option>`;
+        });
+        selectCursoModal.innerHTML = html;
+    }
 
-// ==========================================
-// DOCUMENTOS API
-// ==========================================
-
-function abrirModalUploadDocumento() {
     document.getElementById('form-upload-documento').reset();
     document.getElementById('modal-upload-documento').classList.remove('hidden');
+}
+
+
+
+async function iniciarDocumentos() {
+    const selectDocs = document.getElementById('filtro-documento-curso');
+    if (!selectDocs) return;
+
+    if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
+        const resCursos = await safeFetch('/api/cursos');
+        if (resCursos.success) cursosCache = resCursos.cursos;
+    }
+
+    let cursos = [];
+    if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
+        cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
+    }
+
+    const valorAtual = selectDocs.value;
+    let html = '<option value="">SELECIONE UM CURSO...</option>';
+    cursos.forEach(c => {
+        html += `<option value="${c}">${c}</option>`;
+    });
+    
+    selectDocs.innerHTML = html;
+    if (cursos.includes(valorAtual)) {
+        selectDocs.value = valorAtual;
+    }
+    
+    if (selectDocs.value) {
+        filtrarDocumentos();
+    }
 }
 
 async function salvarDocumento() {
@@ -6533,4 +6860,89 @@ function imprimirRelatorioControleManual() {
         </html>
     `);
     janela.document.close();
+}
+// --- GESTÃO DE CURSOS ---
+async function carregarCursos() {
+    try {
+        const result = await safeFetch('/api/cursos');
+        if (result.success) {
+            cursosCache = result.cursos;
+            const tbody = document.getElementById('table-cursos-body');
+            if (cursosCache.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum curso cadastrado.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = cursosCache.map(c => `
+                <tr>
+                    <td><code>${c.codigo}</code></td>
+                    <td><strong>${c.nome}</strong></td>
+                    <td>${c.descricao || '-'}</td>
+                    <td class="text-right">
+                        <button class="btn btn-sm btn-outline" onclick="abrirModalCurso(${c.id_curso})" title="Editar">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="excluirCurso(${c.id_curso})" title="Excluir">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) {
+        showToast('Erro ao carregar cursos.', 'error');
+    }
+}
+
+function abrirModalCurso(id_curso = null) {
+    document.getElementById('form-curso').reset();
+    document.getElementById('curso-id').value = '';
+    document.getElementById('modal-curso-title').textContent = id_curso ? 'Editar Curso' : 'Cadastrar Curso';
+
+    if (id_curso) {
+        const c = cursosCache.find(x => x.id_curso == id_curso);
+        if (c) {
+            document.getElementById('curso-id').value = c.id_curso;
+            document.getElementById('curso-codigo').value = c.codigo;
+            document.getElementById('curso-nome').value = c.nome;
+            document.getElementById('curso-desc').value = c.descricao;
+        }
+    }
+
+    document.getElementById('modal-curso').classList.remove('hidden');
+}
+
+async function salvarCurso(event) {
+    event.preventDefault();
+    const payload = {
+        id_curso: document.getElementById('curso-id').value || null,
+        codigo: document.getElementById('curso-codigo').value.trim().toUpperCase(),
+        nome: document.getElementById('curso-nome').value.trim().toUpperCase(),
+        descricao: document.getElementById('curso-desc').value.trim().toUpperCase()
+    };
+
+    const result = await safeFetch('/api/cursos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (result.success) {
+        showToast(result.message, 'success');
+        fecharModal('modal-curso');
+        carregarCursos();
+    } else {
+        showToast(result.message, 'error');
+    }
+}
+
+async function excluirCurso(id_curso) {
+    if (!confirm('Tem certeza que deseja excluir este curso?')) return;
+    const result = await safeFetch('/api/cursos/' + id_curso, { method: 'DELETE' });
+    if (result.success) {
+        showToast(result.message, 'success');
+        carregarCursos();
+    } else {
+        showToast(result.message, 'error');
+    }
 }
