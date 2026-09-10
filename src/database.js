@@ -233,6 +233,17 @@ async function init_db() {
       END $$;
     `).catch(e => console.error("Aviso ao ajustar tbl_documentos:", e.message));
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tbl_auditoria (
+        id_log SERIAL PRIMARY KEY,
+        data_hora TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        id_usuario INT REFERENCES tbl_usuarios(id_usuario) ON DELETE SET NULL,
+        nome_usuario VARCHAR(150),
+        acao VARCHAR(50) NOT NULL,
+        detalhes TEXT
+      );
+    `).catch(e => console.error("Aviso ao criar tbl_auditoria:", e.message));
+
     // Criando Índices de Performance (Foreign Keys e Filtros)
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_produtos_categoria ON tbl_produtos(id_categoria);
@@ -270,6 +281,46 @@ async function init_db() {
   } finally {
     client.release();
   }
+}
+
+// --- AUDITORIA ---
+
+async function registrar_log(id_usuario, nome_usuario, acao, detalhes) {
+  try {
+    await pool.query(
+      "INSERT INTO tbl_auditoria (id_usuario, nome_usuario, acao, detalhes) VALUES ($1, $2, $3, $4)",
+      [id_usuario || null, nome_usuario || 'Sistema', acao, detalhes || '']
+    );
+  } catch (err) {
+    console.error("Erro ao registrar log de auditoria:", err.message);
+  }
+}
+
+async function listar_logs_auditoria(data_inicio, data_fim, id_usuario, acao) {
+  let query = "SELECT * FROM tbl_auditoria WHERE 1=1";
+  const params = [];
+  let index = 1;
+
+  if (data_inicio) {
+    query += ` AND data_hora >= $${index++}`;
+    params.push(data_inicio + ' 00:00:00');
+  }
+  if (data_fim) {
+    query += ` AND data_hora <= $${index++}`;
+    params.push(data_fim + ' 23:59:59');
+  }
+  if (id_usuario) {
+    query += ` AND id_usuario = $${index++}`;
+    params.push(id_usuario);
+  }
+  if (acao) {
+    query += ` AND acao = $${index++}`;
+    params.push(acao);
+  }
+
+  query += " ORDER BY data_hora DESC LIMIT 1000";
+  const res = await pool.query(query, params);
+  return res.rows;
 }
 
 // --- UNIDADES ---
@@ -327,6 +378,8 @@ async function autenticar_usuario(usuario, senha) {
   if (user.ativo === false) {
     throw new Error("Seu usuário está inativado no sistema. Entre em contato com o administrador.");
   }
+
+  await registrar_log(user.id_usuario, user.nome_usuario, 'LOGIN', 'Usuário autenticado com sucesso.');
 
   return {
     id_usuario: user.id_usuario,
@@ -1455,5 +1508,7 @@ module.exports = {
   excluir_centro_custo,
   listar_lancamentos_estagio,
   salvar_lancamento_estagio,
-  excluir_lancamento_estagio
+  excluir_lancamento_estagio,
+  registrar_log,
+  listar_logs_auditoria
 };

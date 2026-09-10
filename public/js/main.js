@@ -1090,7 +1090,21 @@ async function handleRegister(event) {
 
 let inatividadeTimer;
 const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutes
-function handleLogout() {
+async function handleLogout() {
+    if (currentUser && currentUser.id_usuario) {
+        try {
+            await safeFetch('/api/auditoria', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id_usuario: currentUser.id_usuario,
+                    nome_usuario: currentUser.nome_usuario,
+                    acao: 'LOGOUT',
+                    detalhes: 'Usuário saiu do sistema.'
+                })
+            });
+        } catch(e){}
+    }
     clearTimeout(inatividadeTimer);
     clearSessionUser();
     currentUser = null;
@@ -1434,7 +1448,9 @@ function navegarParaView(viewId) {
             'view-estagios-relatorio-horas-aluno': 'Relatório: Total de Horas por Aluno',
             'view-estagios-relatorio-alunos-unidade': 'Relatório: Alunos por Unidade',
             'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas',
-            'view-estagios-relatorio-aguardando-retorno': 'Relatório: Aguardando Retorno do Aluno'
+            'view-estagios-relatorio-horas-validadas': 'Relatório: Horas Validadas',
+            'view-estagios-relatorio-aguardando-retorno': 'Relatório: Aguardando Retorno do Aluno',
+            'view-auditoria': 'Auditoria e Logs de Sistema'
         };
         document.getElementById('page-title').textContent = titles[viewId] || 'Gestão Operacional';
 
@@ -1455,6 +1471,10 @@ function navegarParaView(viewId) {
         if (viewId === 'view-relatorios-sugestao-compras') {
             preencherOpcoesFiltrosRelatorioSugestaoCompras();
             carregarRelatorioSugestaoCompras();
+        }
+        if (viewId === 'view-auditoria') {
+            preencherFiltroUsuariosAuditoria();
+            carregarAuditoria();
         }
         if (viewId.startsWith('view-cadastros-')) {
             carregarCadastrosGerais();
@@ -2771,7 +2791,11 @@ async function salvarMovimentacaoLote(event) {
     const movCC = document.getElementById('mov-centro-custo-lote').value;
     const movForn = document.getElementById('mov-fornecedor-lote') ? document.getElementById('mov-fornecedor-lote').value : null;
     const movNF = document.getElementById('mov-nf-lote') ? document.getElementById('mov-nf-lote').value.trim() : null;
-    const movData = document.getElementById('mov-data-lote').value;
+    let movData = document.getElementById('mov-data-lote').value;
+    if (movData && movData.length === 10) {
+        const now = new Date();
+        movData = `${movData}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00-03:00`;
+    }
     const movTipo = document.getElementById('mov-tipo-lote').value;
 
     if (!movUnid) {
@@ -6944,5 +6968,59 @@ async function excluirCurso(id_curso) {
         carregarCursos();
     } else {
         showToast(result.message, 'error');
+    }
+}
+
+// --- AUDITORIA ---
+async function preencherFiltroUsuariosAuditoria() {
+    const res = await safeFetch('/api/usuarios');
+    if (res.success) {
+        const select = document.getElementById('filter-auditoria-usuario');
+        if (select) {
+            select.innerHTML = '<option value="">Todos</option>' + res.usuarios.map(u => `<option value="${u.id_usuario}">${u.nome_usuario}</option>`).join('');
+        }
+    }
+}
+
+async function carregarAuditoria() {
+    const tb = document.getElementById('table-auditoria-body');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="4" class="text-center">Carregando...</td></tr>';
+
+    const dataIni = document.getElementById('filter-auditoria-inicio').value;
+    const dataFim = document.getElementById('filter-auditoria-fim').value;
+    const user = document.getElementById('filter-auditoria-usuario').value;
+    const acao = document.getElementById('filter-auditoria-acao').value;
+
+    let url = '/api/auditoria?';
+    if (dataIni) url += `data_inicio=${dataIni}&`;
+    if (dataFim) url += `data_fim=${dataFim}&`;
+    if (user) url += `id_usuario=${user}&`;
+    if (acao) url += `acao=${acao}&`;
+
+    try {
+        const result = await safeFetch(url);
+        if (result.success && result.logs.length > 0) {
+            tb.innerHTML = result.logs.map(log => {
+                const dt = new Date(log.data_hora);
+                const dataFmt = dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR');
+                let badgeClass = 'badge-primary';
+                if (log.acao === 'LOGOUT') badgeClass = 'badge-secondary';
+                if (log.acao.includes('EXCLUSÃO') || log.acao.includes('EXCLUSAO') || log.acao === 'DELETE') badgeClass = 'badge-danger';
+                
+                return `
+                    <tr>
+                        <td>${dataFmt}</td>
+                        <td>${log.nome_usuario || 'Desconhecido'}</td>
+                        <td><span class="badge ${badgeClass}">${log.acao}</span></td>
+                        <td>${log.detalhes || ''}</td>
+                    </tr>
+                `;
+            }).join('');
+        } else {
+            tb.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum log encontrado.</td></tr>';
+        }
+    } catch (e) {
+        tb.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Erro ao carregar logs.</td></tr>';
     }
 }

@@ -788,6 +788,29 @@ app.delete('/api/documentos/:id', async (req, res) => {
     }
 });
 
+// --- AUDITORIA LOGS ---
+app.get('/api/auditoria', async (req, res) => {
+    try {
+        const { data_inicio, data_fim, id_usuario, acao } = req.query;
+        const logs = await database.listar_logs_auditoria(data_inicio, data_fim, id_usuario, acao);
+        res.json({ success: true, logs });
+    } catch (e) {
+        console.error("Erro GET /api/auditoria:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/auditoria', async (req, res) => {
+    try {
+        const { id_usuario, nome_usuario, acao, detalhes } = req.body;
+        await database.registrar_log(id_usuario, nome_usuario, acao, detalhes);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("Erro POST /api/auditoria:", e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("=========================================================");
