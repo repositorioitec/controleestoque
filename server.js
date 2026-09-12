@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
-const database = require('./src/database');
 
-dotenv.config();
+// Garante que o .env seja lido da pasta correta antes de carregar o database.js
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+const database = require('./src/database');
 
 const app = express();
 app.use(cors());

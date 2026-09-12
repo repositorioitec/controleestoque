@@ -6973,11 +6973,12 @@ async function excluirCurso(id_curso) {
 
 // --- AUDITORIA ---
 async function preencherFiltroUsuariosAuditoria() {
-    const res = await safeFetch('/api/usuarios');
+    const res = await safeFetch('/api/auth/users');
     if (res.success) {
         const select = document.getElementById('filter-auditoria-usuario');
         if (select) {
-            select.innerHTML = '<option value="">Todos</option>' + res.usuarios.map(u => `<option value="${u.id_usuario}">${u.nome_usuario}</option>`).join('');
+            const users = res.users || res.usuarios || [];
+            select.innerHTML = '<option value="">TODOS OS USUÁRIOS</option>' + users.map(u => `<option value="${u.id_usuario}">${u.nome_usuario}</option>`).join('');
         }
     }
 }
