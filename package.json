@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "Sistema de Controle de Estoques",
-  "main": "electron.js",
+  "main": "server.js",
   "scripts": {
-    "start": "electron .",
+    "start": "node server.js",
     "server": "node server.js",
     "dev": "node --watch server.js",
+    "electron": "electron electron.js",
+    "desktop": "electron electron.js",
     "build": "electron-builder --win"
   },
   "dependencies": {
@@ -23,6 +25,9 @@
   "build": {
     "appId": "com.itec.controleestoque",
     "productName": "Controle de Estoque",
+    "extraMetadata": {
+      "main": "electron.js"
+    },
     "directories": {
       "output": "dist"
     },
