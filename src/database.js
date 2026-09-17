@@ -1358,6 +1358,20 @@ async function excluir_lancamento_estagio(id_lancamento) {
   return true;
 }
 
+async function verificar_pendencias_aluno(nome_aluno, id_excluir = null) {
+  if (!nome_aluno) return [];
+  const query = `
+    SELECT id_lancamento, to_char(data_lancamento, 'DD/MM/YYYY') as data_formatada, to_char(data_lancamento, 'YYYY-MM-DD') as data_lancamento, unidade, curso, turma, protocolo_ew, observacoes, horas_totais
+    FROM tbl_estagios_lancamentos
+    WHERE UPPER(TRIM(nome_aluno)) = UPPER(TRIM($1))
+      AND aguardando_analise = TRUE
+      AND ($2::INT IS NULL OR id_lancamento != $2::INT)
+    ORDER BY data_lancamento DESC, id_lancamento DESC
+  `;
+  const res = await pool.query(query, [nome_aluno.trim(), id_excluir ? parseInt(id_excluir, 10) : null]);
+  return res.rows;
+}
+
 // --- DOCUMENTOS ---
 
 async function documentos_salvar(doc) {
@@ -1509,6 +1523,7 @@ module.exports = {
   listar_lancamentos_estagio,
   salvar_lancamento_estagio,
   excluir_lancamento_estagio,
+  verificar_pendencias_aluno,
   registrar_log,
   listar_logs_auditoria
 };

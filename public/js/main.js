@@ -308,8 +308,32 @@ const LocalDB = {
                     });
                 }
                 this.set('estagios_lancamentos', lancamentos);
-                return { success: true, message: 'Lançamento salvo com sucesso!' };
+                const currentSavedId = body.id_lancamento || lancamentos[lancamentos.length - 1].id_lancamento;
+                const pendencias = lancamentos.filter(x =>
+                    (x.nome_aluno || '').trim().toUpperCase() === (body.nome_aluno || '').trim().toUpperCase() &&
+                    (x.aguardando_analise === true || x.aguardando_analise === 'true' || x.aguardando_analise === 1 || x.aguardando_analise === '1') &&
+                    String(x.id_lancamento) !== String(currentSavedId)
+                );
+                return {
+                    success: true,
+                    message: body.id_lancamento ? 'Lançamento atualizado com sucesso!' : 'Lançamento criado com sucesso!',
+                    id_lancamento: currentSavedId,
+                    tem_pendencias: pendencias.length > 0,
+                    pendencias: pendencias
+                };
             }
+        }
+        if (path.startsWith('/api/estagios/pendencias-aluno') && method === 'GET') {
+            const urlObj = new URL(path, 'http://dummy.local');
+            const nome = (urlObj.searchParams.get('nome') || '').trim().toUpperCase();
+            const idAtual = urlObj.searchParams.get('id_atual') || '';
+            const lancamentos = this.get('estagios_lancamentos');
+            const pendencias = lancamentos.filter(x =>
+                (x.nome_aluno || '').trim().toUpperCase() === nome &&
+                (x.aguardando_analise === true || x.aguardando_analise === 'true' || x.aguardando_analise === 1 || x.aguardando_analise === '1') &&
+                String(x.id_lancamento) !== String(idAtual)
+            );
+            return { success: true, pendencias, tem_pendencias: pendencias.length > 0 };
         }
         if (path.match(/\/api\/estagios\/lancamentos\/\d+/) && method === 'DELETE') {
             const id = path.split('/')[4];
@@ -4752,215 +4776,147 @@ async function abrirModalLancamentoEstagio() {
         selectUnidade.disabled = false;
     }
 
+    const avisoInline = document.getElementById('aviso-pendencia-aluno-inline');
+    if (avisoInline) avisoInline.classList.add('hidden');
+
     document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
 }
 
-async function salvarLancamentoEstagio(event) {
-    event.preventDefault();
-    const id = document.getElementById('estagio-id').value;
-    const selectUnidade = document.getElementById('estagio-unidade');
-    const unidadeValor = (selectUnidade ? selectUnidade.value : '') || obterUnidadePadraoUsuario();
+function checarPendenciasAlunoInline() {
+    const elInput = document.getElementById('estagio-aluno');
+    const elAviso = document.getElementById('aviso-pendencia-aluno-inline');
+    if (!elInput || !elAviso) return;
 
-    const payload = {
-        id_lancamento: id || null,
-        data_lancamento: document.getElementById('estagio-data').value,
-        status: 'Em andamento',
-        nome_aluno: (document.getElementById('estagio-aluno').value || '').trim().toUpperCase(),
-        unidade: unidadeValor,
-        curso: document.getElementById('estagio-curso').value,
-        turma: (document.getElementById('estagio-turma').value || '').trim().toUpperCase() || null,
-        horas_totais: Math.round(parseFloat(document.getElementById('estagio-horas').value) || 0),
-        protocolo_ew: document.getElementById('estagio-protocolo').value,
-        observacoes: document.getElementById('estagio-observacoes').value,
-        horas_campo: 0,
-        horas_capacitacao: 0,
-        horas_laboratorio: 0,
-        horas_evento: 0,
-        validado_coordenacao: false,
-        aguardando_analise: document.getElementById('estagio-aguardando-analise') ? document.getElementById('estagio-aguardando-analise').checked : false
-    };
-
-    try {
-        const res = await fetch('/api/estagios/lancamentos', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-Id': currentUser ? currentUser.id_usuario : '',
-                'X-User-Nivel': currentUser ? currentUser.nivel_acesso : '',
-                'X-User-Nome': currentUser ? currentUser.nome_usuario : ''
-            },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-            fecharModal('modal-estagios-lancamento');
-            carregarLancamentosEstagio();
-            alert(data.message);
-        } else {
-            alert('Erro: ' + data.message);
-        }
-    } catch (e) {
-        alert('Erro de comunicação com o servidor.');
-    }
-}
-
-function renderEstagios(lista) {
-    const tbody = document.getElementById('table-estagios-lancamentos-body');
-    if (!tbody) return;
-
-    if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center">Nenhum registro encontrado.</td></tr>';
+    const nomeAluno = (elInput.value || '').trim().toUpperCase();
+    if (!nomeAluno || nomeAluno.length < 2) {
+        elAviso.classList.add('hidden');
         return;
     }
 
-    tbody.innerHTML = lista.map(l => {
-        let statusBadge = 'badge-secondary';
-        const stUpper = (l.status || '').toUpperCase();
-        if (stUpper === 'EM ANDAMENTO') statusBadge = 'badge-primary';
-        else if (stUpper === 'CONCLUIDO' || stUpper === 'CONCLUÍDO') statusBadge = 'badge-success';
-        else if (stUpper === 'EVADIDO') statusBadge = 'badge-warning';
-        else if (stUpper === 'CANCELADO') statusBadge = 'badge-danger';
+    const idAtual = document.getElementById('estagio-id').value;
 
-        // Formata data para DD/MM/YYYY
-        let dataFormatada = l.data_lancamento || '-';
-        if (dataFormatada.includes('-')) {
-            const parts = dataFormatada.split('-');
-            if (parts.length === 3) dataFormatada = parts[2] + '/' + parts[1] + '/' + parts[0];
-        }
-
-        const hTotal = Math.round(parseFloat(l.horas_totais) || 0);
-        const validado = l.validado_coordenacao ? '<span class="text-success"><i class="fa-solid fa-check"></i> Sim</span>' : '<span class="text-warning"><i class="fa-solid fa-clock"></i> Pendente</span>';
-
-        return `
-            <tr>
-                <td>${dataFormatada}</td>
-                <td><strong>${l.nome_aluno}</strong></td>
-                <td>${l.curso}</td>
-                <td>${l.turma || '-'}</td>
-                <td>${l.unidade}</td>
-                <td><strong>${hTotal}</strong></td>
-                <td><span class="badge ${statusBadge}">${l.status}</span></td>
-                <td>${validado}</td>
-                <td><small style="color: var(--text-muted);">${l.nome_usuario_registro || '-'}</small></td>
-                <td class="text-right">
-                    <button class="btn btn-sm btn-secondary" onclick="editarLancamentoEstagio(${l.id_lancamento})" title="Editar"><i class="fa-solid fa-edit"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="excluirLancamentoEstagio(${l.id_lancamento})" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
-function filtrarLancamentosEstagio() {
-    const elAluno = document.getElementById('filtro-lancamento-aluno');
-    const elCurso = document.getElementById('filtro-lancamento-curso');
-    const elTurma = document.getElementById('filtro-lancamento-turma');
-    const elUnidade = document.getElementById('filtro-lancamento-unidade');
-    const elStatus = document.getElementById('filtro-lancamento-status');
-
-    if (!elAluno) return; // Garante que a view existe
-
-    const termoAluno = (elAluno.value || '').trim().toUpperCase();
-    const filtroCurso = (elCurso ? elCurso.value : '').trim().toUpperCase();
-    const filtroTurma = (elTurma ? elTurma.value : '').trim().toUpperCase();
-    const filtroUnidade = (elUnidade ? elUnidade.value : '').trim().toUpperCase();
-    const filtroStatus = (elStatus ? elStatus.value : '').trim().toUpperCase();
-
-    const filtrados = estagiosCache.filter(l => {
-        const alunoUpper = (l.nome_aluno || '').trim().toUpperCase();
-        const cursoUpper = (l.curso || '').trim().toUpperCase();
-        const turmaUpper = (l.turma || '').trim().toUpperCase();
-        const unidadeUpper = (l.unidade || '').trim().toUpperCase();
-        const statusUpper = (l.status || '').trim().toUpperCase();
-
-        const matchAluno = !termoAluno || alunoUpper.includes(termoAluno);
-        const matchCurso = !filtroCurso || cursoUpper === filtroCurso;
-        const matchTurma = !filtroTurma || turmaUpper === filtroTurma;
-        const matchUnidade = !filtroUnidade || unidadeUpper === filtroUnidade;
-        const matchStatus = !filtroStatus || statusUpper === filtroStatus;
-        return matchAluno && matchCurso && matchTurma && matchUnidade && matchStatus;
-    });
-
-    renderEstagios(filtrados);
-}
-
-async function editarLancamentoEstagio(id) {
-    const l = estagiosCache.find(x => x.id_lancamento === id);
-    if (!l) return;
-
-    await preencherSelectUnidadesModalEstagio();
-
-    // Popula opções de cursos dinamicamente de acordo com a pesquisa (em maiúsculo)
-    const selectCurso = document.getElementById('estagio-curso');
-    if (selectCurso) {
-        let cursos = [];
-        if (estagiosCache && estagiosCache.length > 0) {
-            cursos = [...new Set(estagiosCache.map(l => (l.curso || '').trim().toUpperCase()).filter(Boolean))].sort();
-        }
-        let html = '<option value="">SELECIONE...</option>';
-        cursos.forEach(c => {
-            html += `<option value="${c}">${c}</option>`;
+    let temPendencia = false;
+    if (estagiosCache && estagiosCache.length > 0) {
+        temPendencia = estagiosCache.some(l => {
+            const mesmoAluno = (l.nome_aluno || '').trim().toUpperCase() === nomeAluno;
+            const aguardando = l.aguardando_analise === true || l.aguardando_analise === 'true' || l.aguardando_analise === 1 || l.aguardando_analise === '1';
+            const outroLancamento = String(l.id_lancamento) !== String(idAtual || '');
+            return mesmoAluno && aguardando && outroLancamento;
         });
-        html += '<option value="OUTROS">OUTROS</option>';
-        selectCurso.innerHTML = html;
-        
-        // Verifica se o curso do lançamento não está na lista principal e adiciona
-        if (l.curso) {
-            const cursoAtualUpper = l.curso.trim().toUpperCase();
-            if (!cursos.includes(cursoAtualUpper) && cursoAtualUpper !== 'OUTROS') {
-                selectCurso.innerHTML = `<option value="">SELECIONE...</option>` +
-                    `<option value="${cursoAtualUpper}">${cursoAtualUpper}</option>` +
-                    cursos.map(c => `<option value="${c}">${c}</option>`).join('') +
-                    `<option value="OUTROS">OUTROS</option>`;
-            }
-        }
     }
 
-    document.getElementById('estagio-id').value = l.id_lancamento;
-    document.getElementById('estagio-data').value = l.data_lancamento;
-    document.getElementById('estagio-status').value = 'Em andamento';
-    document.getElementById('estagio-aluno').value = l.nome_aluno;
-if (padraoUnidade && selectUnidade) {
-        let matched = false;
-        for (let opt of selectUnidade.options) {
-            if (opt.value.trim().toUpperCase() === padraoUnidade.trim().toUpperCase()) {
-                selectUnidade.value = opt.value;
-                matched = true;
-                break;
-            }
-        }
-        if (!matched) {
-            const newOpt = document.createElement('option');
-            newOpt.value = padraoUnidade;
-            newOpt.textContent = padraoUnidade;
-            selectUnidade.appendChild(newOpt);
-            selectUnidade.value = padraoUnidade;
-        }
+    if (temPendencia) {
+        elAviso.classList.remove('hidden');
+    } else {
+        elAviso.classList.add('hidden');
+    }
+}
 
-        // Se o usuário não for Administrador, bloqueia o select para manter fixo na sua unidade
-        if (currentUser && currentUser.nivel_acesso !== 'Administrador') {
-            selectUnidade.disabled = true;
+let pendenciasAlunoAtual = [];
+let alunoPendenciasNome = '';
+
+function exibirAlertaPendenciasAluno(nomeAluno, pendencias) {
+    pendenciasAlunoAtual = pendencias || [];
+    alunoPendenciasNome = nomeAluno || '';
+
+    const elNome = document.getElementById('alerta-pendencia-nome-aluno');
+    if (elNome) elNome.textContent = nomeAluno;
+
+    const listaEl = document.getElementById('alerta-pendencias-lista');
+    if (listaEl) {
+        if (!pendencias || pendencias.length === 0) {
+            listaEl.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 12px;">Nenhum detalhe adicional encontrado.</div>';
         } else {
-            selectUnidade.disabled = false;
+            listaEl.innerHTML = pendencias.map(p => {
+                let dataFormatada = p.data_formatada || p.data_lancamento || '-';
+                if (dataFormatada.includes('-')) {
+                    const parts = dataFormatada.split('-');
+                    if (parts.length === 3) dataFormatada = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+
+                const obsText = p.observacoes ? `<div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 6px; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 4px; border-left: 3px solid #f59e0b;"><strong>Obs:</strong> ${p.observacoes}</div>` : '';
+                const protocoloText = p.protocolo_ew ? `<span style="background: rgba(255,255,255,0.08); color: #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;"><i class="fa-solid fa-hashtag"></i> Protocolo: ${p.protocolo_ew}</span>` : '';
+                const horas = (p.horas_totais !== undefined && p.horas_totais !== null) ? Math.round(parseFloat(p.horas_totais) || 0) : null;
+                const horasText = horas !== null ? `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;"><i class="fa-regular fa-clock"></i> ${horas}h</span>` : '';
+                const turmaText = p.turma ? `• Turma: ${p.turma}` : '';
+                const unidadeText = p.unidade ? `<span style="font-size: 0.76rem; color: var(--text-muted);"><i class="fa-solid fa-location-dot"></i> ${p.unidade}</span>` : '';
+
+                return `
+                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 12px 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                            <strong style="color: #f59e0b; font-size: 0.9rem;">
+                                <i class="fa-solid fa-circle-exclamation"></i> ${p.curso || 'CURSO NÃO INFORMADO'}
+                            </strong>
+                            <span style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">
+                                <i class="fa-regular fa-calendar"></i> ${dataFormatada}
+                            </span>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">
+                            ${unidadeText}
+                            ${turmaText ? `<span style="font-size: 0.76rem; color: var(--text-muted);">${turmaText}</span>` : ''}
+                            ${protocoloText}
+                            ${horasText}
+                        </div>
+                        ${obsText}
+                    </div>
+                `;
+            }).join('');
         }
-    } else if (selectUnidade) {
-        selectUnidade.disabled = false;
     }
 
-    document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
+    const modal = document.getElementById('modal-alerta-pendencias-aluno');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function copiarAvisoAluno() {
+    if (!alunoPendenciasNome) return;
+    let texto = `Olá, ${alunoPendenciasNome}!\n\nIdentificamos que você possui pendência(s) com status 'Aguardando retorno do aluno' no seu registro de estágio:\n\n`;
+    
+    if (pendenciasAlunoAtual && pendenciasAlunoAtual.length > 0) {
+        pendenciasAlunoAtual.forEach(p => {
+            let dataFormatada = p.data_formatada || p.data_lancamento || '-';
+            if (dataFormatada.includes('-')) {
+                const parts = dataFormatada.split('-');
+                if (parts.length === 3) dataFormatada = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            texto += `• ${p.curso || 'Estágio'}${p.turma ? ` (Turma: ${p.turma})` : ''} - Data: ${dataFormatada}${p.protocolo_ew ? ` - Protocolo: ${p.protocolo_ew}` : ''}\n`;
+            if (p.observacoes) {
+                texto += `  Observação: ${p.observacoes}\n`;
+            }
+        });
+    } else {
+        texto += `• Pendência registrada aguardando regularização.\n`;
+    }
+
+    texto += `\nPor favor, entre em contato ou compareça à coordenação/unidade para regularizar sua situação.`;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(() => {
+            showToast('Mensagem para o aluno copiada com sucesso!', 'info');
+        }).catch(() => {
+            showToast('Não foi possível copiar automaticamente.', 'warning');
+        });
+    } else {
+        showToast('Texto gerado no console.', 'info');
+        console.log(texto);
+    }
 }
 
 async function salvarLancamentoEstagio(event) {
     event.preventDefault();
     const id = document.getElementById('estagio-id').value;
+    const isNovoLancamento = !id;
     const selectUnidade = document.getElementById('estagio-unidade');
     const unidadeValor = (selectUnidade ? selectUnidade.value : '') || obterUnidadePadraoUsuario();
+    const nomeAluno = (document.getElementById('estagio-aluno').value || '').trim().toUpperCase();
 
     const payload = {
         id_lancamento: id || null,
         data_lancamento: document.getElementById('estagio-data').value,
         status: 'Em andamento',
-        nome_aluno: (document.getElementById('estagio-aluno').value || '').trim().toUpperCase(),
+        nome_aluno: nomeAluno,
         unidade: unidadeValor,
         curso: document.getElementById('estagio-curso').value,
         turma: (document.getElementById('estagio-turma').value || '').trim().toUpperCase() || null,
@@ -4989,12 +4945,32 @@ async function salvarLancamentoEstagio(event) {
         const data = await res.json();
         if (data.success) {
             fecharModal('modal-estagios-lancamento');
-            carregarLancamentosEstagio();
-            alert(data.message);
+            await carregarLancamentosEstagio();
+
+            // Identifica se o aluno possui outros lançamentos anteriores aguardando retorno
+            let pendencias = (data.pendencias && Array.isArray(data.pendencias)) ? data.pendencias : [];
+
+            // Fallback caso backend não tenha retornado a lista
+            if (pendencias.length === 0 && estagiosCache && estagiosCache.length > 0) {
+                pendencias = estagiosCache.filter(l => {
+                    const mesmoAluno = (l.nome_aluno || '').trim().toUpperCase() === nomeAluno;
+                    const temAguardando = l.aguardando_analise === true || l.aguardando_analise === 'true' || l.aguardando_analise === 1 || l.aguardando_analise === '1';
+                    const outroLancamento = String(l.id_lancamento) !== String(id || data.id_lancamento || '');
+                    return mesmoAluno && temAguardando && outroLancamento;
+                });
+            }
+
+            if (pendencias.length > 0) {
+                // Abre a caixa informativa no centro da tela alertando o operador
+                exibirAlertaPendenciasAluno(nomeAluno, pendencias);
+            } else {
+                showToast(data.message || 'Lançamento salvo com sucesso!', 'success');
+            }
         } else {
             alert('Erro: ' + data.message);
         }
     } catch (e) {
+        console.error(e);
         alert('Erro de comunicação com o servidor.');
     }
 }
@@ -5151,6 +5127,7 @@ async function editarLancamentoEstagio(id) {
     }
     
     document.getElementById('modal-estagio-title').innerText = 'Editar Lançamento de Horas';
+    checarPendenciasAlunoInline();
     document.getElementById('modal-estagios-lancamento').classList.remove('hidden');
 }
 

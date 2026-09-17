@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
-const database = require('./src/database');
 
-dotenv.config();
+// Garante que o .env seja lido da pasta correta antes de carregar o database.js
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+const database = require('./src/database');
 
 const app = express();
 app.use(cors());
@@ -648,7 +650,7 @@ app.post('/api/estagios/lancamentos', async (req, res) => {
   }
 
   try {
-    await database.salvar_lancamento_estagio(
+    const savedId = await database.salvar_lancamento_estagio(
       id_lancamento || null,
       data_lancamento,
       status,
@@ -674,10 +676,39 @@ app.post('/api/estagios/lancamentos', async (req, res) => {
       nome_usuario_validacao || null,
       aguardando_analise || false
     );
+
+    // Verificar se o aluno tem outros lançamentos anteriores marcados com "Aguardando retorno do aluno"
+    let pendencias = [];
+    try {
+      pendencias = await database.verificar_pendencias_aluno(nome_aluno, savedId || id_lancamento);
+    } catch (errPend) {
+      console.error('Erro ao verificar pendências do aluno:', errPend);
+    }
+
     const msg = id_lancamento ? 'Lançamento atualizado com sucesso!' : 'Lançamento criado com sucesso!';
-    return res.json({ success: true, message: msg });
+    return res.json({
+      success: true,
+      message: msg,
+      id_lancamento: savedId,
+      tem_pendencias: pendencias.length > 0,
+      pendencias: pendencias
+    });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/estagios/pendencias-aluno', async (req, res) => {
+  const nome_aluno = req.query.nome;
+  const id_atual = req.query.id_atual;
+  if (!nome_aluno) {
+    return res.json({ success: true, pendencias: [], tem_pendencias: false });
+  }
+  try {
+    const pendencias = await database.verificar_pendencias_aluno(nome_aluno, id_atual);
+    return res.json({ success: true, pendencias, tem_pendencias: pendencias.length > 0 });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 });
 

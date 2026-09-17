@@ -3,16 +3,45 @@
   "version": "1.0.0",
   "private": true,
   "description": "Sistema de Controle de Estoques",
-  "main": "server.js",
+  "main": "electron.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "electron .",
+    "server": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "electron-builder --win"
   },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "electron": "^29.1.4",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.itec.controleestoque",
+    "productName": "Controle de Estoque",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "server.js",
+      "electron.js",
+      "src/**/*",
+      "public/**/*",
+      ".env",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "engines": {
     "node": ">=18.0.0"
