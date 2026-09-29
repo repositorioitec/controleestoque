@@ -234,6 +234,15 @@ async function init_db() {
     `).catch(e => console.error("Aviso ao ajustar tbl_documentos:", e.message));
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS tbl_cursos (
+        id_curso SERIAL PRIMARY KEY,
+        codigo VARCHAR(30),
+        nome VARCHAR(150) NOT NULL UNIQUE,
+        descricao TEXT
+      );
+    `).catch(e => console.error("Aviso ao criar tbl_cursos:", e.message));
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS tbl_auditoria (
         id_log SERIAL PRIMARY KEY,
         data_hora TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -672,6 +681,11 @@ async function calcular_estoque_produto(id_produto, id_unidade = null) {
 }
 
 async function obter_ultimo_custo_produto(id_produto) {
+  const prodRes = await pool.query("SELECT preco_custo FROM tbl_produtos WHERE id_produto = $1", [id_produto]);
+  const precoCustoProd = prodRes.rows.length > 0 ? (parseFloat(prodRes.rows[0].preco_custo) || 0.0) : 0.0;
+  if (precoCustoProd > 0) {
+    return precoCustoProd;
+  }
   const res = await pool.query(`
     SELECT valor_unitario
     FROM tbl_movimentacoes
@@ -682,8 +696,7 @@ async function obter_ultimo_custo_produto(id_produto) {
   if (res.rows.length > 0 && parseFloat(res.rows[0].valor_unitario) > 0) {
     return parseFloat(res.rows[0].valor_unitario);
   }
-  const prodRes = await pool.query("SELECT preco_custo FROM tbl_produtos WHERE id_produto = $1", [id_produto]);
-  return prodRes.rows.length > 0 ? (parseFloat(prodRes.rows[0].preco_custo) || 0.0) : 0.0;
+  return 0.0;
 }
 
 async function listar_produtos(busca = "", categoria_id = null, id_unidade = null, incluir_inativos = false, id_usuario = null, nivel_acesso = null) {
@@ -827,6 +840,21 @@ async function excluir_produto(id_produto) {
   return true;
 }
 
+async function atualizar_preco_produto(id_produto, campo, valor) {
+  if (campo !== 'preco_custo' && campo !== 'preco_venda') {
+    throw new Error('Campo de preço inválido.');
+  }
+  const valorNum = parseFloat(valor) || 0.0;
+  if (valorNum < 0) {
+    throw new Error('O valor não pode ser negativo.');
+  }
+  await pool.query(
+    `UPDATE tbl_produtos SET ${campo} = $1 WHERE id_produto = $2`,
+    [valorNum, parseInt(id_produto)]
+  );
+  return true;
+}
+
 // --- MOVIMENTAÇÕES ---
 
 async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao = "", data_movimentacao = null, id_unidade = null, id_fornecedor = null, id_usuario = null, numero_nf = null, id_centro_custo = null) {
@@ -840,6 +868,10 @@ async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade,
 
   const valor = parseFloat(valor_unitario || 0.0);
 
+  if (tipo === "ENTRADA" && !id_fornecedor) {
+    throw new Error("Selecione um fornecedor para registrar a entrada de estoque.");
+  }
+
   if (tipo === "SAIDA") {
     const estoque_atual = await calcular_estoque_produto(id_produto, id_unidade);
     if (qtd > estoque_atual) {
@@ -848,12 +880,28 @@ async function registrar_movimentacao(id_produto, tipo_movimentacao, quantidade,
     }
   }
 
-  const dataMov = data_movimentacao || new Date().toISOString();
+  let dataMov = data_movimentacao;
+  if (!dataMov) {
+    dataMov = new Date().toISOString();
+  } else if (typeof dataMov === 'string' && dataMov.trim().length === 10) {
+    const time = new Date().toTimeString().split(' ')[0];
+    dataMov = `${dataMov.trim()} ${time}`;
+  }
 
   await pool.query(`
     INSERT INTO tbl_movimentacoes (id_produto, tipo_movimentacao, quantidade, valor_unitario, data_movimentacao, observacao, id_unidade, id_fornecedor, id_usuario, numero_nf, id_centro_custo)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
   `, [id_produto, tipo, qtd, valor, dataMov, observacao, id_unidade || null, id_fornecedor || null, id_usuario || null, numero_nf || null, id_centro_custo || null]);
+
+  // Se for ENTRADA e houver valor unitário informado (> 0), atualiza automaticamente o custo do produto para valorização dos estoques
+  if (tipo === 'ENTRADA' && valor > 0) {
+    await pool.query(`
+      UPDATE tbl_produtos
+      SET preco_custo = $1
+      WHERE id_produto = $2
+    `, [valor, id_produto]);
+  }
+
   return true;
 }
 
@@ -1281,12 +1329,32 @@ async function excluir_movimentacao(id_movimentacao) {
 }
 
 async function atualizar_movimentacao(id_movimentacao, id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor, numero_nf = null, id_centro_custo = null) {
+  if (tipo_movimentacao && tipo_movimentacao.toUpperCase() === 'ENTRADA' && !id_fornecedor) {
+    throw new Error("Selecione um fornecedor para registrar a entrada de estoque.");
+  }
+
+  let dataMov = data_movimentacao;
+  if (!dataMov) {
+    dataMov = new Date().toISOString();
+  } else if (typeof dataMov === 'string' && dataMov.trim().length === 10) {
+    const time = new Date().toTimeString().split(' ')[0];
+    dataMov = `${dataMov.trim()} ${time}`;
+  }
   let query = `
     UPDATE tbl_movimentacoes 
     SET id_produto = $1, tipo_movimentacao = $2, quantidade = $3, valor_unitario = $4, observacao = $5, data_movimentacao = $6, id_unidade = $7, id_fornecedor = $8, numero_nf = $9, id_centro_custo = $10
     WHERE id_movimentacao = $11
   `;
-  await pool.query(query, [id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, data_movimentacao, id_unidade, id_fornecedor, numero_nf || null, id_centro_custo || null, id_movimentacao]);
+  await pool.query(query, [id_produto, tipo_movimentacao, quantidade, valor_unitario, observacao, dataMov, id_unidade, id_fornecedor, numero_nf || null, id_centro_custo || null, id_movimentacao]);
+
+  if (tipo_movimentacao && tipo_movimentacao.toUpperCase() === 'ENTRADA' && parseFloat(valor_unitario) > 0) {
+    await pool.query(`
+      UPDATE tbl_produtos
+      SET preco_custo = $1
+      WHERE id_produto = $2
+    `, [parseFloat(valor_unitario), id_produto]);
+  }
+
   return true;
 }
 
@@ -1472,8 +1540,40 @@ async function get_last_db_update() {
     return new Date().toISOString();
 }
 
+// --- CURSOS ---
+
+async function cursos_listar() {
+    const res = await pool.query(`SELECT id_curso, codigo, nome, descricao FROM tbl_cursos ORDER BY nome ASC`);
+    return res.rows;
+}
+
+async function cursos_salvar(curso) {
+    const { id_curso, codigo, nome, descricao } = curso;
+    if (id_curso) {
+        await pool.query(
+            `UPDATE tbl_cursos SET codigo = $1, nome = $2, descricao = $3 WHERE id_curso = $4`,
+            [codigo || null, (nome || '').trim().toUpperCase(), descricao || '', id_curso]
+        );
+    } else {
+        await pool.query(
+            `INSERT INTO tbl_cursos (codigo, nome, descricao) VALUES ($1, $2, $3)
+             ON CONFLICT (nome) DO UPDATE SET codigo = EXCLUDED.codigo, descricao = EXCLUDED.descricao`,
+            [codigo || null, (nome || '').trim().toUpperCase(), descricao || '']
+        );
+    }
+    return true;
+}
+
+async function cursos_excluir(id_curso) {
+    await pool.query(`DELETE FROM tbl_cursos WHERE id_curso = $1`, [id_curso]);
+    return true;
+}
+
 module.exports = {
     get_last_db_update,
+    cursos_listar,
+    cursos_salvar,
+    cursos_excluir,
     documentos_salvar,
     documentos_listar,
     documentos_obter_arquivo,
@@ -1507,6 +1607,7 @@ module.exports = {
 
   obter_produto_por_id,
   salvar_produto,
+  atualizar_preco_produto,
   excluir_produto,
   excluir_usuario,
   registrar_movimentacao,

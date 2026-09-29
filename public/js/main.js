@@ -567,6 +567,10 @@ const LocalDB = {
             const prod = prods.find(p => p.id_produto == body.id_produto);
             if (!prod) return { success: false, message: 'Produto não encontrado.' };
 
+            if (body.tipo_movimentacao === 'ENTRADA' && !body.id_fornecedor) {
+                return { success: false, message: 'Selecione um fornecedor para registrar a entrada de estoque.' };
+            }
+
             if (body.tipo_movimentacao === 'SAIDA') {
                 const estAtual = this.calcularEstoqueProduto(body.id_produto, body.id_unidade);
                 if (parseInt(body.quantidade) > estAtual) {
@@ -591,6 +595,11 @@ const LocalDB = {
                 id_fornecedor: body.id_fornecedor ? parseInt(body.id_fornecedor) : null,
                 nome_fornecedor: forn ? forn.nome_fornecedor : 'Sem Fornecedor'
             });
+
+            if (body.tipo_movimentacao === 'ENTRADA' && parseFloat(body.valor_unitario) > 0) {
+                prod.preco_custo = parseFloat(body.valor_unitario);
+                this.set('produtos', prods);
+            }
 
             this.set('movimentacoes', movs);
             return { success: true, message: 'Movimentação registrada com sucesso!' };
@@ -1311,6 +1320,24 @@ async function iniciarAplicacao() {
         }
     });
 
+    // Garantir que menus pais (ex: controle-estagios) fiquem visíveis se qualquer submenu (ex: documentos) estiver permitido
+    const parentMap = [
+        { parentKey: 'controle-estoques', ulId: 'ul-controle-estoques' },
+        { parentKey: 'controle-estagios', ulId: 'ul-controle-estagios' },
+        { parentKey: 'estagios-relatorios', ulId: 'ul-estagios-relatorios' }
+    ];
+
+    parentMap.forEach(p => {
+        const parentLi = document.querySelector(`[data-menu-key="${p.parentKey}"]`);
+        const ul = document.getElementById(p.ulId);
+        if (parentLi && ul) {
+            const hasVisibleChild = Array.from(ul.querySelectorAll('[data-menu-key]')).some(child => child.style.display !== 'none');
+            if (hasVisibleChild) {
+                parentLi.style.display = '';
+            }
+        }
+    });
+
     carregarCategoriasEFornecedores();
     
     // Abre automaticamente o primeiro menu pai e navega para o primeiro submenu disponível
@@ -1686,11 +1713,6 @@ function renderizarTabelaProdutos(produtos) {
         if (p.inativo) badgeClass = 'badge-danger';
         const statusTexto = p.inativo ? 'Inativo' : p.status_estoque;
         const opacidade = p.inativo ? 'opacity: 0.5;' : '';
-        const podeEditar = isSupervisor();
-        const dblClickCusto = podeEditar ? `ondblclick="editarPrecoCelula(this, ${p.id_produto}, 'preco_custo')"` : '';
-        const dblClickVenda = podeEditar ? `ondblclick="editarPrecoCelula(this, ${p.id_produto}, 'preco_venda')"` : '';
-        const tipoCusto = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-warning);"` : '';
-        const tipoVenda = podeEditar ? `title="Duplo clique para editar" style="cursor:pointer; border-bottom: 1px dashed var(--accent-green);"` : '';
 
         const imgHtml = p.imagem ? `<img src="${p.imagem}" onclick="abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
 
@@ -1702,8 +1724,8 @@ function renderizarTabelaProdutos(produtos) {
                 <td><strong>${p.nome_produto}</strong></td>
                 <td>${p.nome_categoria}</td>
                 <td>${p.nome_unidade || 'Todas'}</td>
-                <td ${dblClickCusto}><span ${tipoCusto} data-valor="${p.preco_custo || 0}">${formatarMoeda(p.preco_custo)}</span></td>
-                <td ${dblClickVenda}><span ${tipoVenda} data-valor="${p.preco_venda || 0}">${formatarMoeda(p.preco_venda)}</span></td>
+                <td><span style="font-weight: 600; color: var(--accent-warning);">${formatarMoeda(p.preco_custo)}</span></td>
+                <td><span style="font-weight: 600; color: var(--accent-green);">${formatarMoeda(p.preco_venda)}</span></td>
                 <td><strong style="font-size: 15px;">${p.estoque_atual}</strong></td>
                 <td><span class="badge ${badgeClass}">${statusTexto}</span></td>
                 <td>${p.nome_usuario_cadastro || 'Sistema'}</td>
@@ -2590,15 +2612,24 @@ async function salvarMovimentacao(event) {
         return;
     }
 
+    const movTipo = document.getElementById('mov-tipo').value;
+    const fornId = document.getElementById('mov-fornecedor') ? document.getElementById('mov-fornecedor').value : null;
+    if (movTipo === 'ENTRADA' && !fornId) {
+        showToast('Selecione um fornecedor para registrar a entrada de estoque.', 'warning');
+        const selF = document.getElementById('mov-fornecedor');
+        if (selF) selF.focus();
+        return;
+    }
+
     const payload = {
         id_produto: document.getElementById('mov-produto').value,
-        tipo_movimentacao: document.getElementById('mov-tipo').value,
+        tipo_movimentacao: movTipo,
         quantidade: document.getElementById('mov-quantidade').value,
         valor_unitario: document.getElementById('mov-valor').value,
         observacao: document.getElementById('mov-obs').value.trim(),
         data_movimentacao: document.getElementById('mov-data').value,
         id_unidade: parseInt(movUnid),
-        id_fornecedor: document.getElementById('mov-fornecedor') ? document.getElementById('mov-fornecedor').value || null : null,
+        id_fornecedor: fornId ? parseInt(fornId) : null,
         id_centro_custo: document.getElementById('mov-centro-custo') ? document.getElementById('mov-centro-custo').value || null : null,
         numero_nf: document.getElementById('mov-nf') ? document.getElementById('mov-nf').value.trim() || null : null,
         id_usuario: currentUser ? currentUser.id_usuario : null
@@ -2709,6 +2740,9 @@ function setTipoMovimentacaoLote(tipo) {
     const btnE = document.getElementById('btn-toggle-entrada');
     const btnS = document.getElementById('btn-toggle-saida');
     const title = document.getElementById('modal-movimentacao-title');
+    const thValor = document.getElementById('th-valor-lote');
+    const lblForn = document.getElementById('label-fornecedor-lote');
+    const selForn = document.getElementById('mov-fornecedor-lote');
     
     const grpForn = document.getElementById('group-fornecedor-lote');
     const grpNF = document.getElementById('group-nf-lote');
@@ -2718,16 +2752,25 @@ function setTipoMovimentacaoLote(tipo) {
         btnE.classList.add('active');
         btnS.classList.remove('active');
         title.innerHTML = '<i class="fa-solid fa-box-open" style="font-size: 24px;"></i> REGISTRAR NOVA ENTRADA DE ESTOQUE';
+        if (thValor) thValor.innerHTML = 'VALOR NOTA FISCAL (R$)';
         if (grpForn) grpForn.style.display = '';
+        if (lblForn) lblForn.innerHTML = 'FORNECEDOR <span style="color: #ef4444; font-weight: bold;">*</span>';
+        if (selForn) selForn.required = true;
         if (grpNF) grpNF.style.display = '';
         if (grpCC) grpCC.style.display = 'none';
     } else {
         btnS.classList.add('active');
         btnE.classList.remove('active');
         title.innerHTML = '<i class="fa-solid fa-box-open" style="font-size: 24px;"></i> REGISTRAR NOVA SAÍDA DE ESTOQUE';
+        if (thValor) thValor.innerHTML = 'VALOR UNIT. (R$)';
         if (grpForn) grpForn.style.display = 'none';
+        if (selForn) selForn.required = false;
         if (grpNF) grpNF.style.display = 'none';
         if (grpCC) grpCC.style.display = '';
+    }
+
+    if (produtosCache && produtosCache.length > 0) {
+        renderizarProdutosLote();
     }
 }
 
@@ -2736,11 +2779,11 @@ async function carregarProdutosLote() {
     const tbody = document.getElementById('table-produtos-lote');
     
     if (!movUnid) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Selecione uma unidade operacional para carregar os produtos.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 20px; color: var(--text-muted);">Selecione uma unidade operacional para carregar os produtos.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="padding: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando produtos...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> Carregando produtos...</td></tr>';
     
     const data = await safeFetch(`/api/produtos?id_unidade=${movUnid}`);
     if (data.success) {
@@ -2753,6 +2796,7 @@ function renderizarProdutosLote() {
     const tbody = document.getElementById('table-produtos-lote');
     const filtroTexto = (document.getElementById('mov-busca-lote').value || '').toLowerCase();
     const filtroCat = document.getElementById('mov-categoria-lote').value;
+    const movTipo = document.getElementById('mov-tipo-lote') ? document.getElementById('mov-tipo-lote').value : 'ENTRADA';
 
     let html = '';
     let cont = 0;
@@ -2764,6 +2808,8 @@ function renderizarProdutosLote() {
         cont++;
         const imgHtmlLote = p.imagem ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
         
+        const valorUnitPadrao = movTipo === 'ENTRADA' ? (p.preco_custo || 0) : (p.preco_venda || p.preco_custo || 0);
+
         html += `
         <tr data-prod-id="${p.id_produto}" onclick="document.getElementById('chk-mov-${p.id_produto}').click()" style="cursor: pointer;">
             <td style="text-align: center;" onclick="event.stopPropagation()">
@@ -2780,8 +2826,10 @@ function renderizarProdutosLote() {
             </td>
             <td style="text-align: center; font-weight: 600;">${p.estoque_atual}</td>
             <td onclick="event.stopPropagation()">
-                <input type="number" class="form-control input-qtd-lote" id="qtd-mov-${p.id_produto}" placeholder="Digite a quantidade" min="1">
-                <input type="hidden" id="valor-mov-${p.id_produto}" value="${p.preco_venda || 0}">
+                <input type="number" class="form-control input-qtd-lote" id="qtd-mov-${p.id_produto}" placeholder="Qtd" min="1" style="background: rgba(15, 23, 42, 0.6); color: #fff; font-weight: bold;">
+            </td>
+            <td onclick="event.stopPropagation()">
+                <input type="number" step="0.01" min="0" class="form-control input-valor-lote" id="valor-mov-${p.id_produto}" value="${valorUnitPadrao > 0 ? valorUnitPadrao : ''}" placeholder="${movTipo === 'ENTRADA' ? 'Valor NF R$' : '0,00'}" title="${movTipo === 'ENTRADA' ? 'Valor unitário da Nota Fiscal (atualiza automaticamente o custo)' : 'Valor unitário'}" style="background: rgba(15, 23, 42, 0.6); color: #fff; font-weight: 600;">
             </td>
             <td onclick="event.stopPropagation()">
                 <input type="text" class="form-control input-obs-lote" id="obs-mov-${p.id_produto}" placeholder="Observações...">
@@ -2790,7 +2838,7 @@ function renderizarProdutosLote() {
     }
 
     if (cont === 0) {
-        html = '<tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Nenhum produto encontrado.</td></tr>';
+        html = '<tr><td colspan="6" class="text-center" style="padding: 20px; color: var(--text-muted);">Nenhum produto encontrado.</td></tr>';
     }
 
     tbody.innerHTML = html;
@@ -2827,6 +2875,17 @@ async function salvarMovimentacaoLote(event) {
         return;
     }
 
+    if (movTipo === 'ENTRADA' && (!movForn || String(movForn).trim() === '')) {
+        showToast('Selecione um fornecedor antes de registrar a entrada de estoque.', 'warning');
+        const selForn = document.getElementById('mov-fornecedor-lote');
+        if (selForn) {
+            selForn.focus();
+            selForn.style.border = '2px solid var(--accent-danger, #ef4444)';
+            setTimeout(() => { selForn.style.border = ''; }, 3000);
+        }
+        return;
+    }
+
     const selecionados = Array.from(document.querySelectorAll('.chk-mov-lote:checked'));
     
     if (selecionados.length === 0) {
@@ -2849,7 +2908,7 @@ async function salvarMovimentacaoLote(event) {
             id_produto: id_produto,
             tipo_movimentacao: movTipo,
             quantidade: quantidade,
-            valor_unitario: valor_unit,
+            valor_unitario: valor_unit ? parseFloat(valor_unit) : 0,
             observacao: observacao.trim(),
             data_movimentacao: movData,
             id_unidade: parseInt(movUnid),
@@ -2904,7 +2963,7 @@ async function salvarMovimentacaoLote(event) {
 }
 
 // --- LÓGICA DE EDIÇÃO ÚNICA DE MOVIMENTAÇÃO ---
-function abrirModalMovimentacaoEdit(id) {
+async function abrirModalMovimentacaoEdit(id) {
     document.getElementById('form-movimentacao-edit').reset();
     
     const mov = movimentacoesCache.find(m => m.id_movimentacao == id);
@@ -2921,6 +2980,28 @@ function abrirModalMovimentacaoEdit(id) {
     document.getElementById('edit-mov-centro-custo').value = mov.id_centro_custo || '';
     document.getElementById('edit-mov-fornecedor').value = mov.id_fornecedor || '';
     document.getElementById('edit-mov-nf').value = mov.numero_nf || '';
+
+    // Carregar fornecedores no select de edição
+    await carregarCategoriasEFornecedores();
+    const selectForn = document.getElementById('edit-mov-fornecedor-select');
+    if (selectForn && window._fornecedoresCache) {
+        selectForn.innerHTML = '<option value="">Selecione o Fornecedor...</option>' + 
+            window._fornecedoresCache.map(f => `<option value="${f.id_fornecedor}">${f.razao_social || f.nome_fornecedor || f.nome}</option>`).join('');
+        if (mov.id_fornecedor) selectForn.value = mov.id_fornecedor;
+    }
+
+    const grpForn = document.getElementById('group-edit-mov-fornecedor');
+    const grpNF = document.getElementById('group-edit-mov-nf');
+    if (mov.tipo_movimentacao === 'ENTRADA') {
+        if (grpForn) grpForn.style.display = '';
+        if (grpNF) grpNF.style.display = '';
+    } else {
+        if (grpForn) grpForn.style.display = 'none';
+        if (grpNF) grpNF.style.display = 'none';
+    }
+
+    const nfInput = document.getElementById('edit-mov-nf-input');
+    if (nfInput) nfInput.value = mov.numero_nf || '';
 
     // Populate visual UI info
     document.getElementById('edit-mov-produto-nome').textContent = mov.nome_produto || 'Produto Desconhecido';
@@ -2945,23 +3026,36 @@ async function salvarMovimentacaoEdit(event) {
     
     const id = document.getElementById('edit-mov-id').value;
     const qtd = document.getElementById('edit-mov-qtd').value;
+    const tipo = document.getElementById('edit-mov-tipo').value;
     
     if (!qtd || parseInt(qtd) <= 0) {
         showToast('Quantidade deve ser maior que zero.', 'warning');
         return;
     }
 
+    const selectForn = document.getElementById('edit-mov-fornecedor-select');
+    const idForn = selectForn ? (selectForn.value ? parseInt(selectForn.value) : null) : (document.getElementById('edit-mov-fornecedor').value ? parseInt(document.getElementById('edit-mov-fornecedor').value) : null);
+
+    if (tipo === 'ENTRADA' && !idForn) {
+        showToast('Selecione um fornecedor antes de salvar a entrada de estoque.', 'warning');
+        if (selectForn) selectForn.focus();
+        return;
+    }
+
+    const nfInput = document.getElementById('edit-mov-nf-input');
+    const numNF = nfInput ? (nfInput.value.trim() || null) : (document.getElementById('edit-mov-nf').value || null);
+
     const payload = {
         id_produto: document.getElementById('edit-mov-produto').value,
-        tipo_movimentacao: document.getElementById('edit-mov-tipo').value,
+        tipo_movimentacao: tipo,
         quantidade: qtd,
         valor_unitario: document.getElementById('edit-mov-valor').value,
         observacao: document.getElementById('edit-mov-obs').value.trim(),
         data_movimentacao: document.getElementById('edit-mov-data').value,
         id_unidade: document.getElementById('edit-mov-unidade').value,
-        id_fornecedor: document.getElementById('edit-mov-fornecedor').value || null,
+        id_fornecedor: idForn,
         id_centro_custo: document.getElementById('edit-mov-centro-custo').value || null,
-        numero_nf: document.getElementById('edit-mov-nf').value || null,
+        numero_nf: numNF,
         id_usuario: currentUser ? currentUser.id_usuario : null
     };
 
@@ -3664,6 +3758,12 @@ async function salvarAprovacaoOuEdicaoUsuario(event) {
     const menusSelecionados = Array.from(document.querySelectorAll('input[name="menu-permission"]:checked'))
                                    .map(cb => cb.value);
 
+    // Se qualquer item de estágio estiver marcado, garantir que o menu pai 'controle-estagios' seja incluído
+    const itensEstagio = ['estagios-lancamentos', 'estagios-validacao', 'documentos', 'estagios-relatorios', 'estagios-relatorio-horas-aluno', 'estagios-relatorio-alunos-unidade', 'estagios-relatorio-horas-validadas', 'estagios-relatorio-aguardando-retorno'];
+    if (menusSelecionados.some(m => itensEstagio.includes(m)) && !menusSelecionados.includes('controle-estagios')) {
+        menusSelecionados.push('controle-estagios');
+    }
+
     const endpoint = modo === 'aprovar' 
         ? `/api/auth/users/${userId}/aprovar` 
         : `/api/auth/users/${userId}/editar`;
@@ -3784,6 +3884,17 @@ function formatarMoeda(valor) {
 function formatarData(strData) {
     if (!strData) return '-';
     try {
+        if (typeof strData === 'string') {
+            const trimmed = strData.trim();
+            const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (match) {
+                // Se for somente data YYYY-MM-DD ou formato ISO com meia-noite UTC, formata direto evitando deslocamento de fuso
+                if (trimmed.length === 10 || trimmed.includes('T00:00:00') || trimmed.includes(' 00:00:00')) {
+                    const [, ano, mes, dia] = match;
+                    return `${dia}/${mes}/${ano}`;
+                }
+            }
+        }
         const d = new Date(strData);
         if (isNaN(d.getTime())) return strData;
         return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -6345,57 +6456,64 @@ function exportarRelatorioAlunosUnidadeExcel() {
     URL.revokeObjectURL(link.href);
 }
 
+async function obterListaCursosCadastrados() {
+    try {
+        const resCursos = await safeFetch('/api/cursos');
+        if (resCursos.success && Array.isArray(resCursos.cursos)) {
+            cursosCache = resCursos.cursos;
+            return cursosCache.map(c => (c.nome || '').trim().toUpperCase()).filter(Boolean);
+        }
+    } catch (e) {
+        console.error('Erro ao buscar cursos:', e);
+    }
+    if (typeof cursosCache !== 'undefined' && Array.isArray(cursosCache) && cursosCache.length > 0) {
+        return cursosCache.map(c => (c.nome || '').trim().toUpperCase()).filter(Boolean);
+    }
+    return [];
+}
+
 async function abrirModalUploadDocumento() {
     const selectCursoModal = document.getElementById('upload-doc-curso');
     if (selectCursoModal) {
-        if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
-            const resCursos = await safeFetch('/api/cursos');
-            if (resCursos.success) cursosCache = resCursos.cursos;
-        }
-        let cursos = [];
-        if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
-            cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
-        }
+        const cursosCadastrados = await obterListaCursosCadastrados();
         let html = '<option value="">Selecione...</option>';
-        cursos.forEach(c => {
+        cursosCadastrados.forEach(c => {
             html += `<option value="${c}">${c}</option>`;
         });
         selectCursoModal.innerHTML = html;
+
+        // Pré-selecionar curso caso já esteja filtrado na tela principal
+        const filtroAtual = document.getElementById('filtro-documento-curso')?.value;
+        if (filtroAtual && cursosCadastrados.includes(filtroAtual)) {
+            selectCursoModal.value = filtroAtual;
+        }
     }
 
     document.getElementById('form-upload-documento').reset();
     document.getElementById('modal-upload-documento').classList.remove('hidden');
 }
 
-
-
 async function iniciarDocumentos() {
     const selectDocs = document.getElementById('filtro-documento-curso');
     if (!selectDocs) return;
 
-    if (typeof cursosCache !== 'undefined' && cursosCache.length === 0) {
-        const resCursos = await safeFetch('/api/cursos');
-        if (resCursos.success) cursosCache = resCursos.cursos;
-    }
-
-    let cursos = [];
-    if (typeof cursosCache !== 'undefined' && cursosCache.length > 0) {
-        cursos = [...new Set(cursosCache.map(c => (c.nome || '').trim().toUpperCase()))].sort();
-    }
-
     const valorAtual = selectDocs.value;
+    const cursosCadastrados = await obterListaCursosCadastrados();
+
     let html = '<option value="">SELECIONE UM CURSO...</option>';
-    cursos.forEach(c => {
+    cursosCadastrados.forEach(c => {
         html += `<option value="${c}">${c}</option>`;
     });
     
     selectDocs.innerHTML = html;
-    if (cursos.includes(valorAtual)) {
+    if (valorAtual && cursosCadastrados.includes(valorAtual)) {
         selectDocs.value = valorAtual;
-    }
-    
-    if (selectDocs.value) {
         filtrarDocumentos();
+    } else {
+        const tbody = document.getElementById('table-documentos-body');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Selecione um curso para ver os documentos.</td></tr>';
+        }
     }
 }
 

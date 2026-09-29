@@ -769,6 +769,39 @@ app.post('/api/estagios/importar-json', async (req, res) => {
 });
 
 // ==========================================
+// CURSOS API
+// ==========================================
+app.get('/api/cursos', async (req, res) => {
+    try {
+        const cursos = await database.cursos_listar();
+        res.json({ success: true, cursos });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/cursos', async (req, res) => {
+    try {
+        await database.cursos_salvar(req.body);
+        res.json({ success: true, message: 'Curso salvo com sucesso!' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.delete('/api/cursos/:id', async (req, res) => {
+    try {
+        await database.cursos_excluir(req.params.id);
+        res.json({ success: true, message: 'Curso excluído com sucesso!' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// ==========================================
 // DOCUMENTOS API
 // ==========================================
 app.get('/api/documentos', async (req, res) => {

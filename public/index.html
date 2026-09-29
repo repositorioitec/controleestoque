@@ -1873,8 +1873,8 @@
                             </select>
                         </div>
                         <div class="form-group" style="margin: 0;" id="group-fornecedor-lote">
-                            <label for="mov-fornecedor-lote" style="font-size: 11px; text-transform: uppercase;">FORNECEDOR</label>
-                            <select id="mov-fornecedor-lote" class="form-control" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                            <label for="mov-fornecedor-lote" id="label-fornecedor-lote" style="font-size: 11px; text-transform: uppercase;">FORNECEDOR <span style="color: #ef4444; font-weight: bold;">*</span></label>
+                            <select id="mov-fornecedor-lote" class="form-control" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;" required>
                                 <option value="">Selecione o Fornecedor...</option>
                             </select>
                         </div>
@@ -1901,13 +1901,14 @@
                                 <tr>
                                     <th style="width: 40px; text-align: center;"><input type="checkbox" id="mov-check-all" onclick="toggleTodosProdutosLote(this)"></th>
                                     <th>PRODUTO</th>
-                                    <th style="text-align: center; width: 120px;">ESTOQUE ATUAL</th>
-                                    <th style="width: 200px;">QUANTIDADE <span style="font-size: 9px; color: var(--text-muted);">(ENTRADA/SAÍDA)</span> *</th>
+                                    <th style="text-align: center; width: 110px;">ESTOQUE ATUAL</th>
+                                    <th style="width: 140px;">QUANTIDADE *</th>
+                                    <th style="width: 160px;" id="th-valor-lote">VALOR NOTA FISCAL (R$)</th>
                                     <th>OBSERVAÇÕES</th>
                                 </tr>
                             </thead>
                             <tbody id="table-produtos-lote">
-                                <tr><td colspan="5" class="text-center" style="padding: 20px; color: var(--text-muted);">Selecione uma unidade operacional para carregar os produtos.</td></tr>
+                                <tr><td colspan="6" class="text-center" style="padding: 20px; color: var(--text-muted);">Selecione uma unidade operacional para carregar os produtos.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1975,6 +1976,16 @@
                         <div class="form-group" style="margin: 0;">
                             <label for="edit-mov-valor" style="font-size: 11px; text-transform: uppercase;">Valor Unitário (R$) *</label>
                             <input type="number" id="edit-mov-valor" class="form-control" required min="0" step="0.01" style="background: rgba(15, 23, 42, 0.5); color: #fff;">
+                        </div>
+                        <div class="form-group" style="margin: 0;" id="group-edit-mov-nf">
+                            <label for="edit-mov-nf-input" style="font-size: 11px; text-transform: uppercase;">Nota Fiscal (Opcional)</label>
+                            <input type="text" id="edit-mov-nf-input" class="form-control" placeholder="Número da NF" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                        </div>
+                        <div class="form-group full-width" style="margin: 0;" id="group-edit-mov-fornecedor">
+                            <label for="edit-mov-fornecedor-select" style="font-size: 11px; text-transform: uppercase;">Fornecedor *</label>
+                            <select id="edit-mov-fornecedor-select" class="form-control" style="background: rgba(15, 23, 42, 0.5); color: #fff; color-scheme: dark;">
+                                <option value="">Selecione o Fornecedor...</option>
+                            </select>
                         </div>
                         <div class="form-group full-width" style="margin: 0;">
                             <label for="edit-mov-obs" style="font-size: 11px; text-transform: uppercase;">Observações</label>
