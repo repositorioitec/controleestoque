@@ -14,91 +14,125 @@
     <link rel="stylesheet" href="css/style.css">
     <!-- SheetJS para ler planilhas no navegador -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Script de Inicialização de Tema (Padrão: Escuro) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('app_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            if (theme === 'light') {
+                document.documentElement.classList.add('theme-light');
+            }
+        })();
+    </script>
 </head>
 <body>
 
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- TELA DE AUTENTICAÇÃO (LOGIN & REGISTRO) -->
+    <!-- TELA DE AUTENTICAÇÃO (LOGIN & REGISTRO) - MODELO SPLIT SCREEN -->
     <div id="auth-screen" class="auth-screen">
-        <div class="auth-card-wrapper">
-            <div class="auth-brand">
-                <div class="auth-logo">
-                    <i class="fa-solid fa-boxes-stacked"></i>
-                </div>
-                <h2>Gestão Operacional - ITEC</h2>
-                <p>Sistema de Gestão Multiusuário e Unidades Operacionais</p>
-            </div>
-
-            <!-- Login Form -->
-            <div id="login-box" class="auth-box active">
-                <div class="auth-header">
-                    <h3>Acesse sua Conta</h3>
-                    <p>Entre com suas credenciais de usuário</p>
-                </div>
-                <form id="form-login" onsubmit="handleLogin(event)">
-                    <div class="form-group">
-                        <label for="login-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login)</label>
-                        <input type="text" id="login-usuario" placeholder="Ex: admin@itec.com" required autocomplete="username" style="text-transform: none;">
-                    </div>
-                    <div class="form-group">
-                        <label for="login-senha"><i class="fa-solid fa-key"></i> Senha</label>
-                        <div class="password-wrapper">
-                            <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;">
-                            <button type="button" class="toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
-                                <i class="fa-regular fa-eye"></i>
-                            </button>
+        <div class="auth-split-container">
+            <!-- Painel Esquerdo Hero: Imagem Futurista de Gestão Escolar -->
+            <div class="auth-hero-pane">
+                <div class="auth-hero-overlay"></div>
+                <div class="auth-hero-content">
+                    <div class="auth-hero-header">
+                        <div class="auth-hero-brand">
+                            <span class="auth-hero-badge">GO</span>
+                            <span class="auth-hero-brand-name">Gestão Operacional</span>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block">
-                        <i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
-                    </button>
-                </form>
-                <div class="auth-footer">
-                    <p>Não tem um usuário registrado? <a href="#" onclick="toggleAuthMode('register')">Cadastrar Usuário</a></p>
+                    <div class="auth-hero-body">
+                        <span class="auth-hero-tag">GESTÃO ESCOLAR INTELIGENTE</span>
+                        <h1 class="auth-hero-title">
+                            Transforme a gestão<br class="hero-break"> da sua rede escolar
+                        </h1>
+                        <p class="auth-hero-desc">
+                            Monitore estoques pedagógicos, movimentações por unidade, controle de suprimentos e relatórios gerenciais em tempo real.
+                        </p>
+                    </div>
+                    <div class="auth-hero-footer">
+                        <span>Gestão Operacional • ITEC &copy; 2026</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Register Form -->
-            <div id="register-box" class="auth-box">
-                <div class="auth-header">
-                    <h3>Novo Cadastro</h3>
-                    <p>Cadastre-se para solicitar acesso ao sistema</p>
-                </div>
-                <form id="form-register" onsubmit="handleRegister(event)">
-                    <div class="form-group">
-                        <label for="reg-nome"><i class="fa-solid fa-id-card"></i> Nome Completo *</label>
-                        <input type="text" id="reg-nome" placeholder="Ex: João da Silva" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="reg-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login) *</label>
-                        <input type="email" id="reg-usuario" placeholder="Ex: joao@empresa.com" required autocomplete="username">
-                    </div>
-                    <div class="form-group">
-                        <label for="reg-senha"><i class="fa-solid fa-lock"></i> Senha *</label>
-                        <div class="password-wrapper">
-                            <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
-                            <button type="button" class="toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
-                                <i class="fa-regular fa-eye"></i>
+            <!-- Painel Direito: Formulário Clean Moderno -->
+            <div class="auth-form-pane">
+                <div class="auth-form-card">
+                    <!-- Login Form -->
+                    <div id="login-box" class="auth-box active">
+                        <div class="auth-box-header">
+                            <span class="auth-form-tag">ACESSO</span>
+                            <h2 class="auth-form-title">Entrar no sistema</h2>
+                            <p class="auth-form-subtitle">Faça login para acessar o Dashboard.</p>
+                        </div>
+                        <form id="form-login" onsubmit="handleLogin(event)">
+                            <div class="auth-form-group">
+                                <label for="login-usuario">E-mail</label>
+                                <input type="text" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;">
+                            </div>
+                            <div class="auth-form-group">
+                                <label for="login-senha">Senha</label>
+                                <div class="auth-password-wrapper">
+                                    <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;">
+                                    <button type="button" class="auth-toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                        <i class="fa-regular fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="submit" id="btn-entrar" class="auth-submit-btn">
+                                Entrar
                             </button>
+                        </form>
+                        <div class="auth-form-footer">
+                            <p>Não tem um usuário registrado? <a href="#" onclick="toggleAuthMode('register')">Cadastrar Usuário</a></p>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="reg-unidade"><i class="fa-solid fa-building"></i> Unidade Operacional *</label>
-                        <select id="reg-unidade" required>
-                            <option value="">Carregando unidades...</option>
-                        </select>
+
+                    <!-- Register Form -->
+                    <div id="register-box" class="auth-box hidden">
+                        <div class="auth-box-header">
+                            <span class="auth-form-tag">CADASTRO</span>
+                            <h2 class="auth-form-title">Novo Cadastro</h2>
+                            <p class="auth-form-subtitle">Cadastre-se para solicitar acesso ao sistema.</p>
+                        </div>
+                        <form id="form-register" onsubmit="handleRegister(event)">
+                            <div class="auth-form-group">
+                                <label for="reg-nome">Nome Completo *</label>
+                                <input type="text" id="reg-nome" class="auth-input" placeholder="Ex: João da Silva" required>
+                            </div>
+                            <div class="auth-form-group">
+                                <label for="reg-usuario">E-mail (Login) *</label>
+                                <input type="email" id="reg-usuario" class="auth-input" placeholder="Ex: joao@empresa.com" required autocomplete="username">
+                            </div>
+                            <div class="auth-form-group">
+                                <label for="reg-senha">Senha *</label>
+                                <div class="auth-password-wrapper">
+                                    <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password">
+                                    <button type="button" class="auth-toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                        <i class="fa-regular fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="auth-form-group">
+                                <label for="reg-unidade">Unidade Operacional / Escolar *</label>
+                                <select id="reg-unidade" class="auth-input auth-select" required>
+                                    <option value="">Carregando unidades...</option>
+                                </select>
+                            </div>
+                            <div class="auth-info-notice">
+                                <i class="fa-solid fa-circle-info"></i> <span>Seu cadastro ficará <strong>Pendente</strong> até ser aprovado pelo Administrador.</span>
+                            </div>
+                            <button type="submit" class="auth-submit-btn">
+                                Finalizar Cadastro
+                            </button>
+                        </form>
+                        <div class="auth-form-footer">
+                            <p>Já possui conta? <a href="#" onclick="toggleAuthMode('login')">Voltar para o Login</a></p>
+                        </div>
                     </div>
-                    <div class="info-box" style="margin-bottom: 1rem; font-size: 0.85rem;">
-                        <i class="fa-solid fa-circle-info"></i> Seu cadastro ficará <strong>Pendente</strong> até ser aprovado pelo Administrador.
-                    </div>
-                    <button type="submit" class="btn btn-success btn-block">
-                        <i class="fa-solid fa-user-plus"></i> Finalizar Cadastro
-                    </button>
-                </form>
-                <div class="auth-footer">
-                    <p>Já possui conta? <a href="#" onclick="toggleAuthMode('login')">Voltar para o Login</a></p>
                 </div>
             </div>
         </div>
@@ -110,12 +144,12 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-logo" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <i class="fa-solid fa-boxes-stacked"></i>
-                        <span>Gestão Operacional</span>
+                <div class="sidebar-logo" style="flex-direction: column; align-items: flex-start; gap: 6px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="sidebar-brand-badge">GO</span>
+                        <span class="sidebar-brand-title">Gestão Operacional</span>
                     </div>
-                    <span id="db-last-update-label" style="font-size: 9px; font-weight: 500; color: var(--text-muted); text-transform: uppercase;">ATUALIZADO: CARREGANDO...</span>
+                    <span id="db-last-update-label" style="font-size: 9px; font-weight: 600; color: var(--accent-cyan); letter-spacing: 0.5px; text-transform: uppercase;">ATUALIZADO: CARREGANDO...</span>
                 </div>
             </div>
 
@@ -265,15 +299,20 @@
                     <span class="badge-db" id="db-status-badge" title="Status do Banco de Dados"><i class="fa-solid fa-database"></i></span>
                     <h1 id="page-title">Dashboard de Estoque</h1>
                 </div>
-                <div class="topbar-unit-selector" id="unit-selector-wrapper" style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.6); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <label for="select-global-unidade" style="font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
-                        <i class="fa-solid fa-building text-primary"></i> Unidade:
-                    </label>
-                    <select id="select-global-unidade" style="background: transparent; border: none; color: #fff; font-size: 14px; outline: none; cursor: pointer;" onchange="trocarUnidadeAtiva(this.value)">
-                        <option value="">Todas as Unidades (Visão Global)</option>
-                    </select>
+                <div class="topbar-actions" style="display: flex; align-items: center; gap: 12px;">
+                    <div class="topbar-unit-selector" id="unit-selector-wrapper" style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.6); padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <label for="select-global-unidade" style="font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                            <i class="fa-solid fa-building text-primary"></i> Unidade:
+                        </label>
+                        <select id="select-global-unidade" style="background: transparent; border: none; color: #fff; font-size: 14px; outline: none; cursor: pointer;" onchange="trocarUnidadeAtiva(this.value)">
+                            <option value="">Todas as Unidades (Visão Global)</option>
+                        </select>
+                    </div>
+                    <button type="button" id="btn-theme-toggle" class="btn-theme-toggle" onclick="toggleTheme()" title="Mudar para Tema Claro" aria-label="Alternar Tema Claro / Escuro">
+                        <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
+                        <span id="theme-toggle-label">Claro</span>
+                    </button>
                 </div>
-                <!-- Botões removidos do cabeçalho conforme solicitado -->
             </header>
 
             <div class="content-body">
@@ -939,7 +978,7 @@
                                 <div class="form-group" style="margin:0; display: flex; align-items: center; gap: 8px; padding-top: 4px;">
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-main); margin: 0; white-space: nowrap;" title="Quando ativado, oculta os produtos que não precisam de reposição (sugestão = 0)">
                                         <div class="toggle-switch" style="position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0;">
-                                            <input type="checkbox" id="filter-rel-sug-ocultar-zero" onchange="aplicarFiltrosRelatorioSugestaoCompras(event)" checked style="opacity:0; width:0; height:0; position:absolute;">
+                                            <input type="checkbox" id="filter-rel-sug-ocultar-zero" onchange="aplicarFiltrosRelatorioSugestaoCompras(event)" style="opacity:0; width:0; height:0; position:absolute;">
                                             <span onclick="this.previousElementSibling.click()" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:var(--border-color); border-radius:22px; transition:.3s;"></span>
                                             <span class="toggle-knob" style="position:absolute; content:''; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s; pointer-events:none;"></span>
                                         </div>

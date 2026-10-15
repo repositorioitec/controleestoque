@@ -3,144 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Controle de Estoques - ITEC</title>
+    <title>Login - Gestão Operacional</title>
     <!-- Google Fonts: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Main CSS -->
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        .login-page-body {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0b0f19 70%);
-            padding: 20px;
-        }
-        .login-card {
-            background: var(--bg-card, rgba(21, 28, 44, 0.75));
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-            border-radius: var(--radius-lg, 16px);
-            width: 100%;
-            max-width: 440px;
-            padding: 40px;
-            box-shadow: var(--shadow-lg, 0 20px 40px rgba(0,0,0,0.4));
-        }
-        .server-status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 20px;
-            color: #34d399;
-            font-size: 0.85rem;
-            margin-bottom: 20px;
-        }
-        .server-status-badge .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #34d399;
-            box-shadow: 0 0 8px #34d399;
-        }
-    </style>
 </head>
-<body class="login-page-body">
+<body style="margin: 0; padding: 0; background-color: #ffffff; overflow-x: hidden;">
 
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <div class="login-card">
-        <div class="auth-brand">
-            <div class="auth-logo">
-                <i class="fa-solid fa-boxes-stacked"></i>
-            </div>
-            <h2>Controle de Estoques - ITEC</h2>
-            <p>Sistema de Gestão Multiusuário e Unidades Operacionais</p>
-            <div class="server-status-badge">
-                <span class="dot"></span> Servidor Online
-            </div>
-        </div>
-
-        <!-- Login Form -->
-        <div id="login-box" class="auth-box active">
-            <div class="auth-header">
-                <h3>Acesse sua Conta</h3>
-                <p>Entre com suas credenciais de usuário</p>
-            </div>
-            <form id="form-login" onsubmit="executarLogin(event)">
-                <div class="form-group">
-                    <label for="login-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login)</label>
-                    <input type="email" id="login-usuario" placeholder="Ex: admin@itec.com" required autocomplete="username">
+    <!-- TELA DE AUTENTICAÇÃO - MODELO SPLIT SCREEN -->
+    <div class="auth-split-container">
+        <!-- Painel Esquerdo Hero: Imagem Futurista de Gestão Escolar -->
+        <div class="auth-hero-pane">
+            <div class="auth-hero-overlay"></div>
+            <div class="auth-hero-content">
+                <div class="auth-hero-header">
+                    <div class="auth-hero-brand">
+                        <span class="auth-hero-badge">GO</span>
+                        <span class="auth-hero-brand-name">Gestão Operacional</span>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="login-senha"><i class="fa-solid fa-key"></i> Senha</label>
-                    <input type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password">
+                <div class="auth-hero-body">
+                    <span class="auth-hero-tag">GESTÃO ESCOLAR INTELIGENTE</span>
+                    <h1 class="auth-hero-title">
+                        Transforme a gestão<br class="hero-break"> da sua rede escolar
+                    </h1>
+                    <p class="auth-hero-desc">
+                        Monitore estoques pedagógicos, movimentações por unidade, controle de suprimentos e relatórios gerenciais em tempo real.
+                    </p>
                 </div>
-                <button type="submit" id="btn-entrar" class="btn btn-primary btn-block">
-                    <i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema
-                </button>
-            </form>
-            <div class="auth-footer" style="margin-top: 20px; text-align: center;">
-                <p style="color: var(--text-muted, #94a3b8); font-size: 0.9rem;">
-                    Deseja cadastrar novo usuário? <a href="/?action=login" onclick="trocarParaRegistro(event)">Criar Conta</a>
-                </p>
+                <div class="auth-hero-footer">
+                    <span>Gestão Operacional • ITEC &copy; 2026</span>
+                </div>
             </div>
         </div>
 
-        <!-- Register Form (Inicialmente oculto) -->
-        <div id="register-box" class="auth-box hidden">
-            <div class="auth-header">
-                <h3>Novo Cadastro</h3>
-                <p>Cadastre um novo operador ou administrador</p>
-            </div>
-            <form id="form-register" onsubmit="executarRegistro(event)">
-                <div class="form-group">
-                    <label for="reg-nome"><i class="fa-solid fa-id-card"></i> Nome Completo</label>
-                    <input type="text" id="reg-nome" placeholder="Ex: João da Silva" required>
+        <!-- Painel Direito: Formulário Clean Moderno -->
+        <div class="auth-form-pane">
+            <div class="auth-form-card">
+                <!-- Login Form -->
+                <div id="login-box" class="auth-box active">
+                    <div class="auth-box-header">
+                        <span class="auth-form-tag">ACESSO</span>
+                        <h2 class="auth-form-title">Entrar no sistema</h2>
+                        <p class="auth-form-subtitle">Faça login para acessar o Dashboard.</p>
+                    </div>
+                    <form id="form-login" onsubmit="executarLogin(event)">
+                        <div class="auth-form-group">
+                            <label for="login-usuario">E-mail</label>
+                            <input type="email" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username">
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="login-senha">Senha</label>
+                            <div class="auth-password-wrapper">
+                                <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password">
+                                <button type="button" class="auth-toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="submit" id="btn-entrar" class="auth-submit-btn">
+                            Entrar
+                        </button>
+                    </form>
+                    <div class="auth-form-footer">
+                        <p>Deseja cadastrar novo usuário? <a href="#" onclick="trocarParaRegistro(event)">Criar Conta</a></p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="reg-usuario"><i class="fa-solid fa-envelope"></i> E-mail (Login)</label>
-                    <input type="email" id="reg-usuario" placeholder="Ex: joao@empresa.com" required autocomplete="username">
+
+                <!-- Register Form -->
+                <div id="register-box" class="auth-box hidden">
+                    <div class="auth-box-header">
+                        <span class="auth-form-tag">CADASTRO</span>
+                        <h2 class="auth-form-title">Novo Cadastro</h2>
+                        <p class="auth-form-subtitle">Cadastre-se para solicitar acesso ao sistema.</p>
+                    </div>
+                    <form id="form-register" onsubmit="executarRegistro(event)">
+                        <div class="auth-form-group">
+                            <label for="reg-nome">Nome Completo *</label>
+                            <input type="text" id="reg-nome" class="auth-input" placeholder="Ex: João da Silva" required>
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="reg-usuario">E-mail (Login) *</label>
+                            <input type="email" id="reg-usuario" class="auth-input" placeholder="Ex: joao@empresa.com" required autocomplete="username">
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="reg-senha">Senha *</label>
+                            <div class="auth-password-wrapper">
+                                <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password">
+                                <button type="button" class="auth-toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="reg-nivel">Nível de Acesso *</label>
+                            <select id="reg-nivel" class="auth-input auth-select" required>
+                                <option value="Operador">Operador (Entrada/Saída/Consulta)</option>
+                                <option value="Supervisor">Supervisor (Produtos e Cadastros)</option>
+                                <option value="Administrador">Administrador (Acesso Total)</option>
+                            </select>
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="reg-unidade">Unidade Operacional / Escolar *</label>
+                            <select id="reg-unidade" class="auth-input auth-select" required>
+                                <option value="">Carregando unidades...</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="btn-registrar" class="auth-submit-btn">
+                            Finalizar Cadastro
+                        </button>
+                    </form>
+                    <div class="auth-form-footer">
+                        <p>Já possui conta? <a href="#" onclick="trocarParaLogin(event)">Voltar ao Login</a></p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="reg-senha"><i class="fa-solid fa-lock"></i> Senha</label>
-                    <input type="password" id="reg-senha" placeholder="Crie uma senha" required autocomplete="new-password">
-                </div>
-                <div class="form-group">
-                    <label for="reg-nivel"><i class="fa-solid fa-user-shield"></i> Nível de Acesso</label>
-                    <select id="reg-nivel" required>
-                        <option value="Operador">Operador (Entrada/Saída/Consulta)</option>
-                        <option value="Supervisor">Supervisor (Produtos e Cadastros, sem Usuários)</option>
-                        <option value="Administrador">Administrador (Acesso Total)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="reg-unidade"><i class="fa-solid fa-building"></i> Unidade Operacional</label>
-                    <select id="reg-unidade" required>
-                        <option value="">Carregando unidades...</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-success btn-block">
-                    <i class="fa-solid fa-user-plus"></i> Finalizar Cadastro
-                </button>
-            </form>
-            <div class="auth-footer" style="margin-top: 20px; text-align: center;">
-                <p style="color: var(--text-muted, #94a3b8); font-size: 0.9rem;">
-                    Já possui conta? <a href="#" onclick="trocarParaLogin(event)">Voltar ao Login</a>
-                </p>
             </div>
         </div>
     </div>
 
     <script>
+        function toggleSenha(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+                btn.setAttribute('aria-label', 'Ocultar senha');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+                btn.setAttribute('aria-label', 'Mostrar senha');
+            }
+        }
+
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -201,7 +204,7 @@
             const btn = document.getElementById('btn-entrar');
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Autenticando...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Entrando...';
 
             try {
                 const response = await fetch('/api/auth/login', {
@@ -220,12 +223,12 @@
                 } else {
                     showToast(data.message, 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema';
+                    btn.innerHTML = 'Entrar';
                 }
             } catch (error) {
-                showToast('Erro ao se conectar ao servidor Python.', 'error');
+                showToast('Erro ao se conectar ao servidor.', 'error');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema';
+                btn.innerHTML = 'Entrar';
             }
         }
 
@@ -236,6 +239,10 @@
             const senha = document.getElementById('reg-senha').value.trim();
             const nivel_acesso = document.getElementById('reg-nivel').value;
             const id_unidade = document.getElementById('reg-unidade').value;
+            const btn = document.getElementById('btn-registrar');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cadastrando...';
 
             try {
                 const response = await fetch('/api/auth/register', {
@@ -254,7 +261,16 @@
                 }
             } catch (error) {
                 showToast('Erro ao se conectar ao servidor.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Finalizar Cadastro';
             }
+        }
+
+        // Se URL tiver parâmetro ?mode=register
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('mode') === 'register') {
+            trocarParaRegistro();
         }
     </script>
 </body>

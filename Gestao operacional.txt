@@ -1,0 +1,14 @@
+app Cursor
+Antropic
+
+
+OK 28/09
+   *  Conferir sobre as datas de novas saidas dos estoques.
+Verificar porque usuários como o pedro nao conseguem visualizar os relatorios nos cadastros.
+  * No RELATÓRIO E HISTÓRICO DE MOVIMENTAÇÕES incluir em registrar movimentação a opção de de informar os valores dos materiais na entrada, automaticamente esse valor entra como custo do produto para valorização dos estoques.
+   *Historico de movimentações nao está registrando o valor do produto.
+   * Na gestao de produtos, digito o valor na coluna custo, ao atualizar a pagina o valor volta ao anterior. Papel higi 3,31, Sabonete 5lts 17,17.
+  * Na entrada do produto, exigir que o usuário selecione um fornecedor antes de salvar.
+  * Na edição de movimentação, quando for uma entrada deixar a opção de indicar um fornecedor e exigir antes de salvar.
+
+

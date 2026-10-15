@@ -19,12 +19,26 @@ const pool = new Pool({
   connectionString: getDbUrl(),
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000
+  connectionTimeoutMillis: 10000,
+  ssl: { rejectUnauthorized: false },
+  options: '-c search_path=public'
+});
+
+// Garante que todas as conexões do pool utilizem o schema 'public'
+pool.on('connect', (client) => {
+  client.query('SET search_path TO public;').catch(() => {});
+});
+
+// Tratamento de erro para conexões inativas/ociosas no pool
+// Evita que o Node.js encerre com 'Unhandled error event' quando o Supabase fecha conexões por inatividade
+pool.on('error', (err, client) => {
+  console.warn('⚠️ [PostgreSQL Pool] Aviso: Conexão inativa encerrada ou reconectando:', err.message);
 });
 
 async function init_db() {
   const client = await pool.connect();
   try {
+    await client.query('SET search_path TO public;');
     await client.query(`
       CREATE TABLE IF NOT EXISTS tbl_unidades_operacionais (
           id_unidade SERIAL PRIMARY KEY,

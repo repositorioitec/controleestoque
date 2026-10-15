@@ -6,6 +6,15 @@ const dotenv = require('dotenv');
 // Garante que o .env seja lido da pasta correta antes de carregar o database.js
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+// Evita crash abrupto do processo caso o banco encerre conexões ociosas em background
+process.on('unhandledRejection', (reason, promise) => {
+  console.warn('⚠️ [Processo] Unhandled Rejection:', reason && reason.message ? reason.message : reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ [Processo] Uncaught Exception:', err.message);
+});
+
 const database = require('./src/database');
 
 const app = express();

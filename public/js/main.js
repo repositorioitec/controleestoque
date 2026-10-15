@@ -969,8 +969,67 @@ async function carregarDataAtualizacaoBanco() {
     el.innerText = `ATUALIZADO: ${dateStr} ${timeStr}`;
 }
 
+// --- GERENCIAMENTO DE TEMA (CLARO / ESCURO) ---
+// Padrão do sistema: Escuro (dark)
+
+function aplicarTema(theme) {
+    const isLight = (theme === 'light');
+    const finalTheme = isLight ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', finalTheme);
+    if (document.body) {
+        document.body.classList.toggle('theme-light', isLight);
+    }
+    
+    try {
+        localStorage.setItem('app_theme', finalTheme);
+    } catch (e) {
+        console.warn('Não foi possível salvar tema no localStorage:', e);
+    }
+
+    const icon = document.getElementById('theme-toggle-icon');
+    const label = document.getElementById('theme-toggle-label');
+    const btn = document.getElementById('btn-theme-toggle');
+
+    if (icon) {
+        icon.className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    }
+    if (label) {
+        label.textContent = isLight ? 'Escuro' : 'Claro';
+    }
+    if (btn) {
+        btn.setAttribute('title', isLight ? 'Mudar para Tema Escuro' : 'Mudar para Tema Claro');
+    }
+}
+
+function toggleTheme() {
+    let currentTheme = 'dark';
+    try {
+        currentTheme = localStorage.getItem('app_theme') || 'dark';
+    } catch (e) {
+        currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    }
+    const nextTheme = (currentTheme === 'light') ? 'dark' : 'light';
+    aplicarTema(nextTheme);
+}
+
+function inicializarTema() {
+    let savedTheme = 'dark';
+    try {
+        savedTheme = localStorage.getItem('app_theme') || 'dark';
+    } catch (e) {
+        savedTheme = 'dark';
+    }
+    aplicarTema(savedTheme);
+}
+
+window.aplicarTema = aplicarTema;
+window.toggleTheme = toggleTheme;
+window.inicializarTema = inicializarTema;
+
 // Inicialização da aplicação ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
+    inicializarTema();
     carregarDataAtualizacaoBanco();
     checarSessaoUsuario();
     configurarNavegacao();
@@ -4356,7 +4415,7 @@ async function carregarRelatorioSugestaoCompras() {
         const res = await safeFetch(url);
 
         if (res.success) {
-            const ocultarZero = document.getElementById('filter-rel-sug-ocultar-zero')?.checked ?? true;
+            const ocultarZero = document.getElementById('filter-rel-sug-ocultar-zero')?.checked ?? false;
             const dados = ocultarZero ? res.data.filter(r => r.sugestao_pedido > 0) : res.data;
 
             if (dados.length === 0) {
@@ -4407,9 +4466,9 @@ function aplicarFiltrosRelatorioSugestaoCompras(event) {
 
 function limparFiltrosRelatorioSugestaoCompras() {
     document.getElementById('form-filter-relatorio-sugestao').reset();
-    // Restaurar o toggle ao padrão (ocultar sugestão zero)
+    // Restaurar o toggle ao padrão (desmarcado: exibir todos incluindo sugestão zero)
     const toggleZero = document.getElementById('filter-rel-sug-ocultar-zero');
-    if (toggleZero) toggleZero.checked = true;
+    if (toggleZero) toggleZero.checked = false;
     if (currentUser && currentUser.nivel_acesso === 'Administrador' && selectedUnitId) {
         document.getElementById('filter-rel-sug-unidade').value = selectedUnitId;
     }
