@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
+const os = require('os');
+const dns = require('dns').promises;
 
 // Garante que o .env seja lido da pasta correta antes de carregar o database.js
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -22,6 +24,64 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Helpers para rastrear IP e Nome do Computador em Auditoria
+function extrairIpCliente(req) {
+  let ip = req.headers['x-forwarded-for'] || 
+           req.socket?.remoteAddress || 
+           req.connection?.remoteAddress || 
+           req.ip || '';
+  if (typeof ip === 'string' && ip.includes(',')) {
+    ip = ip.split(',')[0].trim();
+  }
+  if (typeof ip === 'string') {
+    if (ip.startsWith('::ffff:')) {
+      ip = ip.substring(7);
+    }
+    if (ip === '::1' || ip === '127.0.0.1') {
+      return '127.0.0.1';
+    }
+  }
+  return ip || '127.0.0.1';
+}
+
+async function resolverNomeComputador(req, ip) {
+  const clientDeviceHeader = req.headers['x-client-computer'] || req.headers['x-client-device'] || req.body?.nome_computador;
+
+  // Se o IP for a própria máquina servidora
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    const serverHostname = os.hostname() || 'Computador Local';
+    if (clientDeviceHeader && clientDeviceHeader !== serverHostname) {
+      return `${serverHostname} (${clientDeviceHeader})`;
+    }
+    return serverHostname;
+  }
+
+  // Se veio de outro computador na rede, tenta resolver por DNS reverso (com timeout rápido de 600ms)
+  try {
+    const reversePromise = dns.reverse(ip);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 600));
+    const hostnames = await Promise.race([reversePromise, timeoutPromise]);
+    if (hostnames && hostnames.length > 0) {
+      return hostnames[0];
+    }
+  } catch (e) {
+    // Timeout ou sem DNS reverso configurado
+  }
+
+  if (clientDeviceHeader) {
+    return clientDeviceHeader;
+  }
+
+  const ua = req.headers['user-agent'] || '';
+  if (/windows/i.test(ua)) return 'Computador Windows';
+  if (/macintosh|mac os x/i.test(ua)) return 'Computador Mac';
+  if (/linux/i.test(ua)) return 'Computador Linux';
+  if (/android/i.test(ua)) return 'Dispositivo Android';
+  if (/iphone|ipad/i.test(ua)) return 'Dispositivo iOS';
+
+  return 'Dispositivo de Rede';
+}
 
 // Inicializar o banco de dados
 database.init_db().catch(err => {
@@ -52,15 +112,19 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios.' });
   }
 
+  const ip = extrairIpCliente(req);
+  const nome_computador = await resolverNomeComputador(req, ip);
+
   try {
-    const user_info = await database.autenticar_usuario(usuario, senha);
-    if (user_info) {
-      return res.json({ success: true, user: user_info, message: 'Login realizado com sucesso!' });
-    } else {
-      return res.status(401).json({ success: false, message: 'Usuário ou senha incorretos.' });
-    }
+    const user_info = await database.autenticar_usuario(usuario, senha, ip, nome_computador);
+    return res.json({ success: true, user: user_info, message: 'Login realizado com sucesso!' });
   } catch (e) {
-    return res.status(403).json({ success: false, message: e.message });
+    const statusCode = e.code === 'INVALID_PASSWORD' || e.code === 'USER_NOT_FOUND' ? 401 : 403;
+    return res.status(statusCode).json({ 
+      success: false, 
+      message: e.message, 
+      code: e.code || 'AUTH_ERROR' 
+    });
   }
 });
 
@@ -75,11 +139,45 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Todos os campos obrigatórios devem ser preenchidos.' });
   }
 
+  if (senha.length < 8) {
+    return res.status(400).json({ success: false, message: 'A senha deve possuir pelo menos 8 caracteres.' });
+  }
+
+  if (!/[A-Z]/.test(senha)) {
+    return res.status(400).json({ success: false, message: 'A senha deve conter pelo menos uma letra maiúscula.' });
+  }
+
   try {
     await database.cadastrar_usuario(usuario, senha, nome_usuario, nivel_acesso, id_unidade);
     return res.json({ success: true, message: `Usuário "${usuario}" cadastrado! Aguarde a aprovação do administrador para acessar o sistema.` });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
+app.get('/api/auth/verificar-email', async (req, res) => {
+  const email = (req.query.email || '').trim().toLowerCase();
+  if (!email) {
+    return res.status(400).json({ success: false, exists: false, message: 'E-mail não informado.' });
+  }
+
+  try {
+    const user = await database.buscar_usuario_por_email(email);
+    if (!user) {
+      return res.json({ 
+        success: true, 
+        exists: false, 
+        message: 'E-mail não cadastrado no sistema. Verifique o endereço digitado.' 
+      });
+    }
+    return res.json({ 
+      success: true, 
+      exists: true, 
+      nome_usuario: user.nome_usuario,
+      ativo: user.ativo 
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
   }
 });
 
@@ -91,12 +189,19 @@ app.post('/api/auth/esqueci-senha', async (req, res) => {
     return res.status(400).json({ success: false, message: 'E-mail e nova senha são obrigatórios.' });
   }
 
-  if (nova_senha.length < 4) {
-    return res.status(400).json({ success: false, message: 'A nova senha deve possuir pelo menos 4 caracteres.' });
+  if (nova_senha.length < 8) {
+    return res.status(400).json({ success: false, message: 'A nova senha deve possuir pelo menos 8 caracteres.' });
   }
 
+  if (!/[A-Z]/.test(nova_senha)) {
+    return res.status(400).json({ success: false, message: 'A nova senha deve conter pelo menos uma letra maiúscula.' });
+  }
+
+  const ip = extrairIpCliente(req);
+  const nome_computador = await resolverNomeComputador(req, ip);
+
   try {
-    const info = await database.solicitar_recuperacao_senha(usuario, nova_senha);
+    const info = await database.solicitar_recuperacao_senha(usuario, nova_senha, ip, nome_computador);
     return res.json({ 
       success: true, 
       message: `Solicitação enviada com sucesso para "${info.nome_usuario}"! Aguarde a aprovação do Administrador para entrar com a nova senha.` 
@@ -251,6 +356,14 @@ app.post('/api/auth/users/solicitar-senha', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Dados inválidos.' });
   }
 
+  if (nova_senha.length < 8) {
+    return res.status(400).json({ success: false, message: 'A nova senha deve possuir pelo menos 8 caracteres.' });
+  }
+
+  if (!/[A-Z]/.test(nova_senha)) {
+    return res.status(400).json({ success: false, message: 'A nova senha deve conter pelo menos uma letra maiúscula.' });
+  }
+
   try {
     await database.solicitar_troca_senha(id_usuario, senha_atual, nova_senha);
     return res.json({ success: true, message: 'Troca de senha solicitada com sucesso! Aguarde aprovação do administrador.' });
@@ -261,8 +374,10 @@ app.post('/api/auth/users/solicitar-senha', async (req, res) => {
 
 app.post('/api/auth/users/:id_usuario/aprovar-senha', async (req, res) => {
   const id_usuario = parseInt(req.params.id_usuario);
+  const ip = extrairIpCliente(req);
+  const nome_computador = await resolverNomeComputador(req, ip);
   try {
-    await database.aprovar_senha_pendente(id_usuario);
+    await database.aprovar_senha_pendente(id_usuario, ip, nome_computador);
     return res.json({ success: true, message: 'Senha aprovada com sucesso.' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -271,8 +386,10 @@ app.post('/api/auth/users/:id_usuario/aprovar-senha', async (req, res) => {
 
 app.post('/api/auth/users/:id_usuario/rejeitar-senha', async (req, res) => {
   const id_usuario = parseInt(req.params.id_usuario);
+  const ip = extrairIpCliente(req);
+  const nome_computador = await resolverNomeComputador(req, ip);
   try {
-    await database.rejeitar_senha_pendente(id_usuario);
+    await database.rejeitar_senha_pendente(id_usuario, ip, nome_computador);
     return res.json({ success: true, message: 'Solicitação de troca de senha rejeitada.' });
   } catch (e) {
     return res.status(400).json({ success: false, message: e.message });
@@ -899,7 +1016,9 @@ app.get('/api/auditoria', async (req, res) => {
 app.post('/api/auditoria', async (req, res) => {
     try {
         const { id_usuario, nome_usuario, acao, detalhes } = req.body;
-        await database.registrar_log(id_usuario, nome_usuario, acao, detalhes);
+        const ip = req.body.ip || extrairIpCliente(req);
+        const nome_computador = req.body.nome_computador || await resolverNomeComputador(req, ip);
+        await database.registrar_log(id_usuario, nome_usuario, acao, detalhes, ip, nome_computador);
         res.json({ success: true });
     } catch (e) {
         console.error("Erro POST /api/auditoria:", e);

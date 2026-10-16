@@ -117,15 +117,29 @@ const LocalDB = {
         if (path === '/api/auth/login' && method === 'POST') {
             const users = this.get('usuarios');
             const inputUser = (body.usuario || '').trim().toLowerCase();
-            const user = users.find(u => {
+            const existingUser = users.find(u => {
                 const dbUser = (u.usuario || '').trim().toLowerCase();
-                const isUserMatch = dbUser === inputUser || 
+                return dbUser === inputUser || 
                     (['admin', 'admin@itec.com'].includes(inputUser) && ['admin', 'admin@itec.com'].includes(dbUser));
-                return isUserMatch && u.senha === body.senha;
             });
-            if (!user) return { success: false, message: 'E-mail ou senha incorretos!' };
-            if (user.status_aprovacao !== 'Aprovado') return { success: false, message: 'Sua conta aguarda aprovação do administrador.' };
-            return { success: true, message: `Bem-vindo, ${user.nome_usuario}!`, user };
+
+            if (!existingUser) {
+                return { success: false, message: 'E-mail não cadastrado no sistema.', code: 'USER_NOT_FOUND' };
+            }
+
+            if (existingUser.senha !== body.senha) {
+                return { success: false, message: 'Senha incorreta. Verifique a senha digitada e tente novamente.', code: 'INVALID_PASSWORD' };
+            }
+
+            if (existingUser.status_aprovacao !== 'Aprovado') {
+                return { success: false, message: 'Sua conta aguarda aprovação do administrador.', code: 'PENDING_APPROVAL' };
+            }
+
+            if (existingUser.ativo === false) {
+                return { success: false, message: 'Seu usuário está inativado no sistema. Entre em contato com o administrador.', code: 'USER_INACTIVE' };
+            }
+
+            return { success: true, message: `Bem-vindo, ${existingUser.nome_usuario}!`, user: existingUser };
         }
 
         // AUTH REGISTER
@@ -134,6 +148,8 @@ const LocalDB = {
             const units = this.get('unidades');
             const inputUser = (body.usuario || '').toLowerCase();
             if (users.find(u => u.usuario.toLowerCase() === inputUser)) return { success: false, message: 'Este e-mail já está cadastrado no sistema!' };
+            if (!body.senha || body.senha.length < 8) return { success: false, message: 'A senha deve possuir pelo menos 8 caracteres.' };
+            if (!/[A-Z]/.test(body.senha)) return { success: false, message: 'A senha deve conter pelo menos uma letra maiúscula.' };
             const unitObj = body.id_unidade ? units.find(x => x.id_unidade == body.id_unidade) : (units.length > 0 ? units[0] : null);
             const newUser = {
                 id_usuario: Date.now(),
@@ -213,6 +229,20 @@ const LocalDB = {
             }
         }
 
+        // VERIFICAR SE E-MAIL EXISTE NO SISTEMA
+        if (path.startsWith('/api/auth/verificar-email') && method === 'GET') {
+            const urlParts = path.split('?');
+            let emailParam = '';
+            if (urlParts.length > 1) {
+                const params = new URLSearchParams(urlParts[1]);
+                emailParam = (params.get('email') || '').trim().toLowerCase();
+            }
+            const users = this.get('usuarios');
+            const u = users.find(x => (x.usuario || '').trim().toLowerCase() === emailParam);
+            if (!u) return { success: true, exists: false, message: 'E-mail não cadastrado no sistema.' };
+            return { success: true, exists: true, nome_usuario: u.nome_usuario, ativo: u.ativo };
+        }
+
         // SOLICITAR TROCA DE SENHA
         if (path === '/api/auth/users/solicitar-senha' && method === 'POST') {
             const idUsuario = options.headers ? options.headers['X-User-Id'] : null;
@@ -220,6 +250,8 @@ const LocalDB = {
             const u = users.find(x => x.id_usuario == idUsuario);
             if (!u) return { success: false, message: 'Usuário não encontrado.' };
             if (u.senha !== body.senha_atual) return { success: false, message: 'Senha atual incorreta.' };
+            if (!body.nova_senha || body.nova_senha.length < 8) return { success: false, message: 'A nova senha deve possuir pelo menos 8 caracteres.' };
+            if (!/[A-Z]/.test(body.nova_senha)) return { success: false, message: 'A nova senha deve conter pelo menos uma letra maiúscula.' };
             u.senha_pendente = body.nova_senha;
             this.set('usuarios', users);
             return { success: true, message: 'Troca de senha solicitada com sucesso! Aguarde aprovação do administrador.' };
@@ -232,6 +264,8 @@ const LocalDB = {
             const u = users.find(x => (x.usuario || '').trim().toLowerCase() === inputUser);
             if (!u) return { success: false, message: 'E-mail não encontrado no sistema. Verifique o endereço digitado.' };
             if (u.ativo === false) return { success: false, message: 'Este usuário está inativo no sistema. Entre em contato com o administrador.' };
+            if (!body.nova_senha || body.nova_senha.length < 8) return { success: false, message: 'A nova senha deve possuir pelo menos 8 caracteres.' };
+            if (!/[A-Z]/.test(body.nova_senha)) return { success: false, message: 'A nova senha deve conter pelo menos uma letra maiúscula.' };
             u.senha_pendente = body.nova_senha;
             this.set('usuarios', users);
             return { 
@@ -926,6 +960,37 @@ const LocalDB = {
             return { success: true, time: new Date().toISOString() };
         }
 
+        // AUDITORIA (LOCALDB FALLBACK)
+        if (path === '/api/auditoria' && method === 'GET') {
+            let logs = this.get('auditoria') || [];
+            const dataIni = params.get('data_inicio');
+            const dataFim = params.get('data_fim');
+            const user = params.get('id_usuario');
+            const acao = params.get('acao');
+            if (dataIni) logs = logs.filter(l => (l.data_hora || '').substring(0, 10) >= dataIni);
+            if (dataFim) logs = logs.filter(l => (l.data_hora || '').substring(0, 10) <= dataFim);
+            if (user) logs = logs.filter(l => l.id_usuario == user);
+            if (acao) logs = logs.filter(l => l.acao === acao);
+            logs.sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
+            return { success: true, logs };
+        }
+        if (path === '/api/auditoria' && method === 'POST') {
+            let logs = this.get('auditoria') || [];
+            const parsed = typeof body === 'string' ? JSON.parse(body) : (body || {});
+            logs.push({
+                id_log: Date.now(),
+                data_hora: new Date().toISOString(),
+                id_usuario: parsed.id_usuario || null,
+                nome_usuario: parsed.nome_usuario || 'Sistema',
+                acao: parsed.acao || 'INFO',
+                detalhes: parsed.detalhes || '',
+                ip: parsed.ip || '127.0.0.1',
+                nome_computador: parsed.nome_computador || 'Computador Local'
+            });
+            this.set('auditoria', logs);
+            return { success: true };
+        }
+
         return { success: false, message: 'Rota não encontrada' };
     }
 };
@@ -952,6 +1017,18 @@ async function safeFetch(url, options = {}) {
             options.headers['X-User-Id'] = currentUser.id_usuario;
             options.headers['X-User-Nivel'] = currentUser.nivel_acesso;
         }
+
+        // Identificação amigável do dispositivo cliente
+        try {
+            const ua = navigator.userAgent || '';
+            let dev = 'Windows PC';
+            if (/windows/i.test(ua)) dev = 'Windows PC';
+            else if (/macintosh|mac os x/i.test(ua)) dev = 'Mac PC';
+            else if (/linux/i.test(ua)) dev = 'Linux PC';
+            else if (/android/i.test(ua)) dev = 'Android';
+            else if (/iphone|ipad/i.test(ua)) dev = 'iOS';
+            options.headers['X-Client-Computer'] = localStorage.getItem('app_device_name') || dev;
+        } catch(e) {}
 
         const res = await fetch(fetchUrl, options);
         if (res.status === 404) throw new Error("API não encontrada, alternando para LocalDB");
@@ -1161,24 +1238,79 @@ function toggleSidebar() {
     }
 }
 
+function limparErroLogin(campoId) {
+    const input = document.getElementById(campoId);
+    const feedback = document.getElementById(campoId + '-feedback');
+    if (input) input.classList.remove('input-error');
+    if (feedback) {
+        feedback.style.display = 'none';
+        feedback.textContent = '';
+    }
+}
+
 async function handleLogin(event) {
     event.preventDefault();
-    const usuario = document.getElementById('login-usuario').value.trim();
-    const senha = document.getElementById('login-senha').value.trim();
+    const usuarioInput = document.getElementById('login-usuario');
+    const senhaInput = document.getElementById('login-senha');
+    const feedbackUsuario = document.getElementById('login-usuario-feedback');
+    const feedbackSenha = document.getElementById('login-senha-feedback');
+    const btn = document.getElementById('btn-entrar');
 
-    const data = await safeFetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario, senha })
-    });
+    limparErroLogin('login-usuario');
+    limparErroLogin('login-senha');
 
-    if (data.success) {
-        currentUser = data.user;
-        setSessionUser(currentUser);
-        showToast(data.message, 'success');
-        iniciarAplicacao();
-    } else {
-        showToast(data.message, 'error');
+    const usuario = usuarioInput.value.trim();
+    const senha = senhaInput.value.trim();
+
+    if (!usuario || !senha) {
+        showToast('Informe o e-mail e a senha para entrar.', 'error');
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Entrando...';
+    }
+
+    try {
+        const data = await safeFetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario, senha })
+        });
+
+        if (data.success) {
+            currentUser = data.user;
+            setSessionUser(currentUser);
+            showToast(data.message, 'success');
+            iniciarAplicacao();
+        } else {
+            showToast(data.message, 'error');
+
+            if (data.code === 'INVALID_PASSWORD' || (data.message && data.message.toLowerCase().includes('senha incorreta'))) {
+                senhaInput.classList.add('input-error');
+                if (feedbackSenha) {
+                    feedbackSenha.style.display = 'flex';
+                    feedbackSenha.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Senha incorreta. Verifique a senha digitada ou redefina sua senha.';
+                }
+                senhaInput.focus();
+                senhaInput.select();
+            } else if (data.code === 'USER_NOT_FOUND' || (data.message && (data.message.toLowerCase().includes('não cadastrado') || data.message.toLowerCase().includes('não encontrado')))) {
+                usuarioInput.classList.add('input-error');
+                if (feedbackUsuario) {
+                    feedbackUsuario.style.display = 'flex';
+                    feedbackUsuario.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> E-mail não cadastrado no sistema.';
+                }
+                usuarioInput.focus();
+            }
+        }
+    } catch (e) {
+        showToast('Erro ao se conectar ao servidor.', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Entrar';
+        }
     }
 }
 
@@ -1189,6 +1321,21 @@ async function handleRegister(event) {
     const senha = document.getElementById('reg-senha').value.trim();
     const id_unidade = document.getElementById('reg-unidade')?.value || null;
 
+    if (!usuario || !senha || !nome_usuario) {
+        showToast('Preencha todos os campos obrigatórios.', 'error');
+        return;
+    }
+
+    if (senha.length < 8) {
+        showToast('A senha deve possuir pelo menos 8 caracteres.', 'error');
+        return;
+    }
+
+    if (!/[A-Z]/.test(senha)) {
+        showToast('A senha deve conter pelo menos uma letra maiúscula.', 'error');
+        return;
+    }
+
     const data = await safeFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1198,9 +1345,174 @@ async function handleRegister(event) {
     if (data.success) {
         showToast(data.message, 'success');
         document.getElementById('form-register').reset();
+        validarRegrasSenhaRegistroIndex();
         toggleAuthMode('login');
     } else {
         showToast(data.message, 'error');
+    }
+}
+
+let emailCheckTimeoutIndex = null;
+let lastCheckedEmailIndex = '';
+let emailExistsInSystemIndex = null;
+
+function agendarVerificacaoEmailIndex() {
+    clearTimeout(emailCheckTimeoutIndex);
+    const input = document.getElementById('forgot-usuario');
+    const feedback = document.getElementById('forgot-email-feedback');
+    if (feedback) feedback.style.display = 'none';
+    if (input) input.classList.remove('input-error', 'input-success');
+    emailExistsInSystemIndex = null;
+
+    emailCheckTimeoutIndex = setTimeout(() => {
+        verificarEmailEsqueciIndex(false);
+    }, 600);
+}
+
+async function verificarEmailEsqueciIndex(showToastOnError = false) {
+    const input = document.getElementById('forgot-usuario');
+    const feedback = document.getElementById('forgot-email-feedback');
+    if (!input || !feedback) return null;
+
+    const email = input.value.trim();
+    if (!email) {
+        feedback.style.display = 'none';
+        feedback.textContent = '';
+        input.classList.remove('input-error', 'input-success');
+        emailExistsInSystemIndex = null;
+        lastCheckedEmailIndex = '';
+        return null;
+    }
+
+    if (!email.includes('@') || !email.includes('.')) {
+        feedback.style.display = 'flex';
+        feedback.className = 'auth-field-feedback text-error';
+        feedback.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Formato de e-mail inválido.';
+        input.classList.add('input-error');
+        input.classList.remove('input-success');
+        emailExistsInSystemIndex = false;
+        if (showToastOnError) {
+            showToast('Por favor, informe um endereço de e-mail válido.', 'error');
+        }
+        return false;
+    }
+
+    try {
+        const data = await safeFetch(`/api/auth/verificar-email?email=${encodeURIComponent(email)}`);
+        lastCheckedEmailIndex = email;
+
+        if (data && data.exists) {
+            emailExistsInSystemIndex = true;
+            input.classList.remove('input-error');
+            input.classList.add('input-success');
+            feedback.style.display = 'flex';
+            feedback.className = 'auth-field-feedback text-success';
+            feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> E-mail verificado (${data.nome_usuario || 'Usuário cadastrado'})`;
+            return true;
+        } else {
+            emailExistsInSystemIndex = false;
+            input.classList.add('input-error');
+            input.classList.remove('input-success');
+            feedback.style.display = 'flex';
+            feedback.className = 'auth-field-feedback text-error';
+            feedback.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Este e-mail não está cadastrado no sistema.';
+            if (showToastOnError) {
+                showToast('O e-mail informado não está cadastrado no sistema.', 'error');
+            }
+            return false;
+        }
+    } catch (err) {
+        console.warn('Falha na checagem de e-mail:', err);
+        return null;
+    }
+}
+
+function validarRegrasSenhaEsqueciIndex() {
+    const input = document.getElementById('forgot-senha');
+    const ruleLen = document.getElementById('forgot-rule-length');
+    const ruleUpper = document.getElementById('forgot-rule-upper');
+    if (!input || !ruleLen || !ruleUpper) return;
+
+    const val = input.value;
+    
+    // Regra tamanho mínimo 8
+    if (val.length >= 8) {
+        ruleLen.classList.add('valid');
+        ruleLen.classList.remove('invalid');
+        ruleLen.querySelector('i').className = 'fa-solid fa-circle-check';
+    } else {
+        ruleLen.classList.remove('valid');
+        ruleLen.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+        if (val.length > 0) ruleLen.classList.add('invalid'); else ruleLen.classList.remove('invalid');
+    }
+
+    // Regra letra maiúscula
+    if (/[A-Z]/.test(val)) {
+        ruleUpper.classList.add('valid');
+        ruleUpper.classList.remove('invalid');
+        ruleUpper.querySelector('i').className = 'fa-solid fa-circle-check';
+    } else {
+        ruleUpper.classList.remove('valid');
+        ruleUpper.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+        if (val.length > 0) ruleUpper.classList.add('invalid'); else ruleUpper.classList.remove('invalid');
+    }
+
+    validarConfirmacaoSenhaEsqueciIndex();
+}
+
+function validarConfirmacaoSenhaEsqueciIndex() {
+    const senha = document.getElementById('forgot-senha');
+    const confirma = document.getElementById('forgot-confirma-senha');
+    const feedback = document.getElementById('forgot-match-feedback');
+    if (!senha || !confirma || !feedback) return;
+
+    if (!confirma.value) {
+        feedback.style.display = 'none';
+        feedback.textContent = '';
+        confirma.classList.remove('input-error', 'input-success');
+        return;
+    }
+
+    if (senha.value !== confirma.value) {
+        feedback.style.display = 'flex';
+        feedback.className = 'auth-field-feedback text-error';
+        feedback.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> As senhas não coincidem.';
+        confirma.classList.add('input-error');
+        confirma.classList.remove('input-success');
+    } else {
+        feedback.style.display = 'flex';
+        feedback.className = 'auth-field-feedback text-success';
+        feedback.innerHTML = '<i class="fa-solid fa-circle-check"></i> As senhas coincidem.';
+        confirma.classList.remove('input-error');
+        confirma.classList.add('input-success');
+    }
+}
+
+function validarRegrasSenhaRegistroIndex() {
+    const input = document.getElementById('reg-senha');
+    const ruleLen = document.getElementById('reg-rule-length');
+    const ruleUpper = document.getElementById('reg-rule-upper');
+    if (!input || !ruleLen || !ruleUpper) return;
+
+    const val = input.value;
+    if (val.length >= 8) {
+        ruleLen.classList.add('valid');
+        ruleLen.classList.remove('invalid');
+        ruleLen.querySelector('i').className = 'fa-solid fa-circle-check';
+    } else {
+        ruleLen.classList.remove('valid');
+        ruleLen.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+        if (val.length > 0) ruleLen.classList.add('invalid'); else ruleLen.classList.remove('invalid');
+    }
+
+    if (/[A-Z]/.test(val)) {
+        ruleUpper.classList.add('valid');
+        ruleUpper.classList.remove('invalid');
+        ruleUpper.querySelector('i').className = 'fa-solid fa-circle-check';
+    } else {
+        ruleUpper.classList.remove('valid');
+        ruleUpper.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+        if (val.length > 0) ruleUpper.classList.add('invalid'); else ruleUpper.classList.remove('invalid');
     }
 }
 
@@ -1212,17 +1524,31 @@ async function handleForgotPassword(event) {
     const btn = document.getElementById('btn-forgot');
 
     if (!usuario || !senha) {
-        showToast('Preencha todos os campos.', 'error');
+        showToast('Preencha todos os campos obrigatórios.', 'error');
         return;
     }
 
-    if (senha.length < 4) {
-        showToast('A nova senha deve possuir pelo menos 4 caracteres.', 'error');
+    if (senha.length < 8) {
+        showToast('A nova senha deve possuir pelo menos 8 caracteres.', 'error');
+        document.getElementById('forgot-senha').focus();
+        return;
+    }
+
+    if (!/[A-Z]/.test(senha)) {
+        showToast('A nova senha deve conter pelo menos uma letra maiúscula.', 'error');
+        document.getElementById('forgot-senha').focus();
         return;
     }
 
     if (senha !== confirma) {
         showToast('As senhas não coincidem. Digite novamente.', 'error');
+        document.getElementById('forgot-confirma-senha').focus();
+        return;
+    }
+
+    if (emailExistsInSystemIndex === false && lastCheckedEmailIndex === usuario) {
+        showToast('O e-mail informado não está cadastrado no sistema.', 'error');
+        document.getElementById('forgot-usuario').focus();
         return;
     }
 
@@ -1241,11 +1567,29 @@ async function handleForgotPassword(event) {
         if (data.success) {
             showToast(data.message, 'success');
             document.getElementById('form-forgot').reset();
+            const fbEmail = document.getElementById('forgot-email-feedback');
+            const fbMatch = document.getElementById('forgot-match-feedback');
+            if (fbEmail) fbEmail.style.display = 'none';
+            if (fbMatch) fbMatch.style.display = 'none';
+            document.getElementById('forgot-usuario').classList.remove('input-success', 'input-error');
+            document.getElementById('forgot-confirma-senha').classList.remove('input-success', 'input-error');
+            validarRegrasSenhaEsqueciIndex();
             setTimeout(() => {
                 toggleAuthMode('login');
-            }, 2000);
+            }, 2500);
         } else {
             showToast(data.message, 'error');
+            if (data.message && data.message.toLowerCase().includes('não encontrado')) {
+                const inputEmail = document.getElementById('forgot-usuario');
+                const feedbackEmail = document.getElementById('forgot-email-feedback');
+                inputEmail.classList.add('input-error');
+                inputEmail.classList.remove('input-success');
+                if (feedbackEmail) {
+                    feedbackEmail.style.display = 'flex';
+                    feedbackEmail.className = 'auth-field-feedback text-error';
+                    feedbackEmail.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Este e-mail não está cadastrado no sistema.';
+                }
+            }
         }
     } catch (e) {
         showToast('Erro ao se conectar ao servidor.', 'error');
@@ -3530,6 +3874,7 @@ async function carregarUsuarios() {
                 });
             }
             renderizarTabelaUsuarios();
+            atualizarBadgeUsuariosPendentes();
         } else {
             const tbody = document.getElementById('table-usuarios-body');
             if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
@@ -3572,8 +3917,13 @@ function renderizarTabelaUsuarios() {
     if (buscaStatus) {
         filtrados = filtrados.filter(u => {
             const isAtivo = u.ativo !== false;
+            const hasSenhaPendente = Boolean(u.senha_pendente && String(u.senha_pendente).trim());
+            const isCadastroPendente = u.status_aprovacao === 'Pendente';
+
             if (buscaStatus === 'Aprovados') return (u.status_aprovacao === 'Aprovado' || !u.status_aprovacao) && isAtivo;
-            if (buscaStatus === 'Pendentes') return u.status_aprovacao === 'Pendente';
+            if (buscaStatus === 'Pendentes') return isCadastroPendente || hasSenhaPendente;
+            if (buscaStatus === 'SenhasPendentes') return hasSenhaPendente;
+            if (buscaStatus === 'CadastrosPendentes') return isCadastroPendente;
             if (buscaStatus === 'Inativos') return !isAtivo;
             if (buscaStatus === 'Rejeitados') return u.status_aprovacao === 'Rejeitado';
             return true;
@@ -3959,6 +4309,16 @@ async function solicitarTrocaSenha(event) {
     event.preventDefault();
     const senha_atual = document.getElementById('ts-senha-atual').value;
     const nova_senha = document.getElementById('ts-nova-senha').value;
+
+    if (!nova_senha || nova_senha.length < 8) {
+        showToast('A nova senha deve possuir pelo menos 8 caracteres.', 'error');
+        return;
+    }
+
+    if (!/[A-Z]/.test(nova_senha)) {
+        showToast('A nova senha deve conter pelo menos uma letra maiúscula.', 'error');
+        return;
+    }
 
     const result = await safeFetch('/api/auth/users/solicitar-senha', {
         method: 'POST',
@@ -4649,21 +5009,44 @@ function imprimirRelatorioSugestaoCompras() {
 }
 
 async function atualizarBadgeUsuariosPendentes() {
-    if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+    if (typeof currentUser === 'undefined' || !currentUser || currentUser.nivel_acesso !== 'Administrador') {
+        return;
+    }
+    try {
         const result = await safeFetch('/api/auth/users');
-        if (result.success && result.users) {
-            const pendentes = result.users.filter(u => u.status_aprovacao === 'Pendente').length;
+        if (result && result.success && Array.isArray(result.users)) {
+            const cadastrosPendentes = result.users.filter(u => u.status_aprovacao === 'Pendente').length;
+            const senhasPendentes = result.users.filter(u => Boolean(u.senha_pendente && String(u.senha_pendente).trim())).length;
+            const totalPendentes = cadastrosPendentes + senhasPendentes;
+
             const badges = document.querySelectorAll('#badge-usuarios-pendentes');
             badges.forEach(badge => {
-                if (pendentes > 0) {
-                    badge.textContent = pendentes;
+                if (totalPendentes > 0) {
+                    badge.textContent = totalPendentes;
                     badge.style.display = 'inline-block';
+
+                    const detalhes = [];
+                    if (cadastrosPendentes > 0) detalhes.push(`${cadastrosPendentes} novo(s) cadastro(s)`);
+                    if (senhasPendentes > 0) detalhes.push(`${senhasPendentes} mudança(s) de senha`);
+                    badge.title = `Pendências de Usuários: ${detalhes.join(' • ')}`;
                 } else {
                     badge.style.display = 'none';
+                    badge.title = '';
                 }
             });
         }
+    } catch (e) {
+        console.warn("Erro ao atualizar badge de pendências:", e);
     }
+}
+
+// Polling do badge de pendências a cada 20 segundos para administradores
+if (!window._intervalBadgeUsuarios) {
+    window._intervalBadgeUsuarios = setInterval(() => {
+        if (typeof currentUser !== 'undefined' && currentUser && currentUser.nivel_acesso === 'Administrador') {
+            atualizarBadgeUsuariosPendentes();
+        }
+    }, 20000);
 }
 
 // ============================================================================
@@ -7217,7 +7600,7 @@ async function preencherFiltroUsuariosAuditoria() {
 async function carregarAuditoria() {
     const tb = document.getElementById('table-auditoria-body');
     if (!tb) return;
-    tb.innerHTML = '<tr><td colspan="4" class="text-center">Carregando...</td></tr>';
+    tb.innerHTML = '<tr><td colspan="6" class="text-center">Carregando...</td></tr>';
 
     const dataIni = document.getElementById('filter-auditoria-inicio').value;
     const dataFim = document.getElementById('filter-auditoria-fim').value;
@@ -7232,27 +7615,30 @@ async function carregarAuditoria() {
 
     try {
         const result = await safeFetch(url);
-        if (result.success && result.logs.length > 0) {
+        if (result.success && result.logs && result.logs.length > 0) {
             tb.innerHTML = result.logs.map(log => {
                 const dt = new Date(log.data_hora);
                 const dataFmt = dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR');
                 let badgeClass = 'badge-primary';
                 if (log.acao === 'LOGOUT') badgeClass = 'badge-secondary';
-                if (log.acao.includes('EXCLUSÃO') || log.acao.includes('EXCLUSAO') || log.acao === 'DELETE') badgeClass = 'badge-danger';
+                if (log.acao.includes('EXCLUSÃO') || log.acao.includes('EXCLUSAO') || log.acao === 'DELETE' || log.acao === 'SENHA_REJEITADA') badgeClass = 'badge-danger';
+                if (log.acao === 'SENHA_APROVADA') badgeClass = 'badge-success';
                 
                 return `
                     <tr>
                         <td>${dataFmt}</td>
                         <td>${log.nome_usuario || 'Desconhecido'}</td>
                         <td><span class="badge ${badgeClass}">${log.acao}</span></td>
+                        <td><code>${log.ip || '-'}</code></td>
+                        <td><strong>${log.nome_computador || '-'}</strong></td>
                         <td>${log.detalhes || ''}</td>
                     </tr>
                 `;
             }).join('');
         } else {
-            tb.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum log encontrado.</td></tr>';
+            tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum log encontrado.</td></tr>';
         }
     } catch (e) {
-        tb.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Erro ao carregar logs.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar logs.</td></tr>';
     }
 }

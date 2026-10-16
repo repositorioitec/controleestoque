@@ -58,7 +58,8 @@
                     <form id="form-login" onsubmit="executarLogin(event)">
                         <div class="auth-form-group">
                             <label for="login-usuario">E-mail</label>
-                            <input type="email" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username">
+                            <input type="email" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" oninput="limparErroLogin('login-usuario')">
+                            <div id="login-usuario-feedback" class="auth-field-feedback text-error" style="display: none;"></div>
                         </div>
                         <div class="auth-form-group">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -66,11 +67,12 @@
                                 <a href="#" onclick="trocarParaEsqueci(event)" style="font-size: 0.82rem; color: #0f67b1; text-decoration: none; font-weight: 500;">Esqueci a minha senha</a>
                             </div>
                             <div class="auth-password-wrapper">
-                                <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password">
+                                <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password" oninput="limparErroLogin('login-senha')">
                                 <button type="button" class="auth-toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                     <i class="fa-regular fa-eye"></i>
                                 </button>
                             </div>
+                            <div id="login-senha-feedback" class="auth-field-feedback text-error" style="display: none;"></div>
                         </div>
                         <button type="submit" id="btn-entrar" class="auth-submit-btn">
                             Entrar
@@ -91,25 +93,35 @@
                     <form id="form-forgot" onsubmit="executarEsqueciSenha(event)">
                         <div class="auth-form-group">
                             <label for="forgot-usuario">E-mail Cadastrado *</label>
-                            <input type="email" id="forgot-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username">
+                            <input type="email" id="forgot-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" oninput="agendarVerificacaoEmail()" onblur="verificarEmailEsqueci(true)">
+                            <div id="forgot-email-feedback" class="auth-field-feedback" style="display: none;"></div>
                         </div>
                         <div class="auth-form-group">
                             <label for="forgot-senha">Nova Senha *</label>
                             <div class="auth-password-wrapper">
-                                <input type="password" id="forgot-senha" class="auth-input" placeholder="Crie uma nova senha segura" required autocomplete="new-password">
+                                <input type="password" id="forgot-senha" class="auth-input" placeholder="Crie uma nova senha segura" required autocomplete="new-password" oninput="validarRegrasSenhaEsqueci()">
                                 <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                     <i class="fa-regular fa-eye"></i>
                                 </button>
+                            </div>
+                            <div class="auth-password-rules" id="forgot-pwd-rules">
+                                <div class="pwd-rule-item" id="forgot-rule-length">
+                                    <i class="fa-regular fa-circle"></i> Mínimo de 8 caracteres
+                                </div>
+                                <div class="pwd-rule-item" id="forgot-rule-upper">
+                                    <i class="fa-regular fa-circle"></i> Pelo menos 1 letra maiúscula
+                                </div>
                             </div>
                         </div>
                         <div class="auth-form-group">
                             <label for="forgot-confirma-senha">Confirmar Nova Senha *</label>
                             <div class="auth-password-wrapper">
-                                <input type="password" id="forgot-confirma-senha" class="auth-input" placeholder="Repita a nova senha" required autocomplete="new-password">
+                                <input type="password" id="forgot-confirma-senha" class="auth-input" placeholder="Repita a nova senha" required autocomplete="new-password" oninput="validarConfirmacaoSenhaEsqueci()">
                                 <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-confirma-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                     <i class="fa-regular fa-eye"></i>
                                 </button>
                             </div>
+                            <div id="forgot-match-feedback" class="auth-field-feedback" style="display: none;"></div>
                         </div>
                         <div class="auth-info-notice" style="margin-bottom: 16px;">
                             <i class="fa-solid fa-circle-info"></i> <span>Sua nova senha ficará como <strong>Pendente</strong> até ser aprovada pelo Administrador.</span>
@@ -142,10 +154,18 @@
                         <div class="auth-form-group">
                             <label for="reg-senha">Senha *</label>
                             <div class="auth-password-wrapper">
-                                <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password">
+                                <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password" oninput="validarRegrasSenhaRegistro()">
                                 <button type="button" class="auth-toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                     <i class="fa-regular fa-eye"></i>
                                 </button>
+                            </div>
+                            <div class="auth-password-rules" id="reg-pwd-rules">
+                                <div class="pwd-rule-item" id="reg-rule-length">
+                                    <i class="fa-regular fa-circle"></i> Mínimo de 8 caracteres
+                                </div>
+                                <div class="pwd-rule-item" id="reg-rule-upper">
+                                    <i class="fa-regular fa-circle"></i> Pelo menos 1 letra maiúscula
+                                </div>
                             </div>
                         </div>
                         <div class="auth-form-group">
@@ -265,11 +285,34 @@
             document.getElementById('login-box').classList.add('active');
         }
 
+        function limparErroLogin(campoId) {
+            const input = document.getElementById(campoId);
+            const feedback = document.getElementById(campoId + '-feedback');
+            if (input) input.classList.remove('input-error');
+            if (feedback) {
+                feedback.style.display = 'none';
+                feedback.textContent = '';
+            }
+        }
+
         async function executarLogin(event) {
             event.preventDefault();
-            const usuario = document.getElementById('login-usuario').value.trim();
-            const senha = document.getElementById('login-senha').value.trim();
+            const usuarioInput = document.getElementById('login-usuario');
+            const senhaInput = document.getElementById('login-senha');
+            const feedbackUsuario = document.getElementById('login-usuario-feedback');
+            const feedbackSenha = document.getElementById('login-senha-feedback');
             const btn = document.getElementById('btn-entrar');
+
+            limparErroLogin('login-usuario');
+            limparErroLogin('login-senha');
+
+            const usuario = usuarioInput.value.trim();
+            const senha = senhaInput.value.trim();
+
+            if (!usuario || !senha) {
+                showToast('Informe o e-mail e a senha para entrar.', 'error');
+                return;
+            }
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Entrando...';
@@ -290,6 +333,24 @@
                     }, 800);
                 } else {
                     showToast(data.message, 'error');
+
+                    if (data.code === 'INVALID_PASSWORD' || (data.message && data.message.toLowerCase().includes('senha incorreta'))) {
+                        senhaInput.classList.add('input-error');
+                        if (feedbackSenha) {
+                            feedbackSenha.style.display = 'flex';
+                            feedbackSenha.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Senha incorreta. Verifique a senha digitada ou clique em "Esqueci a minha senha".';
+                        }
+                        senhaInput.focus();
+                        senhaInput.select();
+                    } else if (data.code === 'USER_NOT_FOUND' || (data.message && (data.message.toLowerCase().includes('não cadastrado') || data.message.toLowerCase().includes('não encontrado')))) {
+                        usuarioInput.classList.add('input-error');
+                        if (feedbackUsuario) {
+                            feedbackUsuario.style.display = 'flex';
+                            feedbackUsuario.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> E-mail não cadastrado no sistema.';
+                        }
+                        usuarioInput.focus();
+                    }
+
                     btn.disabled = false;
                     btn.innerHTML = 'Entrar';
                 }
@@ -309,6 +370,16 @@
             const id_unidade = document.getElementById('reg-unidade').value;
             const btn = document.getElementById('btn-registrar');
 
+            if (senha.length < 8) {
+                showToast('A senha deve possuir pelo menos 8 caracteres.', 'error');
+                return;
+            }
+
+            if (!/[A-Z]/.test(senha)) {
+                showToast('A senha deve conter pelo menos uma letra maiúscula.', 'error');
+                return;
+            }
+
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cadastrando...';
 
@@ -323,6 +394,7 @@
                 if (data.success) {
                     showToast(data.message, 'success');
                     document.getElementById('form-register').reset();
+                    validarRegrasSenhaRegistro();
                     trocarParaLogin();
                 } else {
                     showToast(data.message, 'error');
@@ -335,6 +407,171 @@
             }
         }
 
+        let emailCheckTimeout = null;
+        let lastCheckedEmail = '';
+        let emailExistsInSystem = null;
+
+        function agendarVerificacaoEmail() {
+            clearTimeout(emailCheckTimeout);
+            const input = document.getElementById('forgot-usuario');
+            const feedback = document.getElementById('forgot-email-feedback');
+            if (feedback) feedback.style.display = 'none';
+            if (input) input.classList.remove('input-error', 'input-success');
+            emailExistsInSystem = null;
+
+            emailCheckTimeout = setTimeout(() => {
+                verificarEmailEsqueci(false);
+            }, 600);
+        }
+
+        async function verificarEmailEsqueci(showToastOnError = false) {
+            const input = document.getElementById('forgot-usuario');
+            const feedback = document.getElementById('forgot-email-feedback');
+            if (!input || !feedback) return null;
+
+            const email = input.value.trim();
+            if (!email) {
+                feedback.style.display = 'none';
+                feedback.textContent = '';
+                input.classList.remove('input-error', 'input-success');
+                emailExistsInSystem = null;
+                lastCheckedEmail = '';
+                return null;
+            }
+
+            if (!email.includes('@') || !email.includes('.')) {
+                feedback.style.display = 'flex';
+                feedback.className = 'auth-field-feedback text-error';
+                feedback.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Formato de e-mail inválido.';
+                input.classList.add('input-error');
+                input.classList.remove('input-success');
+                emailExistsInSystem = false;
+                if (showToastOnError) {
+                    showToast('Por favor, informe um endereço de e-mail válido.', 'error');
+                }
+                return false;
+            }
+
+            try {
+                const response = await fetch(`/api/auth/verificar-email?email=${encodeURIComponent(email)}`);
+                const data = await response.json();
+                lastCheckedEmail = email;
+
+                if (data && data.exists) {
+                    emailExistsInSystem = true;
+                    input.classList.remove('input-error');
+                    input.classList.add('input-success');
+                    feedback.style.display = 'flex';
+                    feedback.className = 'auth-field-feedback text-success';
+                    feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> E-mail verificado (${data.nome_usuario || 'Usuário cadastrado'})`;
+                    return true;
+                } else {
+                    emailExistsInSystem = false;
+                    input.classList.add('input-error');
+                    input.classList.remove('input-success');
+                    feedback.style.display = 'flex';
+                    feedback.className = 'auth-field-feedback text-error';
+                    feedback.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Este e-mail não está cadastrado no sistema.';
+                    if (showToastOnError) {
+                        showToast('O e-mail informado não está cadastrado no sistema.', 'error');
+                    }
+                    return false;
+                }
+            } catch (err) {
+                console.warn('Falha na checagem de e-mail:', err);
+                return null;
+            }
+        }
+
+        function validarRegrasSenhaEsqueci() {
+            const input = document.getElementById('forgot-senha');
+            const ruleLen = document.getElementById('forgot-rule-length');
+            const ruleUpper = document.getElementById('forgot-rule-upper');
+            if (!input || !ruleLen || !ruleUpper) return;
+
+            const val = input.value;
+            
+            // Regra tamanho mínimo 8
+            if (val.length >= 8) {
+                ruleLen.classList.add('valid');
+                ruleLen.classList.remove('invalid');
+                ruleLen.querySelector('i').className = 'fa-solid fa-circle-check';
+            } else {
+                ruleLen.classList.remove('valid');
+                ruleLen.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+                if (val.length > 0) ruleLen.classList.add('invalid'); else ruleLen.classList.remove('invalid');
+            }
+
+            // Regra letra maiúscula
+            if (/[A-Z]/.test(val)) {
+                ruleUpper.classList.add('valid');
+                ruleUpper.classList.remove('invalid');
+                ruleUpper.querySelector('i').className = 'fa-solid fa-circle-check';
+            } else {
+                ruleUpper.classList.remove('valid');
+                ruleUpper.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+                if (val.length > 0) ruleUpper.classList.add('invalid'); else ruleUpper.classList.remove('invalid');
+            }
+
+            validarConfirmacaoSenhaEsqueci();
+        }
+
+        function validarConfirmacaoSenhaEsqueci() {
+            const senha = document.getElementById('forgot-senha');
+            const confirma = document.getElementById('forgot-confirma-senha');
+            const feedback = document.getElementById('forgot-match-feedback');
+            if (!senha || !confirma || !feedback) return;
+
+            if (!confirma.value) {
+                feedback.style.display = 'none';
+                feedback.textContent = '';
+                confirma.classList.remove('input-error', 'input-success');
+                return;
+            }
+
+            if (senha.value !== confirma.value) {
+                feedback.style.display = 'flex';
+                feedback.className = 'auth-field-feedback text-error';
+                feedback.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> As senhas não coincidem.';
+                confirma.classList.add('input-error');
+                confirma.classList.remove('input-success');
+            } else {
+                feedback.style.display = 'flex';
+                feedback.className = 'auth-field-feedback text-success';
+                feedback.innerHTML = '<i class="fa-solid fa-circle-check"></i> As senhas coincidem.';
+                confirma.classList.remove('input-error');
+                confirma.classList.add('input-success');
+            }
+        }
+
+        function validarRegrasSenhaRegistro() {
+            const input = document.getElementById('reg-senha');
+            const ruleLen = document.getElementById('reg-rule-length');
+            const ruleUpper = document.getElementById('reg-rule-upper');
+            if (!input || !ruleLen || !ruleUpper) return;
+
+            const val = input.value;
+            if (val.length >= 8) {
+                ruleLen.classList.add('valid');
+                ruleLen.classList.remove('invalid');
+                ruleLen.querySelector('i').className = 'fa-solid fa-circle-check';
+            } else {
+                ruleLen.classList.remove('valid');
+                ruleLen.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+                if (val.length > 0) ruleLen.classList.add('invalid'); else ruleLen.classList.remove('invalid');
+            }
+
+            if (/[A-Z]/.test(val)) {
+                ruleUpper.classList.add('valid');
+                ruleUpper.classList.remove('invalid');
+                ruleUpper.querySelector('i').className = 'fa-solid fa-circle-check';
+            } else {
+                ruleUpper.classList.remove('valid');
+                ruleUpper.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
+                if (val.length > 0) ruleUpper.classList.add('invalid'); else ruleUpper.classList.remove('invalid');
+            }
+        }
+
         async function executarEsqueciSenha(event) {
             event.preventDefault();
             const usuario = document.getElementById('forgot-usuario').value.trim();
@@ -343,17 +580,31 @@
             const btn = document.getElementById('btn-forgot');
 
             if (!usuario || !senha) {
-                showToast('Preencha todos os campos.', 'error');
+                showToast('Preencha todos os campos obrigatórios.', 'error');
                 return;
             }
 
-            if (senha.length < 4) {
-                showToast('A nova senha deve possuir pelo menos 4 caracteres.', 'error');
+            if (senha.length < 8) {
+                showToast('A nova senha deve possuir pelo menos 8 caracteres.', 'error');
+                document.getElementById('forgot-senha').focus();
+                return;
+            }
+
+            if (!/[A-Z]/.test(senha)) {
+                showToast('A nova senha deve conter pelo menos uma letra maiúscula.', 'error');
+                document.getElementById('forgot-senha').focus();
                 return;
             }
 
             if (senha !== confirma) {
                 showToast('As senhas não coincidem. Digite novamente.', 'error');
+                document.getElementById('forgot-confirma-senha').focus();
+                return;
+            }
+
+            if (emailExistsInSystem === false && lastCheckedEmail === usuario) {
+                showToast('O e-mail informado não está cadastrado no sistema.', 'error');
+                document.getElementById('forgot-usuario').focus();
                 return;
             }
 
@@ -371,11 +622,29 @@
                 if (data.success) {
                     showToast(data.message, 'success');
                     document.getElementById('form-forgot').reset();
+                    const fbEmail = document.getElementById('forgot-email-feedback');
+                    const fbMatch = document.getElementById('forgot-match-feedback');
+                    if (fbEmail) fbEmail.style.display = 'none';
+                    if (fbMatch) fbMatch.style.display = 'none';
+                    document.getElementById('forgot-usuario').classList.remove('input-success', 'input-error');
+                    document.getElementById('forgot-confirma-senha').classList.remove('input-success', 'input-error');
+                    validarRegrasSenhaEsqueci();
                     setTimeout(() => {
                         trocarParaLogin();
-                    }, 2000);
+                    }, 2500);
                 } else {
                     showToast(data.message, 'error');
+                    if (data.message && data.message.toLowerCase().includes('não encontrado')) {
+                        const inputEmail = document.getElementById('forgot-usuario');
+                        const feedbackEmail = document.getElementById('forgot-email-feedback');
+                        inputEmail.classList.add('input-error');
+                        inputEmail.classList.remove('input-success');
+                        if (feedbackEmail) {
+                            feedbackEmail.style.display = 'flex';
+                            feedbackEmail.className = 'auth-field-feedback text-error';
+                            feedbackEmail.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Este e-mail não está cadastrado no sistema.';
+                        }
+                    }
                 }
             } catch (error) {
                 showToast('Erro ao se conectar ao servidor.', 'error');

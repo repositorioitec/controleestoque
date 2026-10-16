@@ -554,6 +554,85 @@ a:hover {
     text-transform: none !important;
 }
 
+/* Validações e Feedback nos Formulários de Autenticação */
+.auth-input.input-error,
+input.auth-input.input-error {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2 !important;
+}
+
+.auth-input.input-error:focus,
+input.auth-input.input-error:focus {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18) !important;
+}
+
+.auth-input.input-success,
+input.auth-input.input-success {
+    border-color: #10b981 !important;
+    background-color: #f0fdf4 !important;
+}
+
+.auth-input.input-success:focus,
+input.auth-input.input-success:focus {
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18) !important;
+}
+
+.auth-field-feedback {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13.5px;
+    margin-top: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    text-transform: none !important;
+}
+
+.auth-field-feedback.text-error {
+    color: #dc2626 !important;
+}
+
+.auth-field-feedback.text-success {
+    color: #16a34a !important;
+}
+
+.auth-password-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #64748b;
+    text-transform: none !important;
+}
+
+.pwd-rule-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    text-transform: none !important;
+}
+
+.pwd-rule-item i {
+    font-size: 13px;
+    width: 14px;
+    text-align: center;
+}
+
+.pwd-rule-item.valid {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.pwd-rule-item.invalid {
+    color: #dc2626;
+}
+
 /* Responsividade Mobile e Tablets */
 @media (max-width: 992px) {
     .auth-split-container {

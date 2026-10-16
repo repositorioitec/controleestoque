@@ -71,7 +71,8 @@
                         <form id="form-login" onsubmit="handleLogin(event)">
                             <div class="auth-form-group">
                                 <label for="login-usuario">E-mail</label>
-                                <input type="text" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;">
+                                <input type="text" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;" oninput="limparErroLogin('login-usuario')">
+                                <div id="login-usuario-feedback" class="auth-field-feedback text-error" style="display: none;"></div>
                             </div>
                             <div class="auth-form-group">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -79,11 +80,12 @@
                                     <a href="#" onclick="toggleAuthMode('forgot')" style="font-size: 0.82rem; color: #0f67b1; text-decoration: none; font-weight: 500;">Esqueci a minha senha</a>
                                 </div>
                                 <div class="auth-password-wrapper">
-                                    <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;">
+                                    <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;" oninput="limparErroLogin('login-senha')">
                                     <button type="button" class="auth-toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
                                 </div>
+                                <div id="login-senha-feedback" class="auth-field-feedback text-error" style="display: none;"></div>
                             </div>
                             <button type="submit" id="btn-entrar" class="auth-submit-btn">
                                 Entrar
@@ -104,25 +106,35 @@
                         <form id="form-forgot" onsubmit="handleForgotPassword(event)">
                             <div class="auth-form-group">
                                 <label for="forgot-usuario">E-mail Cadastrado *</label>
-                                <input type="email" id="forgot-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;">
+                                <input type="email" id="forgot-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;" oninput="agendarVerificacaoEmailIndex()" onblur="verificarEmailEsqueciIndex(true)">
+                                <div id="forgot-email-feedback" class="auth-field-feedback" style="display: none;"></div>
                             </div>
                             <div class="auth-form-group">
                                 <label for="forgot-senha">Nova Senha *</label>
                                 <div class="auth-password-wrapper">
-                                    <input type="password" id="forgot-senha" class="auth-input" placeholder="Crie uma nova senha segura" required autocomplete="new-password" style="text-transform: none;">
+                                    <input type="password" id="forgot-senha" class="auth-input" placeholder="Crie uma nova senha segura" required autocomplete="new-password" style="text-transform: none;" oninput="validarRegrasSenhaEsqueciIndex()">
                                     <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
+                                </div>
+                                <div class="auth-password-rules" id="forgot-pwd-rules">
+                                    <div class="pwd-rule-item" id="forgot-rule-length">
+                                        <i class="fa-regular fa-circle"></i> Mínimo de 8 caracteres
+                                    </div>
+                                    <div class="pwd-rule-item" id="forgot-rule-upper">
+                                        <i class="fa-regular fa-circle"></i> Pelo menos 1 letra maiúscula
+                                    </div>
                                 </div>
                             </div>
                             <div class="auth-form-group">
                                 <label for="forgot-confirma-senha">Confirmar Nova Senha *</label>
                                 <div class="auth-password-wrapper">
-                                    <input type="password" id="forgot-confirma-senha" class="auth-input" placeholder="Repita a nova senha" required autocomplete="new-password" style="text-transform: none;">
+                                    <input type="password" id="forgot-confirma-senha" class="auth-input" placeholder="Repita a nova senha" required autocomplete="new-password" style="text-transform: none;" oninput="validarConfirmacaoSenhaEsqueciIndex()">
                                     <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-confirma-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
                                 </div>
+                                <div id="forgot-match-feedback" class="auth-field-feedback" style="display: none;"></div>
                             </div>
                             <div class="auth-info-notice" style="margin-bottom: 16px;">
                                 <i class="fa-solid fa-circle-info"></i> <span>Sua nova senha ficará como <strong>Pendente</strong> até ser aprovada pelo Administrador.</span>
@@ -155,10 +167,18 @@
                             <div class="auth-form-group">
                                 <label for="reg-senha">Senha *</label>
                                 <div class="auth-password-wrapper">
-                                    <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password">
+                                    <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password" oninput="validarRegrasSenhaRegistroIndex()">
                                     <button type="button" class="auth-toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
+                                </div>
+                                <div class="auth-password-rules" id="reg-pwd-rules">
+                                    <div class="pwd-rule-item" id="reg-rule-length">
+                                        <i class="fa-regular fa-circle"></i> Mínimo de 8 caracteres
+                                    </div>
+                                    <div class="pwd-rule-item" id="reg-rule-upper">
+                                        <i class="fa-regular fa-circle"></i> Pelo menos 1 letra maiúscula
+                                    </div>
                                 </div>
                             </div>
                             <div class="auth-form-group">
@@ -294,7 +314,7 @@
                         </ul>
                     </li>
                     <li class="nav-item admin-only" data-target="view-usuarios">
-                        <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários <span id="badge-usuarios-pendentes" class="badge badge-warning" style="display:none; margin-left: 5px;">0</span></span></a>
+                        <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários <span id="badge-usuarios-pendentes" class="badge badge-warning" style="display:none; margin-left: 6px; padding: 2px 7px; font-size: 11px; font-weight: 700; border-radius: 10px; background: #f59e0b; color: #ffffff;" title="Pendências de usuários">0</span></span></a>
                     </li>
                     <li class="nav-item admin-only" data-target="view-auditoria">
                         <a href="#"><i class="fa-solid fa-shield-halved"></i> <span>Auditoria</span></a>
@@ -858,7 +878,9 @@
                                     <select id="filter-usr-status" class="form-control" onchange="filtrarUsuariosNaTela()">
                                         <option value="">Todos</option>
                                         <option value="Aprovados">Aprovados e Ativos</option>
-                                        <option value="Pendentes">Pendentes (Aprovação)</option>
+                                        <option value="Pendentes">Todas as Pendências (Cadastro / Senha)</option>
+                                        <option value="SenhasPendentes">Mudança de Senha Solicitada</option>
+                                        <option value="CadastrosPendentes">Cadastros Pendentes</option>
                                         <option value="Inativos">Inativos</option>
                                         <option value="Rejeitados">Rejeitados</option>
                                     </select>
@@ -1710,13 +1732,15 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 150px;">Data/Hora</th>
-                                        <th style="width: 250px;">Usuário</th>
-                                        <th style="width: 150px;">Ação</th>
+                                        <th style="width: 200px;">Usuário</th>
+                                        <th style="width: 130px;">Ação</th>
+                                        <th style="width: 130px;">IP</th>
+                                        <th style="width: 180px;">Nome do Computador</th>
                                         <th>Detalhes</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-auditoria-body">
-                                    <tr><td colspan="4" class="text-center" style="padding: 30px; color: var(--text-muted);">Selecione os filtros acima e clique em Pesquisar</td></tr>
+                                    <tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--text-muted);">Selecione os filtros acima e clique em Pesquisar</td></tr>
                                 </tbody>
                             </table>
                         </div>
