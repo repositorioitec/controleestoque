@@ -225,6 +225,21 @@ const LocalDB = {
             return { success: true, message: 'Troca de senha solicitada com sucesso! Aguarde aprovação do administrador.' };
         }
 
+        // ESQUECI A MINHA SENHA (RECUPERAÇÃO PÚBLICA)
+        if (path === '/api/auth/esqueci-senha' && method === 'POST') {
+            const users = this.get('usuarios');
+            const inputUser = (body.usuario || '').trim().toLowerCase();
+            const u = users.find(x => (x.usuario || '').trim().toLowerCase() === inputUser);
+            if (!u) return { success: false, message: 'E-mail não encontrado no sistema. Verifique o endereço digitado.' };
+            if (u.ativo === false) return { success: false, message: 'Este usuário está inativo no sistema. Entre em contato com o administrador.' };
+            u.senha_pendente = body.nova_senha;
+            this.set('usuarios', users);
+            return { 
+                success: true, 
+                message: `Solicitação enviada com sucesso para "${u.nome_usuario}"! Aguarde a aprovação do Administrador.` 
+            };
+        }
+
         // APROVAR TROCA DE SENHA
         if (path.match(/\/api\/auth\/users\/\d+\/aprovar-senha/) && method === 'POST') {
             const id = path.split('/')[4];
@@ -1096,29 +1111,38 @@ async function carregarUnidadesRegistroIndex() {
 }
 
 function toggleAuthMode(mode) {
+    const loginBox = document.getElementById('login-box');
+    const regBox = document.getElementById('register-box');
+    const forgotBox = document.getElementById('forgot-box');
+
+    if (!loginBox || !regBox) {
+        if (mode === 'register') window.location.href = '/login.html?mode=register';
+        else if (mode === 'forgot') window.location.href = '/login.html?mode=forgot';
+        else window.location.href = '/login.html';
+        return;
+    }
+
+    loginBox.classList.remove('active');
+    loginBox.classList.add('hidden');
+    regBox.classList.remove('active');
+    regBox.classList.add('hidden');
+    if (forgotBox) {
+        forgotBox.classList.remove('active');
+        forgotBox.classList.add('hidden');
+    }
+
     if (mode === 'register') {
-        const loginBox = document.getElementById('login-box');
-        const regBox = document.getElementById('register-box');
-        if (loginBox && regBox) {
-            loginBox.classList.remove('active');
-            loginBox.classList.add('hidden');
-            regBox.classList.remove('hidden');
-            regBox.classList.add('active');
-            carregarUnidadesRegistroIndex();
-        } else {
-            window.location.href = '/login.html?mode=register';
+        regBox.classList.remove('hidden');
+        regBox.classList.add('active');
+        carregarUnidadesRegistroIndex();
+    } else if (mode === 'forgot') {
+        if (forgotBox) {
+            forgotBox.classList.remove('hidden');
+            forgotBox.classList.add('active');
         }
     } else {
-        const loginBox = document.getElementById('login-box');
-        const regBox = document.getElementById('register-box');
-        if (loginBox && regBox) {
-            regBox.classList.remove('active');
-            regBox.classList.add('hidden');
-            loginBox.classList.remove('hidden');
-            loginBox.classList.add('active');
-        } else {
-            window.location.href = '/login.html';
-        }
+        loginBox.classList.remove('hidden');
+        loginBox.classList.add('active');
     }
 }
 
@@ -1177,6 +1201,59 @@ async function handleRegister(event) {
         toggleAuthMode('login');
     } else {
         showToast(data.message, 'error');
+    }
+}
+
+async function handleForgotPassword(event) {
+    event.preventDefault();
+    const usuario = document.getElementById('forgot-usuario').value.trim();
+    const senha = document.getElementById('forgot-senha').value.trim();
+    const confirma = document.getElementById('forgot-confirma-senha').value.trim();
+    const btn = document.getElementById('btn-forgot');
+
+    if (!usuario || !senha) {
+        showToast('Preencha todos os campos.', 'error');
+        return;
+    }
+
+    if (senha.length < 4) {
+        showToast('A nova senha deve possuir pelo menos 4 caracteres.', 'error');
+        return;
+    }
+
+    if (senha !== confirma) {
+        showToast('As senhas não coincidem. Digite novamente.', 'error');
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitação...';
+    }
+
+    try {
+        const data = await safeFetch('/api/auth/esqueci-senha', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario, nova_senha: senha })
+        });
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            document.getElementById('form-forgot').reset();
+            setTimeout(() => {
+                toggleAuthMode('login');
+            }, 2000);
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (e) {
+        showToast('Erro ao se conectar ao servidor.', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Solicitar Redefinição';
+        }
     }
 }
 

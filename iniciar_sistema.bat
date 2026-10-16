@@ -17,7 +17,9 @@ IF NOT EXIST "node_modules\" (
     )
 )
 
-echo Iniciando o servidor...
+echo Iniciando o servidor Node.js...
+echo Abrindo o sistema no seu navegador em http://localhost:5000...
+start "" http://localhost:5000
 node server.js
 IF %ERRORLEVEL% NEQ 0 (
     echo.

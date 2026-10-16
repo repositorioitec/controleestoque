@@ -83,6 +83,29 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+app.post('/api/auth/esqueci-senha', async (req, res) => {
+  const usuario = (req.body.usuario || '').trim();
+  const nova_senha = (req.body.nova_senha || '').trim();
+
+  if (!usuario || !nova_senha) {
+    return res.status(400).json({ success: false, message: 'E-mail e nova senha são obrigatórios.' });
+  }
+
+  if (nova_senha.length < 4) {
+    return res.status(400).json({ success: false, message: 'A nova senha deve possuir pelo menos 4 caracteres.' });
+  }
+
+  try {
+    const info = await database.solicitar_recuperacao_senha(usuario, nova_senha);
+    return res.json({ 
+      success: true, 
+      message: `Solicitação enviada com sucesso para "${info.nome_usuario}"! Aguarde a aprovação do Administrador para entrar com a nova senha.` 
+    });
+  } catch (e) {
+    return res.status(400).json({ success: false, message: e.message });
+  }
+});
+
 // Delete usuário (admin only)
 app.delete('/api/auth/users/:id_usuario', async (req, res) => {
   const id_usuario = parseInt(req.params.id_usuario);

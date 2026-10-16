@@ -368,31 +368,70 @@ a:hover {
     text-transform: none !important;
 }
 
-.auth-input {
-    width: 100%;
-    height: 58px;
-    padding: 0 20px;
-    font-size: 16px;
-    font-family: var(--font-body, 'Inter', sans-serif);
-    background-color: #f0f5fc !important;
-    border: 1.5px solid #d4e3f8 !important;
+.auth-input,
+.auth-form-card input,
+.auth-split-container input,
+.auth-box input {
+    width: 100% !important;
+    height: 56px !important;
+    padding: 0 18px !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    font-family: var(--font-body, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif) !important;
+    background-color: #f8fafc !important;
+    border: 1.5px solid #cbd5e1 !important;
     border-radius: 10px !important;
-    color: #0f172a !important;
-    transition: all 0.2s ease;
-    box-sizing: border-box;
+    color: #0f172a !important; /* Texto escuro com excelente contraste */
+    -webkit-text-fill-color: #0f172a !important;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box !important;
     text-transform: none !important;
+    opacity: 1 !important;
 }
 
-.auth-input::placeholder {
-    color: #94a3b8;
-    text-transform: none !important;
+.auth-form-card input[type="password"],
+.auth-split-container input[type="password"],
+.auth-box input[type="password"] {
+    font-size: 18px !important;
+    letter-spacing: 2px !important;
 }
 
-.auth-input:focus {
+.auth-input::placeholder,
+.auth-form-card input::placeholder,
+.auth-split-container input::placeholder,
+.auth-box input::placeholder {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+    letter-spacing: normal !important;
+}
+
+.auth-input:focus,
+.auth-form-card input:focus,
+.auth-split-container input:focus,
+.auth-box input:focus {
     background-color: #ffffff !important;
     border-color: #0f67b1 !important;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
     outline: none !important;
-    box-shadow: 0 0 0 4px rgba(15, 103, 177, 0.16) !important;
+    box-shadow: 0 0 0 4px rgba(15, 103, 177, 0.18) !important;
+}
+
+/* Suporte a preenchimento automático (Autofill) do navegador */
+.auth-form-card input:-webkit-autofill,
+.auth-form-card input:-webkit-autofill:hover, 
+.auth-form-card input:-webkit-autofill:focus,
+.auth-split-container input:-webkit-autofill,
+.auth-split-container input:-webkit-autofill:hover, 
+.auth-split-container input:-webkit-autofill:focus,
+.auth-box input:-webkit-autofill,
+.auth-box input:-webkit-autofill:hover, 
+.auth-box input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #0f172a !important;
+    -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+    transition: background-color 5000s ease-in-out 0s !important;
 }
 
 .auth-select {
@@ -411,8 +450,9 @@ a:hover {
     align-items: center;
 }
 
-.auth-password-wrapper .auth-input {
-    padding-right: 56px;
+.auth-password-wrapper .auth-input,
+.auth-password-wrapper input {
+    padding-right: 56px !important;
 }
 
 .auth-toggle-password {
@@ -423,7 +463,7 @@ a:hover {
     width: 54px;
     background: transparent;
     border: none;
-    color: #64748b;
+    color: #64748b !important;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -431,10 +471,11 @@ a:hover {
     font-size: 20px;
     transition: color 0.2s;
     border-radius: 0 10px 10px 0;
+    z-index: 2;
 }
 
 .auth-toggle-password:hover {
-    color: #0f67b1;
+    color: #0f67b1 !important;
 }
 
 .auth-submit-btn {
@@ -925,12 +966,12 @@ a:hover {
     letter-spacing: 0.2px;
 }
 
-input[type="text"],
-input[type="password"],
-input[type="number"],
-input[type="email"],
-select,
-textarea {
+input[type="text"]:not(.auth-input),
+input[type="password"]:not(.auth-input),
+input[type="number"]:not(.auth-input),
+input[type="email"]:not(.auth-input),
+select:not(.auth-select),
+textarea:not(.auth-input) {
     width: 100%;
     padding: 10px 14px;
     background: rgba(8, 24, 52, 0.8) !important;
@@ -943,7 +984,7 @@ textarea {
     transition: all 0.2s ease;
 }
 
-input:focus, select:focus, textarea:focus {
+input:not(.auth-input):focus, select:not(.auth-select):focus, textarea:not(.auth-input):focus {
     border-color: var(--accent-cyan, #38bdf8) !important;
     background: rgba(10, 30, 65, 0.95) !important;
     box-shadow: 0 0 0 3px rgba(15, 103, 177, 0.28) !important;

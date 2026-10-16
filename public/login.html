@@ -61,7 +61,10 @@
                             <input type="email" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username">
                         </div>
                         <div class="auth-form-group">
-                            <label for="login-senha">Senha</label>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label for="login-senha" style="margin-bottom: 0;">Senha</label>
+                                <a href="#" onclick="trocarParaEsqueci(event)" style="font-size: 0.82rem; color: #0f67b1; text-decoration: none; font-weight: 500;">Esqueci a minha senha</a>
+                            </div>
                             <div class="auth-password-wrapper">
                                 <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password">
                                 <button type="button" class="auth-toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
@@ -75,6 +78,48 @@
                     </form>
                     <div class="auth-form-footer">
                         <p>Deseja cadastrar novo usuário? <a href="#" onclick="trocarParaRegistro(event)">Criar Conta</a></p>
+                    </div>
+                </div>
+
+                <!-- Forgot Password Form -->
+                <div id="forgot-box" class="auth-box hidden">
+                    <div class="auth-box-header">
+                        <span class="auth-form-tag">RECUPERAÇÃO</span>
+                        <h2 class="auth-form-title">Redefinir Senha</h2>
+                        <p class="auth-form-subtitle">Informe seu e-mail e defina uma nova senha para aprovação.</p>
+                    </div>
+                    <form id="form-forgot" onsubmit="executarEsqueciSenha(event)">
+                        <div class="auth-form-group">
+                            <label for="forgot-usuario">E-mail Cadastrado *</label>
+                            <input type="email" id="forgot-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username">
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="forgot-senha">Nova Senha *</label>
+                            <div class="auth-password-wrapper">
+                                <input type="password" id="forgot-senha" class="auth-input" placeholder="Crie uma nova senha segura" required autocomplete="new-password">
+                                <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="forgot-confirma-senha">Confirmar Nova Senha *</label>
+                            <div class="auth-password-wrapper">
+                                <input type="password" id="forgot-confirma-senha" class="auth-input" placeholder="Repita a nova senha" required autocomplete="new-password">
+                                <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-confirma-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="auth-info-notice" style="margin-bottom: 16px;">
+                            <i class="fa-solid fa-circle-info"></i> <span>Sua nova senha ficará como <strong>Pendente</strong> até ser aprovada pelo Administrador.</span>
+                        </div>
+                        <button type="submit" id="btn-forgot" class="auth-submit-btn">
+                            Solicitar Redefinição
+                        </button>
+                    </form>
+                    <div class="auth-form-footer">
+                        <p>Lembrou da senha? <a href="#" onclick="trocarParaLogin(event)">Voltar ao Login</a></p>
                     </div>
                 </div>
 
@@ -180,10 +225,28 @@
             }
         }
 
+        function trocarParaEsqueci(e) {
+            if(e) e.preventDefault();
+            document.getElementById('login-box').classList.add('hidden');
+            document.getElementById('login-box').classList.remove('active');
+            document.getElementById('register-box').classList.add('hidden');
+            document.getElementById('register-box').classList.remove('active');
+            const forgotBox = document.getElementById('forgot-box');
+            if (forgotBox) {
+                forgotBox.classList.remove('hidden');
+                forgotBox.classList.add('active');
+            }
+        }
+
         function trocarParaRegistro(e) {
             if(e) e.preventDefault();
             document.getElementById('login-box').classList.add('hidden');
             document.getElementById('login-box').classList.remove('active');
+            const forgotBox = document.getElementById('forgot-box');
+            if (forgotBox) {
+                forgotBox.classList.add('hidden');
+                forgotBox.classList.remove('active');
+            }
             document.getElementById('register-box').classList.remove('hidden');
             document.getElementById('register-box').classList.add('active');
             carregarUnidadesRegistro();
@@ -193,6 +256,11 @@
             if(e) e.preventDefault();
             document.getElementById('register-box').classList.add('hidden');
             document.getElementById('register-box').classList.remove('active');
+            const forgotBox = document.getElementById('forgot-box');
+            if (forgotBox) {
+                forgotBox.classList.add('hidden');
+                forgotBox.classList.remove('active');
+            }
             document.getElementById('login-box').classList.remove('hidden');
             document.getElementById('login-box').classList.add('active');
         }
@@ -267,10 +335,62 @@
             }
         }
 
-        // Se URL tiver parâmetro ?mode=register
+        async function executarEsqueciSenha(event) {
+            event.preventDefault();
+            const usuario = document.getElementById('forgot-usuario').value.trim();
+            const senha = document.getElementById('forgot-senha').value.trim();
+            const confirma = document.getElementById('forgot-confirma-senha').value.trim();
+            const btn = document.getElementById('btn-forgot');
+
+            if (!usuario || !senha) {
+                showToast('Preencha todos os campos.', 'error');
+                return;
+            }
+
+            if (senha.length < 4) {
+                showToast('A nova senha deve possuir pelo menos 4 caracteres.', 'error');
+                return;
+            }
+
+            if (senha !== confirma) {
+                showToast('As senhas não coincidem. Digite novamente.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitação...';
+
+            try {
+                const response = await fetch('/api/auth/esqueci-senha', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, nova_senha: senha })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    document.getElementById('form-forgot').reset();
+                    setTimeout(() => {
+                        trocarParaLogin();
+                    }, 2000);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast('Erro ao se conectar ao servidor.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Solicitar Redefinição';
+            }
+        }
+
+        // Se URL tiver parâmetro ?mode=register ou ?mode=forgot
         const params = new URLSearchParams(window.location.search);
         if (params.get('mode') === 'register') {
             trocarParaRegistro();
+        } else if (params.get('mode') === 'forgot') {
+            trocarParaEsqueci();
         }
     </script>
 </body>
