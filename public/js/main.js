@@ -213,6 +213,45 @@ const LocalDB = {
             }
         }
 
+        // VERIFICAR SE EMAIL ESTA CADASTRADO
+        if (path === '/api/auth/verificar-email' && method === 'GET') {
+            const users = this.get('usuarios');
+            const inputUser = (params.get('usuario') || '').trim().toLowerCase();
+            const u = users.find(x => (x.usuario || '').trim().toLowerCase() === inputUser);
+            if (!u) {
+                return { success: false, exists: false, message: 'Este e-mail não está cadastrado no sistema. Apenas usuários já cadastrados podem solicitar nova senha.' };
+            }
+            if (u.status_aprovacao === 'Rejeitado') {
+                return { success: false, exists: true, bloqueado: true, message: 'Este usuário está com o cadastro rejeitado.' };
+            }
+            if (u.ativo === false) {
+                return { success: false, exists: true, bloqueado: true, message: 'Este usuário está inativo no sistema.' };
+            }
+            return { success: true, exists: true, nome_usuario: u.nome_usuario, message: `Usuário cadastrado: ${u.nome_usuario}` };
+        }
+
+        // SOLICITAR TROCA DE SENHA POR EMAIL (ESQUECI MINHA SENHA)
+        if (path === '/api/auth/esqueci-senha' && method === 'POST') {
+            const users = this.get('usuarios');
+            const inputUser = (body.usuario || '').trim().toLowerCase();
+            const u = users.find(x => (x.usuario || '').trim().toLowerCase() === inputUser);
+            if (!u) {
+                return { success: false, message: 'Usuário não encontrado. Apenas usuários já cadastrados podem solicitar a alteração de senha.' };
+            }
+            if (u.status_aprovacao === 'Rejeitado') {
+                return { success: false, message: 'Este usuário está com o cadastro rejeitado.' };
+            }
+            if (u.ativo === false) {
+                return { success: false, message: 'Este usuário está inativo no sistema.' };
+            }
+            u.senha_pendente = body.nova_senha;
+            this.set('usuarios', users);
+            return {
+                success: true,
+                message: `Solicitação registrada para "${u.nome_usuario}". Sua nova senha entrará em vigor assim que o Administrador aprovar. Enquanto isso, continue utilizando a senha atual.`
+            };
+        }
+
         // SOLICITAR TROCA DE SENHA
         if (path === '/api/auth/users/solicitar-senha' && method === 'POST') {
             const idUsuario = options.headers ? options.headers['X-User-Id'] : null;
@@ -1096,29 +1135,268 @@ async function carregarUnidadesRegistroIndex() {
 }
 
 function toggleAuthMode(mode) {
+    const loginBox = document.getElementById('login-box');
+    const regBox = document.getElementById('register-box');
+    const forgotBox = document.getElementById('forgot-password-box');
+
+    if (loginBox) {
+        loginBox.classList.remove('active');
+        loginBox.classList.add('hidden');
+    }
+    if (regBox) {
+        regBox.classList.remove('active');
+        regBox.classList.add('hidden');
+    }
+    if (forgotBox) {
+        forgotBox.classList.remove('active');
+        forgotBox.classList.add('hidden');
+    }
+
     if (mode === 'register') {
-        const loginBox = document.getElementById('login-box');
-        const regBox = document.getElementById('register-box');
-        if (loginBox && regBox) {
-            loginBox.classList.remove('active');
-            loginBox.classList.add('hidden');
+        if (regBox) {
             regBox.classList.remove('hidden');
             regBox.classList.add('active');
             carregarUnidadesRegistroIndex();
         } else {
             window.location.href = '/login.html?mode=register';
         }
+    } else if (mode === 'forgot-password') {
+        if (forgotBox) {
+            forgotBox.classList.remove('hidden');
+            forgotBox.classList.add('active');
+            const formForgot = document.getElementById('form-forgot-password');
+            if (formForgot) formForgot.reset();
+            const alertBox = document.getElementById('forgot-alert-box');
+            if (alertBox) { alertBox.style.display = 'none'; alertBox.innerHTML = ''; }
+            const feedback = document.getElementById('forgot-email-feedback');
+            if (feedback) { feedback.style.display = 'none'; feedback.innerHTML = ''; }
+            const inputEmail = document.getElementById('forgot-usuario');
+            if (inputEmail) inputEmail.style.borderColor = '';
+            const loginEmail = document.getElementById('login-usuario');
+            if (inputEmail && loginEmail && loginEmail.value) {
+                inputEmail.value = loginEmail.value.trim();
+                setTimeout(() => validarEmailEsqueciSenha(false), 200);
+            }
+        }
     } else {
-        const loginBox = document.getElementById('login-box');
-        const regBox = document.getElementById('register-box');
-        if (loginBox && regBox) {
-            regBox.classList.remove('active');
-            regBox.classList.add('hidden');
+        if (loginBox) {
             loginBox.classList.remove('hidden');
             loginBox.classList.add('active');
         } else {
             window.location.href = '/login.html';
         }
+    }
+}
+
+let _debounceEmailEsqueci = null;
+let _ultimoEmailValidado = { email: '', valido: false, dados: null };
+
+function exibirAlertaEsqueciSenha(msg, tipo = 'error') {
+    const alertBox = document.getElementById('forgot-alert-box');
+    if (!alertBox) return;
+    
+    if (!msg) {
+        alertBox.style.display = 'none';
+        alertBox.innerHTML = '';
+        return;
+    }
+
+    alertBox.style.display = 'block';
+    if (tipo === 'success') {
+        alertBox.style.background = '#ecfdf5';
+        alertBox.style.border = '1.5px solid #10b981';
+        alertBox.style.color = '#065f46';
+        alertBox.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #10b981; margin-right: 8px;"></i> ${msg}`;
+    } else if (tipo === 'warning') {
+        alertBox.style.background = '#fffbeb';
+        alertBox.style.border = '1.5px solid #f59e0b';
+        alertBox.style.color = '#92400e';
+        alertBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b; margin-right: 8px;"></i> ${msg}`;
+    } else {
+        alertBox.style.background = '#fef2f2';
+        alertBox.style.border = '1.5px solid #ef4444';
+        alertBox.style.color = '#991b1b';
+        alertBox.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color: #ef4444; margin-right: 8px;"></i> ${msg}`;
+    }
+}
+
+function onInputEmailEsqueciSenha() {
+    clearTimeout(_debounceEmailEsqueci);
+    const feedback = document.getElementById('forgot-email-feedback');
+    const input = document.getElementById('forgot-usuario');
+    if (feedback) feedback.style.display = 'none';
+    if (input) input.style.borderColor = '';
+    exibirAlertaEsqueciSenha(null);
+
+    const val = input ? input.value.trim() : '';
+    if (!val) {
+        _ultimoEmailValidado = { email: '', valido: false, dados: null };
+        return;
+    }
+
+    _debounceEmailEsqueci = setTimeout(() => {
+        validarEmailEsqueciSenha(false);
+    }, 600);
+}
+
+async function validarEmailEsqueciSenha(isBlur = false) {
+    const input = document.getElementById('forgot-usuario');
+    const feedback = document.getElementById('forgot-email-feedback');
+    if (!input || !feedback) return false;
+
+    const email = input.value.trim();
+    if (!email) {
+        if (isBlur) {
+            feedback.style.display = 'block';
+            feedback.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-circle-exclamation"></i> Informe seu e-mail cadastrado.</span>';
+            input.style.borderColor = '#ef4444';
+        } else {
+            feedback.style.display = 'none';
+            input.style.borderColor = '';
+        }
+        _ultimoEmailValidado = { email: '', valido: false, dados: null };
+        return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        if (isBlur) {
+            feedback.style.display = 'block';
+            feedback.innerHTML = '<span style="color:#f59e0b;"><i class="fa-solid fa-triangle-exclamation"></i> Formato de e-mail inválido (ex: nome@empresa.com).</span>';
+            input.style.borderColor = '#f59e0b';
+        }
+        _ultimoEmailValidado = { email, valido: false, dados: null };
+        return false;
+    }
+
+    // Se já validou este mesmo email e foi positivo, evita requisição duplicada
+    if (_ultimoEmailValidado.email.toLowerCase() === email.toLowerCase() && _ultimoEmailValidado.valido) {
+        feedback.style.display = 'block';
+        feedback.innerHTML = `<span style="color:#10b981;"><i class="fa-solid fa-circle-check"></i> E-mail localizado: <strong>${_ultimoEmailValidado.dados?.nome_usuario || 'Usuário'}</strong></span>`;
+        input.style.borderColor = '#10b981';
+        return true;
+    }
+
+    feedback.style.display = 'block';
+    feedback.innerHTML = '<span style="color:#0f67b1;"><i class="fa-solid fa-spinner fa-spin"></i> Verificando e-mail no sistema...</span>';
+    input.style.borderColor = '#93c5fd';
+
+    try {
+        const res = await safeFetch(`/api/auth/verificar-email?usuario=${encodeURIComponent(email)}`);
+        if (res.success && res.exists) {
+            feedback.innerHTML = `<span style="color:#10b981;"><i class="fa-solid fa-circle-check"></i> E-mail localizado: <strong>${res.nome_usuario}</strong></span>`;
+            input.style.borderColor = '#10b981';
+            exibirAlertaEsqueciSenha(null);
+            _ultimoEmailValidado = { email, valido: true, dados: res };
+            return true;
+        } else if (res.bloqueado) {
+            feedback.innerHTML = `<span style="color:#ef4444;"><i class="fa-solid fa-ban"></i> ${res.message}</span>`;
+            input.style.borderColor = '#ef4444';
+            exibirAlertaEsqueciSenha(res.message, 'error');
+            _ultimoEmailValidado = { email, valido: false, dados: res };
+            return false;
+        } else {
+            feedback.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-circle-xmark"></i> E-mail não cadastrado no sistema.</span>';
+            input.style.borderColor = '#ef4444';
+            exibirAlertaEsqueciSenha('Este e-mail não está cadastrado. Apenas usuários já cadastrados podem solicitar nova senha.', 'error');
+            _ultimoEmailValidado = { email, valido: false, dados: null };
+            return false;
+        }
+    } catch (e) {
+        feedback.style.display = 'none';
+        input.style.borderColor = '';
+        return true; // Se falhou conexão, permite tentar no submit
+    }
+}
+
+async function handleEsqueciSenha(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const inputEmail = document.getElementById('forgot-usuario');
+    const inputNovaSenha = document.getElementById('forgot-nova-senha');
+    const inputConfirmaSenha = document.getElementById('forgot-confirma-senha');
+    const btn = document.getElementById('btn-solicitar-redefinicao');
+
+    const usuario = (inputEmail ? inputEmail.value : '').trim();
+    const nova_senha = (inputNovaSenha ? inputNovaSenha.value : '').trim();
+    const confirma_senha = (inputConfirmaSenha ? inputConfirmaSenha.value : '').trim();
+
+    if (!usuario) {
+        exibirAlertaEsqueciSenha('Por favor, informe seu e-mail cadastrado.', 'warning');
+        showToast('Informe seu e-mail cadastrado.', 'warning');
+        if (inputEmail) { inputEmail.focus(); inputEmail.style.borderColor = '#ef4444'; }
+        return;
+    }
+
+    // Valida se o email realmente existe antes de enviar
+    const emailValido = await validarEmailEsqueciSenha(true);
+    if (!emailValido) {
+        if (inputEmail) inputEmail.focus();
+        showToast('E-mail não cadastrado no sistema.', 'error');
+        return;
+    }
+
+    if (!nova_senha) {
+        exibirAlertaEsqueciSenha('Informe a nova senha desejada.', 'warning');
+        showToast('Informe a nova senha.', 'warning');
+        if (inputNovaSenha) inputNovaSenha.focus();
+        return;
+    }
+
+    if (nova_senha.length < 4) {
+        exibirAlertaEsqueciSenha('A senha deve ter no mínimo 4 caracteres.', 'warning');
+        showToast('A senha deve ter no mínimo 4 caracteres.', 'warning');
+        if (inputNovaSenha) inputNovaSenha.focus();
+        return;
+    }
+
+    if (nova_senha !== confirma_senha) {
+        exibirAlertaEsqueciSenha('A confirmação da senha não confere com a nova senha digitada.', 'warning');
+        showToast('A confirmação da senha não confere.', 'warning');
+        if (inputConfirmaSenha) {
+            inputConfirmaSenha.focus();
+            inputConfirmaSenha.style.borderColor = '#ef4444';
+        }
+        return;
+    }
+
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitação...';
+    btn.disabled = true;
+
+    try {
+        const data = await safeFetch('/api/auth/esqueci-senha', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario, nova_senha })
+        });
+
+        if (data.success) {
+            exibirAlertaEsqueciSenha(data.message, 'success');
+            showToast(data.message, 'success');
+            document.getElementById('form-forgot-password').reset();
+            const feedback = document.getElementById('forgot-email-feedback');
+            if (feedback) feedback.style.display = 'none';
+            if (inputEmail) inputEmail.style.borderColor = '';
+            _ultimoEmailValidado = { email: '', valido: false, dados: null };
+
+            // Aguarda 3 segundos para o usuário ver o aviso de sucesso e depois vai para o login
+            setTimeout(() => {
+                toggleAuthMode('login');
+            }, 3000);
+        } else {
+            exibirAlertaEsqueciSenha(data.message || 'Erro ao registrar solicitação.', 'error');
+            showToast(data.message || 'Erro ao registrar solicitação.', 'error');
+        }
+    } catch (e) {
+        exibirAlertaEsqueciSenha('Erro de comunicação com o servidor. Tente novamente mais tarde.', 'error');
+        showToast('Erro de comunicação com o servidor.', 'error');
+    } finally {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
     }
 }
 
@@ -1272,6 +1550,10 @@ async function handleLogout() {
             });
         } catch(e){}
     }
+    if (_intervaloBadgeUsuarios) {
+        clearInterval(_intervaloBadgeUsuarios);
+        _intervaloBadgeUsuarios = null;
+    }
     clearTimeout(inatividadeTimer);
     clearSessionUser();
     currentUser = null;
@@ -1404,6 +1686,9 @@ async function iniciarAplicacao() {
 
             // Atualiza o badge de usuários pendentes
             atualizarBadgeUsuariosPendentes();
+            if (!_intervaloBadgeUsuarios) {
+                _intervaloBadgeUsuarios = setInterval(atualizarBadgeUsuariosPendentes, 15000);
+            }
         }
     } else {
         const unidades_usuario = currentUser.unidades_acesso || [];
@@ -3574,6 +3859,7 @@ async function carregarUsuarios() {
                 });
             }
             renderizarTabelaUsuarios();
+            atualizarBadgeUsuariosPendentes();
         } else {
             const tbody = document.getElementById('table-usuarios-body');
             if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
@@ -4693,21 +4979,55 @@ function imprimirRelatorioSugestaoCompras() {
     };
 }
 
+let _intervaloBadgeUsuarios = null;
+
 async function atualizarBadgeUsuariosPendentes() {
-    if (currentUser && currentUser.nivel_acesso === 'Administrador') {
+    if (!currentUser || currentUser.nivel_acesso !== 'Administrador') {
+        const badges = document.querySelectorAll('#badge-usuarios-pendentes');
+        badges.forEach(badge => { badge.style.display = 'none'; });
+        return;
+    }
+
+    try {
         const result = await safeFetch('/api/auth/users');
-        if (result.success && result.users) {
-            const pendentes = result.users.filter(u => u.status_aprovacao === 'Pendente').length;
+        if (result.success && (result.users || result.usuarios)) {
+            const lista = result.users || result.usuarios || [];
+            
+            // 1) Novos cadastros pendentes de aprovação
+            const pendentesCadastros = lista.filter(u => u.status_aprovacao === 'Pendente').length;
+            
+            // 2) Trocas de senha solicitadas aguardando aprovação
+            const pendentesSenhas = lista.filter(u => Boolean(u.senha_pendente && String(u.senha_pendente).trim() !== '')).length;
+            
+            const totalPendencias = pendentesCadastros + pendentesSenhas;
             const badges = document.querySelectorAll('#badge-usuarios-pendentes');
+
+            let tooltip = '';
+            if (pendentesCadastros > 0 && pendentesSenhas > 0) {
+                tooltip = `${pendentesCadastros} novo(s) cadastro(s) e ${pendentesSenhas} troca(s) de senha pendente(s)`;
+            } else if (pendentesCadastros > 0) {
+                tooltip = `${pendentesCadastros} novo(s) cadastro(s) pendente(s) de aprovação`;
+            } else if (pendentesSenhas > 0) {
+                tooltip = `${pendentesSenhas} solicitação(ões) de nova senha pendente(s)`;
+            } else {
+                tooltip = 'Nenhuma pendência de aprovação';
+            }
+
             badges.forEach(badge => {
-                if (pendentes > 0) {
-                    badge.textContent = pendentes;
-                    badge.style.display = 'inline-block';
+                if (totalPendencias > 0) {
+                    badge.textContent = totalPendencias > 99 ? '99+' : totalPendencias;
+                    badge.title = tooltip;
+                    badge.setAttribute('aria-label', tooltip);
+                    badge.style.display = 'inline-flex';
                 } else {
                     badge.style.display = 'none';
+                    badge.textContent = '0';
+                    badge.title = tooltip;
                 }
             });
         }
+    } catch (e) {
+        console.warn('Erro ao atualizar badge de pendências de usuários:', e);
     }
 }
 

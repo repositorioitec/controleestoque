@@ -622,6 +622,31 @@ async function atualizar_avatar_usuario(id_usuario, avatar_base64) {
   return true;
 }
 
+async function verificar_email_cadastrado(usuario) {
+  const res = await pool.query(
+    "SELECT id_usuario, usuario, nome_usuario, status_aprovacao, ativo FROM tbl_usuarios WHERE LOWER(usuario) = LOWER($1)",
+    [(usuario || '').trim()]
+  );
+  if (res.rows.length === 0) return null;
+  return res.rows[0];
+}
+
+async function solicitar_troca_senha_por_email(usuario, nova_senha) {
+  const res = await pool.query("SELECT id_usuario, nome_usuario, status_aprovacao, ativo FROM tbl_usuarios WHERE LOWER(usuario) = LOWER($1)", [usuario.trim()]);
+  if (res.rows.length === 0) {
+    throw new Error("Usuário não encontrado. Apenas usuários já cadastrados podem solicitar a alteração de senha.");
+  }
+  const user = res.rows[0];
+  if (user.status_aprovacao === 'Rejeitado') {
+    throw new Error("Este usuário está com o cadastro rejeitado.");
+  }
+  if (user.ativo === false) {
+    throw new Error("Este usuário está inativo no sistema.");
+  }
+  await pool.query("UPDATE tbl_usuarios SET senha_pendente = $1 WHERE id_usuario = $2", [nova_senha, user.id_usuario]);
+  return { id_usuario: user.id_usuario, nome_usuario: user.nome_usuario };
+}
+
 async function solicitar_troca_senha(id_usuario, nova_senha) {
   await pool.query("UPDATE tbl_usuarios SET senha_pendente = $1 WHERE id_usuario = $2", [nova_senha, id_usuario]);
   return true;
@@ -1620,7 +1645,9 @@ module.exports = {
   rejeitar_usuario,
   inativar_usuario,
   ativar_usuario,
+  verificar_email_cadastrado,
   solicitar_troca_senha,
+  solicitar_troca_senha_por_email,
   aprovar_senha_pendente,
   rejeitar_senha_pendente,
   listar_categorias,
