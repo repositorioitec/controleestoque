@@ -71,21 +71,16 @@
                         <form id="form-login" onsubmit="handleLogin(event)">
                             <div class="auth-form-group">
                                 <label for="login-usuario">E-mail</label>
-                                <input type="text" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;" oninput="limparErroLogin('login-usuario')">
-                                <div id="login-usuario-feedback" class="auth-field-feedback text-error" style="display: none;"></div>
+                                <input type="text" id="login-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;">
                             </div>
                             <div class="auth-form-group">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                    <label for="login-senha" style="margin-bottom: 0;">Senha</label>
-                                    <a href="#" onclick="toggleAuthMode('forgot')" style="font-size: 0.82rem; color: #0f67b1; text-decoration: none; font-weight: 500;">Esqueci a minha senha</a>
-                                </div>
+                                <label for="login-senha">Senha</label>
                                 <div class="auth-password-wrapper">
-                                    <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;" oninput="limparErroLogin('login-senha')">
+                                    <input type="password" id="login-senha" class="auth-input" placeholder="••••••••" required autocomplete="current-password" style="text-transform: none;">
                                     <button type="button" class="auth-toggle-password" onclick="toggleSenha('login-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
                                 </div>
-                                <div id="login-senha-feedback" class="auth-field-feedback text-error" style="display: none;"></div>
                             </div>
                             <button type="submit" id="btn-entrar" class="auth-submit-btn">
                                 Entrar
@@ -93,58 +88,6 @@
                         </form>
                         <div class="auth-form-footer">
                             <p>Não tem um usuário registrado? <a href="#" onclick="toggleAuthMode('register')">Cadastrar Usuário</a></p>
-                        </div>
-                    </div>
-
-                    <!-- Forgot Password Form -->
-                    <div id="forgot-box" class="auth-box hidden">
-                        <div class="auth-box-header">
-                            <span class="auth-form-tag">RECUPERAÇÃO</span>
-                            <h2 class="auth-form-title">Redefinir Senha</h2>
-                            <p class="auth-form-subtitle">Informe seu e-mail e defina uma nova senha para aprovação.</p>
-                        </div>
-                        <form id="form-forgot" onsubmit="handleForgotPassword(event)">
-                            <div class="auth-form-group">
-                                <label for="forgot-usuario">E-mail Cadastrado *</label>
-                                <input type="email" id="forgot-usuario" class="auth-input" placeholder="seu.email@exemplo.com" required autocomplete="username" style="text-transform: none;" oninput="agendarVerificacaoEmailIndex()" onblur="verificarEmailEsqueciIndex(true)">
-                                <div id="forgot-email-feedback" class="auth-field-feedback" style="display: none;"></div>
-                            </div>
-                            <div class="auth-form-group">
-                                <label for="forgot-senha">Nova Senha *</label>
-                                <div class="auth-password-wrapper">
-                                    <input type="password" id="forgot-senha" class="auth-input" placeholder="Crie uma nova senha segura" required autocomplete="new-password" style="text-transform: none;" oninput="validarRegrasSenhaEsqueciIndex()">
-                                    <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
-                                        <i class="fa-regular fa-eye"></i>
-                                    </button>
-                                </div>
-                                <div class="auth-password-rules" id="forgot-pwd-rules">
-                                    <div class="pwd-rule-item" id="forgot-rule-length">
-                                        <i class="fa-regular fa-circle"></i> Mínimo de 8 caracteres
-                                    </div>
-                                    <div class="pwd-rule-item" id="forgot-rule-upper">
-                                        <i class="fa-regular fa-circle"></i> Pelo menos 1 letra maiúscula
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="auth-form-group">
-                                <label for="forgot-confirma-senha">Confirmar Nova Senha *</label>
-                                <div class="auth-password-wrapper">
-                                    <input type="password" id="forgot-confirma-senha" class="auth-input" placeholder="Repita a nova senha" required autocomplete="new-password" style="text-transform: none;" oninput="validarConfirmacaoSenhaEsqueciIndex()">
-                                    <button type="button" class="auth-toggle-password" onclick="toggleSenha('forgot-confirma-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
-                                        <i class="fa-regular fa-eye"></i>
-                                    </button>
-                                </div>
-                                <div id="forgot-match-feedback" class="auth-field-feedback" style="display: none;"></div>
-                            </div>
-                            <div class="auth-info-notice" style="margin-bottom: 16px;">
-                                <i class="fa-solid fa-circle-info"></i> <span>Sua nova senha ficará como <strong>Pendente</strong> até ser aprovada pelo Administrador.</span>
-                            </div>
-                            <button type="submit" id="btn-forgot" class="auth-submit-btn">
-                                Solicitar Redefinição
-                            </button>
-                        </form>
-                        <div class="auth-form-footer">
-                            <p>Lembrou da senha? <a href="#" onclick="toggleAuthMode('login')">Voltar ao Login</a></p>
                         </div>
                     </div>
 
@@ -167,18 +110,10 @@
                             <div class="auth-form-group">
                                 <label for="reg-senha">Senha *</label>
                                 <div class="auth-password-wrapper">
-                                    <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password" oninput="validarRegrasSenhaRegistroIndex()">
+                                    <input type="password" id="reg-senha" class="auth-input" placeholder="Crie uma senha segura" required autocomplete="new-password">
                                     <button type="button" class="auth-toggle-password" onclick="toggleSenha('reg-senha', this)" title="Mostrar/Ocultar senha" aria-label="Mostrar senha">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
-                                </div>
-                                <div class="auth-password-rules" id="reg-pwd-rules">
-                                    <div class="pwd-rule-item" id="reg-rule-length">
-                                        <i class="fa-regular fa-circle"></i> Mínimo de 8 caracteres
-                                    </div>
-                                    <div class="pwd-rule-item" id="reg-rule-upper">
-                                        <i class="fa-regular fa-circle"></i> Pelo menos 1 letra maiúscula
-                                    </div>
                                 </div>
                             </div>
                             <div class="auth-form-group">
@@ -231,8 +166,11 @@
                             <li class="nav-item supervisor-only" data-target="view-produtos" data-menu-key="produtos">
                                 <a href="#"><i class="fa-solid fa-box-open"></i> <span>Produtos</span></a>
                             </li>
-                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-mov-historico','li-mov-transferencia'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })" data-menu-key="movimentacoes">
+                            <li class="nav-item" style="margin-top: 15px; cursor: pointer;" onclick="['li-mov-registrar','li-mov-historico','li-mov-transferencia'].forEach(id => { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; })" data-menu-key="movimentacoes">
                                 <a style="text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-arrow-right-arrow-left"></i> <span>Movimentações</span></a>
+                            </li>
+                            <li class="nav-item" id="li-mov-registrar" style="display: none;" data-menu-key="registrar-movimentacoes" onclick="abrirModalMovimentacaoLote('SAIDA')">
+                                <a href="#"><i class="fa-solid fa-plus-minus"></i> <span>Registrar Movimentações</span></a>
                             </li>
                             <li class="nav-item" id="li-mov-historico" data-target="view-movimentacoes" style="display: none;" data-menu-key="historico">
                                 <a href="#"><i class="fa-solid fa-list"></i> <span>Histórico</span></a>
@@ -314,7 +252,7 @@
                         </ul>
                     </li>
                     <li class="nav-item admin-only" data-target="view-usuarios">
-                        <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários <span id="badge-usuarios-pendentes" class="badge badge-warning" style="display:none; margin-left: 6px; padding: 2px 7px; font-size: 11px; font-weight: 700; border-radius: 10px; background: #f59e0b; color: #ffffff;" title="Pendências de usuários">0</span></span></a>
+                        <a href="#"><i class="fa-solid fa-users"></i> <span>Usuários <span id="badge-usuarios-pendentes" class="badge badge-warning" style="display:none; margin-left: 5px;">0</span></span></a>
                     </li>
                     <li class="nav-item admin-only" data-target="view-auditoria">
                         <a href="#"><i class="fa-solid fa-shield-halved"></i> <span>Auditoria</span></a>
@@ -376,6 +314,9 @@
                     <button type="button" id="btn-theme-toggle" class="btn-theme-toggle" onclick="toggleTheme()" title="Mudar para Tema Claro" aria-label="Alternar Tema Claro / Escuro">
                         <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
                         <span id="theme-toggle-label">Claro</span>
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="toggleFullscreenApp()" title="Tela Cheia (Maximizar/Restaurar)" style="padding: 6px 12px; border-radius: 8px;">
+                        <i class="fa-solid fa-expand" id="icon-fullscreen-app"></i>
                     </button>
                 </div>
             </header>
@@ -529,9 +470,6 @@
                                 <small style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; margin-top: 4px; display: block;">PESQUISE E FILTRE MOVIMENTAÇÕES POR PERÍODO, UNIDADE OU PRODUTO</small>
                             </div>
                             <div class="action-buttons" style="display: flex; gap: 10px; margin-left: auto;">
-                                <button class="btn btn-primary" style="padding: 8px 16px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px;" onclick="abrirModalMovimentacaoLote('SAIDA')">
-                                    <i class="fa-solid fa-plus-minus"></i> Registrar Movimentação de estoques
-                                </button>
                                 <button class="btn btn-secondary" style="padding: 8px 16px; font-weight: 600; border-radius: 6px; display: flex; align-items: center; gap: 6px;" onclick="imprimirRelatorioMovimentacoes()">
                                     <i class="fa-solid fa-print"></i> Imprimir
                                 </button>
@@ -878,9 +816,7 @@
                                     <select id="filter-usr-status" class="form-control" onchange="filtrarUsuariosNaTela()">
                                         <option value="">Todos</option>
                                         <option value="Aprovados">Aprovados e Ativos</option>
-                                        <option value="Pendentes">Todas as Pendências (Cadastro / Senha)</option>
-                                        <option value="SenhasPendentes">Mudança de Senha Solicitada</option>
-                                        <option value="CadastrosPendentes">Cadastros Pendentes</option>
+                                        <option value="Pendentes">Pendentes (Aprovação)</option>
                                         <option value="Inativos">Inativos</option>
                                         <option value="Rejeitados">Rejeitados</option>
                                     </select>
@@ -1731,16 +1667,17 @@
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
-                                        <th style="width: 150px;">Data/Hora</th>
+                                        <th style="width: 140px;">Data/Hora</th>
                                         <th style="width: 200px;">Usuário</th>
-                                        <th style="width: 130px;">Ação</th>
+                                        <th style="width: 110px;">Ação</th>
                                         <th style="width: 130px;">IP</th>
-                                        <th style="width: 180px;">Nome do Computador</th>
+                                        <th style="width: 180px;">Computador</th>
+                                        <th style="width: 150px;">Cidade</th>
                                         <th>Detalhes</th>
                                     </tr>
                                 </thead>
                                 <tbody id="table-auditoria-body">
-                                    <tr><td colspan="6" class="text-center" style="padding: 30px; color: var(--text-muted);">Selecione os filtros acima e clique em Pesquisar</td></tr>
+                                    <tr><td colspan="7" class="text-center" style="padding: 30px; color: var(--text-muted);">Selecione os filtros acima e clique em Pesquisar</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1938,12 +1875,17 @@
 
     <!-- MODAL 2: MOVIMENTAÇÃO DE ESTOQUE (LOTE) -->
     <div id="modal-movimentacao" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width: 1000px; width: 95%;">
+        <div class="modal-content" id="modal-movimentacao-content" style="max-width: 1000px; width: 95%;">
             <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
                 <h3 id="modal-movimentacao-title" style="text-transform: uppercase; display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-box-open" style="font-size: 24px;"></i> REGISTRAR NOVA SAÍDA DE ESTOQUE
                 </h3>
-                <button class="modal-close" onclick="fecharModal('modal-movimentacao')">&times;</button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn-modal-fullscreen" onclick="toggleFullscreenModal('modal-movimentacao-content', this)" title="Alternar Tela Cheia">
+                        <i class="fa-solid fa-expand"></i>
+                    </button>
+                    <button class="modal-close" onclick="fecharModal('modal-movimentacao')">&times;</button>
+                </div>
             </div>
             <p style="color: var(--text-muted); font-size: 13px; margin: 5px 20px 20px;">Informe os dados da movimentação e selecione os produtos.</p>
             

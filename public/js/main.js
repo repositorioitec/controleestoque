@@ -117,29 +117,15 @@ const LocalDB = {
         if (path === '/api/auth/login' && method === 'POST') {
             const users = this.get('usuarios');
             const inputUser = (body.usuario || '').trim().toLowerCase();
-            const existingUser = users.find(u => {
+            const user = users.find(u => {
                 const dbUser = (u.usuario || '').trim().toLowerCase();
-                return dbUser === inputUser || 
+                const isUserMatch = dbUser === inputUser || 
                     (['admin', 'admin@itec.com'].includes(inputUser) && ['admin', 'admin@itec.com'].includes(dbUser));
+                return isUserMatch && u.senha === body.senha;
             });
-
-            if (!existingUser) {
-                return { success: false, message: 'E-mail não cadastrado no sistema.', code: 'USER_NOT_FOUND' };
-            }
-
-            if (existingUser.senha !== body.senha) {
-                return { success: false, message: 'Senha incorreta. Verifique a senha digitada e tente novamente.', code: 'INVALID_PASSWORD' };
-            }
-
-            if (existingUser.status_aprovacao !== 'Aprovado') {
-                return { success: false, message: 'Sua conta aguarda aprovação do administrador.', code: 'PENDING_APPROVAL' };
-            }
-
-            if (existingUser.ativo === false) {
-                return { success: false, message: 'Seu usuário está inativado no sistema. Entre em contato com o administrador.', code: 'USER_INACTIVE' };
-            }
-
-            return { success: true, message: `Bem-vindo, ${existingUser.nome_usuario}!`, user: existingUser };
+            if (!user) return { success: false, message: 'E-mail ou senha incorretos!' };
+            if (user.status_aprovacao !== 'Aprovado') return { success: false, message: 'Sua conta aguarda aprovação do administrador.' };
+            return { success: true, message: `Bem-vindo, ${user.nome_usuario}!`, user };
         }
 
         // AUTH REGISTER
@@ -148,8 +134,6 @@ const LocalDB = {
             const units = this.get('unidades');
             const inputUser = (body.usuario || '').toLowerCase();
             if (users.find(u => u.usuario.toLowerCase() === inputUser)) return { success: false, message: 'Este e-mail já está cadastrado no sistema!' };
-            if (!body.senha || body.senha.length < 8) return { success: false, message: 'A senha deve possuir pelo menos 8 caracteres.' };
-            if (!/[A-Z]/.test(body.senha)) return { success: false, message: 'A senha deve conter pelo menos uma letra maiúscula.' };
             const unitObj = body.id_unidade ? units.find(x => x.id_unidade == body.id_unidade) : (units.length > 0 ? units[0] : null);
             const newUser = {
                 id_usuario: Date.now(),
@@ -229,20 +213,6 @@ const LocalDB = {
             }
         }
 
-        // VERIFICAR SE E-MAIL EXISTE NO SISTEMA
-        if (path.startsWith('/api/auth/verificar-email') && method === 'GET') {
-            const urlParts = path.split('?');
-            let emailParam = '';
-            if (urlParts.length > 1) {
-                const params = new URLSearchParams(urlParts[1]);
-                emailParam = (params.get('email') || '').trim().toLowerCase();
-            }
-            const users = this.get('usuarios');
-            const u = users.find(x => (x.usuario || '').trim().toLowerCase() === emailParam);
-            if (!u) return { success: true, exists: false, message: 'E-mail não cadastrado no sistema.' };
-            return { success: true, exists: true, nome_usuario: u.nome_usuario, ativo: u.ativo };
-        }
-
         // SOLICITAR TROCA DE SENHA
         if (path === '/api/auth/users/solicitar-senha' && method === 'POST') {
             const idUsuario = options.headers ? options.headers['X-User-Id'] : null;
@@ -250,28 +220,9 @@ const LocalDB = {
             const u = users.find(x => x.id_usuario == idUsuario);
             if (!u) return { success: false, message: 'Usuário não encontrado.' };
             if (u.senha !== body.senha_atual) return { success: false, message: 'Senha atual incorreta.' };
-            if (!body.nova_senha || body.nova_senha.length < 8) return { success: false, message: 'A nova senha deve possuir pelo menos 8 caracteres.' };
-            if (!/[A-Z]/.test(body.nova_senha)) return { success: false, message: 'A nova senha deve conter pelo menos uma letra maiúscula.' };
             u.senha_pendente = body.nova_senha;
             this.set('usuarios', users);
             return { success: true, message: 'Troca de senha solicitada com sucesso! Aguarde aprovação do administrador.' };
-        }
-
-        // ESQUECI A MINHA SENHA (RECUPERAÇÃO PÚBLICA)
-        if (path === '/api/auth/esqueci-senha' && method === 'POST') {
-            const users = this.get('usuarios');
-            const inputUser = (body.usuario || '').trim().toLowerCase();
-            const u = users.find(x => (x.usuario || '').trim().toLowerCase() === inputUser);
-            if (!u) return { success: false, message: 'E-mail não encontrado no sistema. Verifique o endereço digitado.' };
-            if (u.ativo === false) return { success: false, message: 'Este usuário está inativo no sistema. Entre em contato com o administrador.' };
-            if (!body.nova_senha || body.nova_senha.length < 8) return { success: false, message: 'A nova senha deve possuir pelo menos 8 caracteres.' };
-            if (!/[A-Z]/.test(body.nova_senha)) return { success: false, message: 'A nova senha deve conter pelo menos uma letra maiúscula.' };
-            u.senha_pendente = body.nova_senha;
-            this.set('usuarios', users);
-            return { 
-                success: true, 
-                message: `Solicitação enviada com sucesso para "${u.nome_usuario}"! Aguarde a aprovação do Administrador.` 
-            };
         }
 
         // APROVAR TROCA DE SENHA
@@ -960,37 +911,6 @@ const LocalDB = {
             return { success: true, time: new Date().toISOString() };
         }
 
-        // AUDITORIA (LOCALDB FALLBACK)
-        if (path === '/api/auditoria' && method === 'GET') {
-            let logs = this.get('auditoria') || [];
-            const dataIni = params.get('data_inicio');
-            const dataFim = params.get('data_fim');
-            const user = params.get('id_usuario');
-            const acao = params.get('acao');
-            if (dataIni) logs = logs.filter(l => (l.data_hora || '').substring(0, 10) >= dataIni);
-            if (dataFim) logs = logs.filter(l => (l.data_hora || '').substring(0, 10) <= dataFim);
-            if (user) logs = logs.filter(l => l.id_usuario == user);
-            if (acao) logs = logs.filter(l => l.acao === acao);
-            logs.sort((a, b) => new Date(b.data_hora) - new Date(a.data_hora));
-            return { success: true, logs };
-        }
-        if (path === '/api/auditoria' && method === 'POST') {
-            let logs = this.get('auditoria') || [];
-            const parsed = typeof body === 'string' ? JSON.parse(body) : (body || {});
-            logs.push({
-                id_log: Date.now(),
-                data_hora: new Date().toISOString(),
-                id_usuario: parsed.id_usuario || null,
-                nome_usuario: parsed.nome_usuario || 'Sistema',
-                acao: parsed.acao || 'INFO',
-                detalhes: parsed.detalhes || '',
-                ip: parsed.ip || '127.0.0.1',
-                nome_computador: parsed.nome_computador || 'Computador Local'
-            });
-            this.set('auditoria', logs);
-            return { success: true };
-        }
-
         return { success: false, message: 'Rota não encontrada' };
     }
 };
@@ -1017,18 +937,6 @@ async function safeFetch(url, options = {}) {
             options.headers['X-User-Id'] = currentUser.id_usuario;
             options.headers['X-User-Nivel'] = currentUser.nivel_acesso;
         }
-
-        // Identificação amigável do dispositivo cliente
-        try {
-            const ua = navigator.userAgent || '';
-            let dev = 'Windows PC';
-            if (/windows/i.test(ua)) dev = 'Windows PC';
-            else if (/macintosh|mac os x/i.test(ua)) dev = 'Mac PC';
-            else if (/linux/i.test(ua)) dev = 'Linux PC';
-            else if (/android/i.test(ua)) dev = 'Android';
-            else if (/iphone|ipad/i.test(ua)) dev = 'iOS';
-            options.headers['X-Client-Computer'] = localStorage.getItem('app_device_name') || dev;
-        } catch(e) {}
 
         const res = await fetch(fetchUrl, options);
         if (res.status === 404) throw new Error("API não encontrada, alternando para LocalDB");
@@ -1188,38 +1096,29 @@ async function carregarUnidadesRegistroIndex() {
 }
 
 function toggleAuthMode(mode) {
-    const loginBox = document.getElementById('login-box');
-    const regBox = document.getElementById('register-box');
-    const forgotBox = document.getElementById('forgot-box');
-
-    if (!loginBox || !regBox) {
-        if (mode === 'register') window.location.href = '/login.html?mode=register';
-        else if (mode === 'forgot') window.location.href = '/login.html?mode=forgot';
-        else window.location.href = '/login.html';
-        return;
-    }
-
-    loginBox.classList.remove('active');
-    loginBox.classList.add('hidden');
-    regBox.classList.remove('active');
-    regBox.classList.add('hidden');
-    if (forgotBox) {
-        forgotBox.classList.remove('active');
-        forgotBox.classList.add('hidden');
-    }
-
     if (mode === 'register') {
-        regBox.classList.remove('hidden');
-        regBox.classList.add('active');
-        carregarUnidadesRegistroIndex();
-    } else if (mode === 'forgot') {
-        if (forgotBox) {
-            forgotBox.classList.remove('hidden');
-            forgotBox.classList.add('active');
+        const loginBox = document.getElementById('login-box');
+        const regBox = document.getElementById('register-box');
+        if (loginBox && regBox) {
+            loginBox.classList.remove('active');
+            loginBox.classList.add('hidden');
+            regBox.classList.remove('hidden');
+            regBox.classList.add('active');
+            carregarUnidadesRegistroIndex();
+        } else {
+            window.location.href = '/login.html?mode=register';
         }
     } else {
-        loginBox.classList.remove('hidden');
-        loginBox.classList.add('active');
+        const loginBox = document.getElementById('login-box');
+        const regBox = document.getElementById('register-box');
+        if (loginBox && regBox) {
+            regBox.classList.remove('active');
+            regBox.classList.add('hidden');
+            loginBox.classList.remove('hidden');
+            loginBox.classList.add('active');
+        } else {
+            window.location.href = '/login.html';
+        }
     }
 }
 
@@ -1238,79 +1137,95 @@ function toggleSidebar() {
     }
 }
 
-function limparErroLogin(campoId) {
-    const input = document.getElementById(campoId);
-    const feedback = document.getElementById(campoId + '-feedback');
-    if (input) input.classList.remove('input-error');
-    if (feedback) {
-        feedback.style.display = 'none';
-        feedback.textContent = '';
+// Informações de dispositivo / localização em cache
+let _cachedDeviceInfo = null;
+
+async function obterInfoClienteDispositivo() {
+    if (_cachedDeviceInfo) return _cachedDeviceInfo;
+
+    let ip = '';
+    let cidade = '';
+    let nome_computador = '';
+
+    // Nome / identificação do computador / dispositivo
+    try {
+        const ua = navigator.userAgent;
+        let os = 'Dispositivo';
+        if (ua.includes('Windows NT 10.0')) os = 'Windows 10/11';
+        else if (ua.includes('Windows')) os = 'Windows PC';
+        else if (ua.includes('Macintosh')) os = 'Mac';
+        else if (ua.includes('Linux')) os = 'Linux';
+        else if (ua.includes('Android')) os = 'Android';
+        else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS Device';
+
+        // Tenta obter nome salvo localmente ou gera identificador amigável
+        let savedMachine = localStorage.getItem('app_device_name');
+        if (!savedMachine) {
+            savedMachine = `${os} (${navigator.platform || 'PC'})`;
+            localStorage.setItem('app_device_name', savedMachine);
+        }
+        nome_computador = savedMachine;
+    } catch(e) {
+        nome_computador = navigator.platform || 'Computador';
     }
+
+    // Tenta obter IP público e Cidade via serviço gratuito com timeout rápido
+    try {
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 2000);
+        const resp = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
+        clearTimeout(timeoutId);
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.ip) ip = data.ip;
+            if (data.city) {
+                cidade = data.region_code ? `${data.city} - ${data.region_code}` : data.city;
+            }
+        }
+    } catch(e) {
+        // Fallback rápido se falhar ou estiver sem internet externa
+        try {
+            const ctrl2 = new AbortController();
+            const timeoutId2 = setTimeout(() => ctrl2.abort(), 1500);
+            const resp2 = await fetch('https://api.ipify.org?format=json', { signal: ctrl2.signal });
+            clearTimeout(timeoutId2);
+            if (resp2.ok) {
+                const data2 = await resp2.json();
+                if (data2.ip) ip = data2.ip;
+            }
+        } catch(e2){}
+    }
+
+    _cachedDeviceInfo = { ip, cidade, nome_computador };
+    return _cachedDeviceInfo;
 }
 
 async function handleLogin(event) {
     event.preventDefault();
-    const usuarioInput = document.getElementById('login-usuario');
-    const senhaInput = document.getElementById('login-senha');
-    const feedbackUsuario = document.getElementById('login-usuario-feedback');
-    const feedbackSenha = document.getElementById('login-senha-feedback');
-    const btn = document.getElementById('btn-entrar');
+    const usuario = document.getElementById('login-usuario').value.trim();
+    const senha = document.getElementById('login-senha').value.trim();
 
-    limparErroLogin('login-usuario');
-    limparErroLogin('login-senha');
+    const devInfo = await obterInfoClienteDispositivo();
 
-    const usuario = usuarioInput.value.trim();
-    const senha = senhaInput.value.trim();
+    const data = await safeFetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            usuario,
+            senha,
+            ip: devInfo.ip,
+            cidade: devInfo.cidade,
+            nome_computador: devInfo.nome_computador
+        })
+    });
 
-    if (!usuario || !senha) {
-        showToast('Informe o e-mail e a senha para entrar.', 'error');
-        return;
-    }
-
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Entrando...';
-    }
-
-    try {
-        const data = await safeFetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario, senha })
-        });
-
-        if (data.success) {
-            currentUser = data.user;
-            setSessionUser(currentUser);
-            showToast(data.message, 'success');
-            iniciarAplicacao();
-        } else {
-            showToast(data.message, 'error');
-
-            if (data.code === 'INVALID_PASSWORD' || (data.message && data.message.toLowerCase().includes('senha incorreta'))) {
-                senhaInput.classList.add('input-error');
-                if (feedbackSenha) {
-                    feedbackSenha.style.display = 'flex';
-                    feedbackSenha.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Senha incorreta. Verifique a senha digitada ou redefina sua senha.';
-                }
-                senhaInput.focus();
-                senhaInput.select();
-            } else if (data.code === 'USER_NOT_FOUND' || (data.message && (data.message.toLowerCase().includes('não cadastrado') || data.message.toLowerCase().includes('não encontrado')))) {
-                usuarioInput.classList.add('input-error');
-                if (feedbackUsuario) {
-                    feedbackUsuario.style.display = 'flex';
-                    feedbackUsuario.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> E-mail não cadastrado no sistema.';
-                }
-                usuarioInput.focus();
-            }
-        }
-    } catch (e) {
-        showToast('Erro ao se conectar ao servidor.', 'error');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = 'Entrar';
-        }
+    if (data.success) {
+        currentUser = data.user;
+        setSessionUser(currentUser);
+        showToast(data.message, 'success');
+        iniciarAplicacao();
+    } else {
+        showToast(data.message, 'error');
     }
 }
 
@@ -1321,21 +1236,6 @@ async function handleRegister(event) {
     const senha = document.getElementById('reg-senha').value.trim();
     const id_unidade = document.getElementById('reg-unidade')?.value || null;
 
-    if (!usuario || !senha || !nome_usuario) {
-        showToast('Preencha todos os campos obrigatórios.', 'error');
-        return;
-    }
-
-    if (senha.length < 8) {
-        showToast('A senha deve possuir pelo menos 8 caracteres.', 'error');
-        return;
-    }
-
-    if (!/[A-Z]/.test(senha)) {
-        showToast('A senha deve conter pelo menos uma letra maiúscula.', 'error');
-        return;
-    }
-
     const data = await safeFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1345,267 +1245,18 @@ async function handleRegister(event) {
     if (data.success) {
         showToast(data.message, 'success');
         document.getElementById('form-register').reset();
-        validarRegrasSenhaRegistroIndex();
         toggleAuthMode('login');
     } else {
         showToast(data.message, 'error');
     }
 }
 
-let emailCheckTimeoutIndex = null;
-let lastCheckedEmailIndex = '';
-let emailExistsInSystemIndex = null;
-
-function agendarVerificacaoEmailIndex() {
-    clearTimeout(emailCheckTimeoutIndex);
-    const input = document.getElementById('forgot-usuario');
-    const feedback = document.getElementById('forgot-email-feedback');
-    if (feedback) feedback.style.display = 'none';
-    if (input) input.classList.remove('input-error', 'input-success');
-    emailExistsInSystemIndex = null;
-
-    emailCheckTimeoutIndex = setTimeout(() => {
-        verificarEmailEsqueciIndex(false);
-    }, 600);
-}
-
-async function verificarEmailEsqueciIndex(showToastOnError = false) {
-    const input = document.getElementById('forgot-usuario');
-    const feedback = document.getElementById('forgot-email-feedback');
-    if (!input || !feedback) return null;
-
-    const email = input.value.trim();
-    if (!email) {
-        feedback.style.display = 'none';
-        feedback.textContent = '';
-        input.classList.remove('input-error', 'input-success');
-        emailExistsInSystemIndex = null;
-        lastCheckedEmailIndex = '';
-        return null;
-    }
-
-    if (!email.includes('@') || !email.includes('.')) {
-        feedback.style.display = 'flex';
-        feedback.className = 'auth-field-feedback text-error';
-        feedback.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Formato de e-mail inválido.';
-        input.classList.add('input-error');
-        input.classList.remove('input-success');
-        emailExistsInSystemIndex = false;
-        if (showToastOnError) {
-            showToast('Por favor, informe um endereço de e-mail válido.', 'error');
-        }
-        return false;
-    }
-
-    try {
-        const data = await safeFetch(`/api/auth/verificar-email?email=${encodeURIComponent(email)}`);
-        lastCheckedEmailIndex = email;
-
-        if (data && data.exists) {
-            emailExistsInSystemIndex = true;
-            input.classList.remove('input-error');
-            input.classList.add('input-success');
-            feedback.style.display = 'flex';
-            feedback.className = 'auth-field-feedback text-success';
-            feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> E-mail verificado (${data.nome_usuario || 'Usuário cadastrado'})`;
-            return true;
-        } else {
-            emailExistsInSystemIndex = false;
-            input.classList.add('input-error');
-            input.classList.remove('input-success');
-            feedback.style.display = 'flex';
-            feedback.className = 'auth-field-feedback text-error';
-            feedback.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Este e-mail não está cadastrado no sistema.';
-            if (showToastOnError) {
-                showToast('O e-mail informado não está cadastrado no sistema.', 'error');
-            }
-            return false;
-        }
-    } catch (err) {
-        console.warn('Falha na checagem de e-mail:', err);
-        return null;
-    }
-}
-
-function validarRegrasSenhaEsqueciIndex() {
-    const input = document.getElementById('forgot-senha');
-    const ruleLen = document.getElementById('forgot-rule-length');
-    const ruleUpper = document.getElementById('forgot-rule-upper');
-    if (!input || !ruleLen || !ruleUpper) return;
-
-    const val = input.value;
-    
-    // Regra tamanho mínimo 8
-    if (val.length >= 8) {
-        ruleLen.classList.add('valid');
-        ruleLen.classList.remove('invalid');
-        ruleLen.querySelector('i').className = 'fa-solid fa-circle-check';
-    } else {
-        ruleLen.classList.remove('valid');
-        ruleLen.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
-        if (val.length > 0) ruleLen.classList.add('invalid'); else ruleLen.classList.remove('invalid');
-    }
-
-    // Regra letra maiúscula
-    if (/[A-Z]/.test(val)) {
-        ruleUpper.classList.add('valid');
-        ruleUpper.classList.remove('invalid');
-        ruleUpper.querySelector('i').className = 'fa-solid fa-circle-check';
-    } else {
-        ruleUpper.classList.remove('valid');
-        ruleUpper.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
-        if (val.length > 0) ruleUpper.classList.add('invalid'); else ruleUpper.classList.remove('invalid');
-    }
-
-    validarConfirmacaoSenhaEsqueciIndex();
-}
-
-function validarConfirmacaoSenhaEsqueciIndex() {
-    const senha = document.getElementById('forgot-senha');
-    const confirma = document.getElementById('forgot-confirma-senha');
-    const feedback = document.getElementById('forgot-match-feedback');
-    if (!senha || !confirma || !feedback) return;
-
-    if (!confirma.value) {
-        feedback.style.display = 'none';
-        feedback.textContent = '';
-        confirma.classList.remove('input-error', 'input-success');
-        return;
-    }
-
-    if (senha.value !== confirma.value) {
-        feedback.style.display = 'flex';
-        feedback.className = 'auth-field-feedback text-error';
-        feedback.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> As senhas não coincidem.';
-        confirma.classList.add('input-error');
-        confirma.classList.remove('input-success');
-    } else {
-        feedback.style.display = 'flex';
-        feedback.className = 'auth-field-feedback text-success';
-        feedback.innerHTML = '<i class="fa-solid fa-circle-check"></i> As senhas coincidem.';
-        confirma.classList.remove('input-error');
-        confirma.classList.add('input-success');
-    }
-}
-
-function validarRegrasSenhaRegistroIndex() {
-    const input = document.getElementById('reg-senha');
-    const ruleLen = document.getElementById('reg-rule-length');
-    const ruleUpper = document.getElementById('reg-rule-upper');
-    if (!input || !ruleLen || !ruleUpper) return;
-
-    const val = input.value;
-    if (val.length >= 8) {
-        ruleLen.classList.add('valid');
-        ruleLen.classList.remove('invalid');
-        ruleLen.querySelector('i').className = 'fa-solid fa-circle-check';
-    } else {
-        ruleLen.classList.remove('valid');
-        ruleLen.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
-        if (val.length > 0) ruleLen.classList.add('invalid'); else ruleLen.classList.remove('invalid');
-    }
-
-    if (/[A-Z]/.test(val)) {
-        ruleUpper.classList.add('valid');
-        ruleUpper.classList.remove('invalid');
-        ruleUpper.querySelector('i').className = 'fa-solid fa-circle-check';
-    } else {
-        ruleUpper.classList.remove('valid');
-        ruleUpper.querySelector('i').className = val.length > 0 ? 'fa-solid fa-circle-xmark' : 'fa-regular fa-circle';
-        if (val.length > 0) ruleUpper.classList.add('invalid'); else ruleUpper.classList.remove('invalid');
-    }
-}
-
-async function handleForgotPassword(event) {
-    event.preventDefault();
-    const usuario = document.getElementById('forgot-usuario').value.trim();
-    const senha = document.getElementById('forgot-senha').value.trim();
-    const confirma = document.getElementById('forgot-confirma-senha').value.trim();
-    const btn = document.getElementById('btn-forgot');
-
-    if (!usuario || !senha) {
-        showToast('Preencha todos os campos obrigatórios.', 'error');
-        return;
-    }
-
-    if (senha.length < 8) {
-        showToast('A nova senha deve possuir pelo menos 8 caracteres.', 'error');
-        document.getElementById('forgot-senha').focus();
-        return;
-    }
-
-    if (!/[A-Z]/.test(senha)) {
-        showToast('A nova senha deve conter pelo menos uma letra maiúscula.', 'error');
-        document.getElementById('forgot-senha').focus();
-        return;
-    }
-
-    if (senha !== confirma) {
-        showToast('As senhas não coincidem. Digite novamente.', 'error');
-        document.getElementById('forgot-confirma-senha').focus();
-        return;
-    }
-
-    if (emailExistsInSystemIndex === false && lastCheckedEmailIndex === usuario) {
-        showToast('O e-mail informado não está cadastrado no sistema.', 'error');
-        document.getElementById('forgot-usuario').focus();
-        return;
-    }
-
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitação...';
-    }
-
-    try {
-        const data = await safeFetch('/api/auth/esqueci-senha', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario, nova_senha: senha })
-        });
-
-        if (data.success) {
-            showToast(data.message, 'success');
-            document.getElementById('form-forgot').reset();
-            const fbEmail = document.getElementById('forgot-email-feedback');
-            const fbMatch = document.getElementById('forgot-match-feedback');
-            if (fbEmail) fbEmail.style.display = 'none';
-            if (fbMatch) fbMatch.style.display = 'none';
-            document.getElementById('forgot-usuario').classList.remove('input-success', 'input-error');
-            document.getElementById('forgot-confirma-senha').classList.remove('input-success', 'input-error');
-            validarRegrasSenhaEsqueciIndex();
-            setTimeout(() => {
-                toggleAuthMode('login');
-            }, 2500);
-        } else {
-            showToast(data.message, 'error');
-            if (data.message && data.message.toLowerCase().includes('não encontrado')) {
-                const inputEmail = document.getElementById('forgot-usuario');
-                const feedbackEmail = document.getElementById('forgot-email-feedback');
-                inputEmail.classList.add('input-error');
-                inputEmail.classList.remove('input-success');
-                if (feedbackEmail) {
-                    feedbackEmail.style.display = 'flex';
-                    feedbackEmail.className = 'auth-field-feedback text-error';
-                    feedbackEmail.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Este e-mail não está cadastrado no sistema.';
-                }
-            }
-        }
-    } catch (e) {
-        showToast('Erro ao se conectar ao servidor.', 'error');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = 'Solicitar Redefinição';
-        }
-    }
-}
-
 let inatividadeTimer;
-const INATIVIDADE_MS = 5 * 60 * 1000; // 5 minutes
+const INATIVIDADE_MS = 30 * 60 * 1000; // 30 minutes
 async function handleLogout() {
     if (currentUser && currentUser.id_usuario) {
         try {
+            const devInfo = await obterInfoClienteDispositivo();
             await safeFetch('/api/auditoria', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1613,7 +1264,10 @@ async function handleLogout() {
                     id_usuario: currentUser.id_usuario,
                     nome_usuario: currentUser.nome_usuario,
                     acao: 'LOGOUT',
-                    detalhes: 'Usuário saiu do sistema.'
+                    detalhes: 'Usuário saiu do sistema.',
+                    ip: devInfo.ip,
+                    cidade: devInfo.cidade,
+                    nome_computador: devInfo.nome_computador
                 })
             });
         } catch(e){}
@@ -3306,13 +2960,13 @@ function renderizarProdutosLote() {
             </td>
             <td style="text-align: center; font-weight: 600;">${p.estoque_atual}</td>
             <td onclick="event.stopPropagation()">
-                <input type="number" class="form-control input-qtd-lote" id="qtd-mov-${p.id_produto}" placeholder="Qtd" min="1" style="background: rgba(15, 23, 42, 0.6); color: #fff; font-weight: bold;">
+                <input type="number" class="form-control input-qtd-lote mov-nav-field" id="qtd-mov-${p.id_produto}" placeholder="Qtd" min="1" onkeydown="handleEnterNavegacaoLote(event, this)" oninput="const val = parseFloat(this.value); const chk = document.getElementById('chk-mov-${p.id_produto}'); if (chk) { chk.checked = (!isNaN(val) && val > 0); chk.closest('tr').classList.toggle('selected', chk.checked); }" style="background: rgba(15, 23, 42, 0.6); color: #fff; font-weight: bold;">
             </td>
             <td onclick="event.stopPropagation()">
-                <input type="number" step="0.01" min="0" class="form-control input-valor-lote" id="valor-mov-${p.id_produto}" value="${valorUnitPadrao > 0 ? valorUnitPadrao : ''}" placeholder="${movTipo === 'ENTRADA' ? 'Valor NF R$' : '0,00'}" title="${movTipo === 'ENTRADA' ? 'Valor unitário da Nota Fiscal (atualiza automaticamente o custo)' : 'Valor unitário'}" style="background: rgba(15, 23, 42, 0.6); color: #fff; font-weight: 600;">
+                <input type="number" step="0.01" min="0" class="form-control input-valor-lote mov-nav-field" id="valor-mov-${p.id_produto}" value="${valorUnitPadrao > 0 ? valorUnitPadrao : ''}" placeholder="${movTipo === 'ENTRADA' ? 'Valor NF R$' : '0,00'}" title="${movTipo === 'ENTRADA' ? 'Valor unitário da Nota Fiscal (atualiza automaticamente o custo)' : 'Valor unitário'}" onkeydown="handleEnterNavegacaoLote(event, this)" style="background: rgba(15, 23, 42, 0.6); color: #fff; font-weight: 600;">
             </td>
             <td onclick="event.stopPropagation()">
-                <input type="text" class="form-control input-obs-lote" id="obs-mov-${p.id_produto}" placeholder="Observações...">
+                <input type="text" class="form-control input-obs-lote mov-nav-field" id="obs-mov-${p.id_produto}" placeholder="Observações..." onkeydown="handleEnterNavegacaoLote(event, this)">
             </td>
         </tr>`;
     }
@@ -3323,6 +2977,33 @@ function renderizarProdutosLote() {
 
     tbody.innerHTML = html;
     document.getElementById('mov-check-all').checked = false;
+
+    // Foca e pré-seleciona a quantidade do primeiro item
+    setTimeout(() => {
+        const primeiroCampoQtd = tbody.querySelector('.input-qtd-lote');
+        if (primeiroCampoQtd) {
+            primeiroCampoQtd.focus();
+            primeiroCampoQtd.select();
+        }
+    }, 100);
+}
+
+// Navegação com a tecla ENTER entre os campos da tabela (Qtd -> Valor -> Obs -> próxima Qtd...)
+function handleEnterNavegacaoLote(event, currentInput) {
+    if (event.key === 'Enter') {
+        event.preventDefault(); // Evita o submit automático do formulário pelo Enter
+        const fields = Array.from(document.querySelectorAll('#table-produtos-lote .mov-nav-field'));
+        const index = fields.indexOf(currentInput);
+        if (index >= 0) {
+            const nextField = event.shiftKey ? fields[index - 1] : fields[index + 1];
+            if (nextField) {
+                nextField.focus();
+                if (typeof nextField.select === 'function') {
+                    nextField.select();
+                }
+            }
+        }
+    }
 }
 
 function filtrarProdutosLote() {
@@ -3366,30 +3047,49 @@ async function salvarMovimentacaoLote(event) {
         return;
     }
 
-    const selecionados = Array.from(document.querySelectorAll('.chk-mov-lote:checked'));
+    // Produtos selecionados: seja por checkbox marcado ou por ter digitado quantidade > 0
+    const trs = Array.from(document.querySelectorAll('#table-produtos-lote tr[data-prod-id]'));
+    const itensParaSalvar = [];
+
+    trs.forEach(tr => {
+        const id_produto = tr.getAttribute('data-prod-id');
+        const chk = document.getElementById(`chk-mov-${id_produto}`);
+        const qtdInput = document.getElementById(`qtd-mov-${id_produto}`);
+        const obsInput = document.getElementById(`obs-mov-${id_produto}`);
+        const valorInput = document.getElementById(`valor-mov-${id_produto}`);
+
+        const qtdVal = qtdInput ? qtdInput.value.trim() : '';
+        const qtdNum = parseFloat(qtdVal);
+
+        // Considera o produto se o checkbox estiver marcado OU se preencheu quantidade > 0
+        if ((chk && chk.checked) || (!isNaN(qtdNum) && qtdNum > 0)) {
+            itensParaSalvar.push({
+                id_produto: id_produto,
+                quantidade: qtdVal,
+                observacao: obsInput ? obsInput.value.trim() : '',
+                valor_unitario: valorInput && valorInput.value ? parseFloat(valorInput.value) : 0
+            });
+        }
+    });
     
-    if (selecionados.length === 0) {
-        showToast('Selecione pelo menos um produto para movimentar.', 'warning');
+    if (itensParaSalvar.length === 0) {
+        showToast('Informe a quantidade de pelo menos um produto para movimentar.', 'warning');
         return;
     }
 
     let itensInvalidos = false;
-    const payloads = selecionados.map(chk => {
-        const id_produto = chk.value;
-        const quantidade = document.getElementById(`qtd-mov-${id_produto}`).value;
-        const observacao = document.getElementById(`obs-mov-${id_produto}`).value;
-        const valor_unit = document.getElementById(`valor-mov-${id_produto}`).value;
-        
-        if (!quantidade || parseInt(quantidade) <= 0) {
+    const payloads = itensParaSalvar.map(item => {
+        const qtdNum = parseFloat(item.quantidade);
+        if (isNaN(qtdNum) || qtdNum <= 0) {
             itensInvalidos = true;
         }
 
         return {
-            id_produto: id_produto,
+            id_produto: item.id_produto,
             tipo_movimentacao: movTipo,
-            quantidade: quantidade,
-            valor_unitario: valor_unit ? parseFloat(valor_unit) : 0,
-            observacao: observacao.trim(),
+            quantidade: item.quantidade,
+            valor_unitario: item.valor_unitario,
+            observacao: item.observacao,
             data_movimentacao: movData,
             id_unidade: parseInt(movUnid),
             id_fornecedor: (movTipo === 'ENTRADA' && movForn) ? parseInt(movForn) : null,
@@ -3874,7 +3574,6 @@ async function carregarUsuarios() {
                 });
             }
             renderizarTabelaUsuarios();
-            atualizarBadgeUsuariosPendentes();
         } else {
             const tbody = document.getElementById('table-usuarios-body');
             if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erro ao carregar usuários: ${result.message}</td></tr>`;
@@ -3917,13 +3616,8 @@ function renderizarTabelaUsuarios() {
     if (buscaStatus) {
         filtrados = filtrados.filter(u => {
             const isAtivo = u.ativo !== false;
-            const hasSenhaPendente = Boolean(u.senha_pendente && String(u.senha_pendente).trim());
-            const isCadastroPendente = u.status_aprovacao === 'Pendente';
-
             if (buscaStatus === 'Aprovados') return (u.status_aprovacao === 'Aprovado' || !u.status_aprovacao) && isAtivo;
-            if (buscaStatus === 'Pendentes') return isCadastroPendente || hasSenhaPendente;
-            if (buscaStatus === 'SenhasPendentes') return hasSenhaPendente;
-            if (buscaStatus === 'CadastrosPendentes') return isCadastroPendente;
+            if (buscaStatus === 'Pendentes') return u.status_aprovacao === 'Pendente';
             if (buscaStatus === 'Inativos') return !isAtivo;
             if (buscaStatus === 'Rejeitados') return u.status_aprovacao === 'Rejeitado';
             return true;
@@ -4091,6 +3785,7 @@ const TODOS_MENUS = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'produtos', label: 'Produtos' },
     { key: 'movimentacoes', label: 'Movimentações (Grupo)' },
+    { key: 'registrar-movimentacoes', label: 'Registrar Movimentações' },
     { key: 'historico', label: 'Histórico' },
     { key: 'transferencias', label: 'Transferências' },
     { key: 'relatorios', label: 'Relatórios (Grupo)' },
@@ -4309,16 +4004,6 @@ async function solicitarTrocaSenha(event) {
     event.preventDefault();
     const senha_atual = document.getElementById('ts-senha-atual').value;
     const nova_senha = document.getElementById('ts-nova-senha').value;
-
-    if (!nova_senha || nova_senha.length < 8) {
-        showToast('A nova senha deve possuir pelo menos 8 caracteres.', 'error');
-        return;
-    }
-
-    if (!/[A-Z]/.test(nova_senha)) {
-        showToast('A nova senha deve conter pelo menos uma letra maiúscula.', 'error');
-        return;
-    }
 
     const result = await safeFetch('/api/auth/users/solicitar-senha', {
         method: 'POST',
@@ -5009,44 +4694,21 @@ function imprimirRelatorioSugestaoCompras() {
 }
 
 async function atualizarBadgeUsuariosPendentes() {
-    if (typeof currentUser === 'undefined' || !currentUser || currentUser.nivel_acesso !== 'Administrador') {
-        return;
-    }
-    try {
+    if (currentUser && currentUser.nivel_acesso === 'Administrador') {
         const result = await safeFetch('/api/auth/users');
-        if (result && result.success && Array.isArray(result.users)) {
-            const cadastrosPendentes = result.users.filter(u => u.status_aprovacao === 'Pendente').length;
-            const senhasPendentes = result.users.filter(u => Boolean(u.senha_pendente && String(u.senha_pendente).trim())).length;
-            const totalPendentes = cadastrosPendentes + senhasPendentes;
-
+        if (result.success && result.users) {
+            const pendentes = result.users.filter(u => u.status_aprovacao === 'Pendente').length;
             const badges = document.querySelectorAll('#badge-usuarios-pendentes');
             badges.forEach(badge => {
-                if (totalPendentes > 0) {
-                    badge.textContent = totalPendentes;
+                if (pendentes > 0) {
+                    badge.textContent = pendentes;
                     badge.style.display = 'inline-block';
-
-                    const detalhes = [];
-                    if (cadastrosPendentes > 0) detalhes.push(`${cadastrosPendentes} novo(s) cadastro(s)`);
-                    if (senhasPendentes > 0) detalhes.push(`${senhasPendentes} mudança(s) de senha`);
-                    badge.title = `Pendências de Usuários: ${detalhes.join(' • ')}`;
                 } else {
                     badge.style.display = 'none';
-                    badge.title = '';
                 }
             });
         }
-    } catch (e) {
-        console.warn("Erro ao atualizar badge de pendências:", e);
     }
-}
-
-// Polling do badge de pendências a cada 20 segundos para administradores
-if (!window._intervalBadgeUsuarios) {
-    window._intervalBadgeUsuarios = setInterval(() => {
-        if (typeof currentUser !== 'undefined' && currentUser && currentUser.nivel_acesso === 'Administrador') {
-            atualizarBadgeUsuariosPendentes();
-        }
-    }, 20000);
 }
 
 // ============================================================================
@@ -7600,7 +7262,7 @@ async function preencherFiltroUsuariosAuditoria() {
 async function carregarAuditoria() {
     const tb = document.getElementById('table-auditoria-body');
     if (!tb) return;
-    tb.innerHTML = '<tr><td colspan="6" class="text-center">Carregando...</td></tr>';
+    tb.innerHTML = '<tr><td colspan="7" class="text-center">Carregando...</td></tr>';
 
     const dataIni = document.getElementById('filter-auditoria-inicio').value;
     const dataFim = document.getElementById('filter-auditoria-fim').value;
@@ -7615,30 +7277,93 @@ async function carregarAuditoria() {
 
     try {
         const result = await safeFetch(url);
-        if (result.success && result.logs && result.logs.length > 0) {
+        if (result.success && result.logs.length > 0) {
             tb.innerHTML = result.logs.map(log => {
                 const dt = new Date(log.data_hora);
                 const dataFmt = dt.toLocaleDateString('pt-BR') + ' ' + dt.toLocaleTimeString('pt-BR');
                 let badgeClass = 'badge-primary';
                 if (log.acao === 'LOGOUT') badgeClass = 'badge-secondary';
-                if (log.acao.includes('EXCLUSÃO') || log.acao.includes('EXCLUSAO') || log.acao === 'DELETE' || log.acao === 'SENHA_REJEITADA') badgeClass = 'badge-danger';
-                if (log.acao === 'SENHA_APROVADA') badgeClass = 'badge-success';
+                if (log.acao.includes('EXCLUSÃO') || log.acao.includes('EXCLUSAO') || log.acao === 'DELETE') badgeClass = 'badge-danger';
                 
+                const ipFmt = log.ip || '-';
+                const compFmt = log.nome_computador || '-';
+                const cidadeFmt = log.cidade || '-';
+
                 return `
                     <tr>
                         <td>${dataFmt}</td>
-                        <td>${log.nome_usuario || 'Desconhecido'}</td>
+                        <td><strong>${log.nome_usuario || 'Desconhecido'}</strong></td>
                         <td><span class="badge ${badgeClass}">${log.acao}</span></td>
-                        <td><code>${log.ip || '-'}</code></td>
-                        <td><strong>${log.nome_computador || '-'}</strong></td>
+                        <td><code>${ipFmt}</code></td>
+                        <td><small>${compFmt}</small></td>
+                        <td>${cidadeFmt}</td>
                         <td>${log.detalhes || ''}</td>
                     </tr>
                 `;
             }).join('');
         } else {
-            tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum log encontrado.</td></tr>';
+            tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum log encontrado.</td></tr>';
         }
     } catch (e) {
-        tb.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar logs.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar logs.</td></tr>';
     }
 }
+
+// --- CONTROLE DE TELA CHEIA (FULLSCREEN) ---
+function toggleFullscreenModal(contentId, btn) {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+    const isFullscreen = content.classList.toggle('modal-fullscreen');
+    if (btn) {
+        const icon = btn.querySelector('i');
+        if (icon) {
+            if (isFullscreen) {
+                icon.classList.remove('fa-expand');
+                icon.classList.add('fa-compress');
+                btn.title = 'Restaurar Tamanho Padrão';
+            } else {
+                icon.classList.remove('fa-compress');
+                icon.classList.add('fa-expand');
+                btn.title = 'Maximizar Tela Cheia';
+            }
+        }
+    }
+}
+
+function toggleFullscreenApp() {
+    const icon = document.getElementById('icon-fullscreen-app');
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+            if (icon) {
+                icon.classList.remove('fa-expand');
+                icon.classList.add('fa-compress');
+            }
+        }).catch(err => {
+            console.warn('Erro ao entrar em tela cheia:', err.message);
+        });
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().then(() => {
+                if (icon) {
+                    icon.classList.remove('fa-compress');
+                    icon.classList.add('fa-expand');
+                }
+            }).catch(err => {
+                console.warn('Erro ao sair de tela cheia:', err.message);
+            });
+        }
+    }
+}
+
+document.addEventListener('fullscreenchange', () => {
+    const icon = document.getElementById('icon-fullscreen-app');
+    if (icon) {
+        if (document.fullscreenElement) {
+            icon.classList.remove('fa-expand');
+            icon.classList.add('fa-compress');
+        } else {
+            icon.classList.remove('fa-compress');
+            icon.classList.add('fa-expand');
+        }
+    }
+});

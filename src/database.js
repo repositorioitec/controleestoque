@@ -263,12 +263,16 @@ async function init_db() {
         id_usuario INT REFERENCES tbl_usuarios(id_usuario) ON DELETE SET NULL,
         nome_usuario VARCHAR(150),
         acao VARCHAR(50) NOT NULL,
-        detalhes TEXT
+        detalhes TEXT,
+        ip VARCHAR(50),
+        nome_computador VARCHAR(150),
+        cidade VARCHAR(150)
       );
 
       ALTER TABLE tbl_auditoria
-        ADD COLUMN IF NOT EXISTS ip VARCHAR(100),
-        ADD COLUMN IF NOT EXISTS nome_computador VARCHAR(150);
+        ADD COLUMN IF NOT EXISTS ip VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS nome_computador VARCHAR(150),
+        ADD COLUMN IF NOT EXISTS cidade VARCHAR(150);
     `).catch(e => console.error("Aviso ao criar tbl_auditoria:", e.message));
 
     // Criando Índices de Performance (Foreign Keys e Filtros)
@@ -312,11 +316,11 @@ async function init_db() {
 
 // --- AUDITORIA ---
 
-async function registrar_log(id_usuario, nome_usuario, acao, detalhes, ip = null, nome_computador = null) {
+async function registrar_log(id_usuario, nome_usuario, acao, detalhes, ip = null, nome_computador = null, cidade = null) {
   try {
     await pool.query(
-      "INSERT INTO tbl_auditoria (id_usuario, nome_usuario, acao, detalhes, ip, nome_computador) VALUES ($1, $2, $3, $4, $5, $6)",
-      [id_usuario || null, nome_usuario || 'Sistema', acao, detalhes || '', ip || null, nome_computador || null]
+      "INSERT INTO tbl_auditoria (id_usuario, nome_usuario, acao, detalhes, ip, nome_computador, cidade) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [id_usuario || null, nome_usuario || 'Sistema', acao, detalhes || '', ip || null, nome_computador || null, cidade || null]
     );
   } catch (err) {
     console.error("Erro ao registrar log de auditoria:", err.message);
@@ -375,7 +379,7 @@ async function atualizar_unidade(id_unidade, nome_unidade, endereco = "", cnpj =
 
 // --- USUÁRIOS E AUTENTICAÇÃO ---
 
-async function autenticar_usuario(usuario, senha, ip = null, nome_computador = null) {
+async function autenticar_usuario(usuario, senha, client_info = {}) {
   const res = await pool.query(
     `SELECT u.*, un.nome_unidade,
             COALESCE(
@@ -392,36 +396,25 @@ async function autenticar_usuario(usuario, senha, ip = null, nome_computador = n
             ) as categorias_acesso
      FROM tbl_usuarios u
      LEFT JOIN tbl_unidades_operacionais un ON u.id_unidade = un.id_unidade
-     WHERE LOWER(u.usuario) = LOWER($1)`,
-    [usuario.trim()]
+     WHERE LOWER(u.usuario) = LOWER($1) AND u.senha = $2`,
+    [usuario.trim(), senha]
   );
-  if (res.rows.length === 0) {
-    const err = new Error("E-mail não cadastrado no sistema. Verifique o endereço digitado.");
-    err.code = 'USER_NOT_FOUND';
-    throw err;
-  }
-
+  if (res.rows.length === 0) return null;
   const user = res.rows[0];
-
-  if (user.senha !== senha) {
-    const err = new Error("Senha incorreta. Verifique a senha digitada e tente novamente.");
-    err.code = 'INVALID_PASSWORD';
-    throw err;
-  }
   
   if (user.status_aprovacao !== 'Aprovado') {
-    const err = new Error(`Seu cadastro está com status '${user.status_aprovacao}'. Aguarde a aprovação do administrador.`);
-    err.code = 'PENDING_APPROVAL';
-    throw err;
+    throw new Error(`Seu cadastro está com status '${user.status_aprovacao}'. Aguarde a aprovação do administrador.`);
   }
 
   if (user.ativo === false) {
-    const err = new Error("Seu usuário está inativado no sistema. Entre em contato com o administrador.");
-    err.code = 'USER_INACTIVE';
-    throw err;
+    throw new Error("Seu usuário está inativado no sistema. Entre em contato com o administrador.");
   }
 
-  await registrar_log(user.id_usuario, user.nome_usuario, 'LOGIN', 'Usuário autenticado com sucesso.', ip, nome_computador).catch(() => {});
+  const ip = client_info.ip || null;
+  const nome_computador = client_info.nome_computador || null;
+  const cidade = client_info.cidade || null;
+
+  await registrar_log(user.id_usuario, user.nome_usuario, 'LOGIN', 'Usuário autenticado com sucesso.', ip, nome_computador, cidade);
 
   return {
     id_usuario: user.id_usuario,
@@ -629,89 +622,23 @@ async function atualizar_avatar_usuario(id_usuario, avatar_base64) {
   return true;
 }
 
-async function buscar_usuario_por_email(usuario) {
-  const usuarioFormatado = (usuario || '').trim().toLowerCase();
-  const res = await pool.query(
-    "SELECT id_usuario, nome_usuario, usuario, ativo, status_aprovacao FROM tbl_usuarios WHERE LOWER(usuario) = $1",
-    [usuarioFormatado]
-  );
-  return res.rows.length > 0 ? res.rows[0] : null;
-}
-
 async function solicitar_troca_senha(id_usuario, nova_senha) {
-  if (!nova_senha || nova_senha.length < 8) {
-    throw new Error("A nova senha deve possuir pelo menos 8 caracteres.");
-  }
-  if (!/[A-Z]/.test(nova_senha)) {
-    throw new Error("A nova senha deve conter pelo menos uma letra maiúscula.");
-  }
   await pool.query("UPDATE tbl_usuarios SET senha_pendente = $1 WHERE id_usuario = $2", [nova_senha, id_usuario]);
   return true;
 }
 
-async function solicitar_recuperacao_senha(usuario, nova_senha, ip = null, nome_computador = null) {
-  const usuarioFormatado = (usuario || '').trim().toLowerCase();
-  const res = await pool.query(
-    "SELECT id_usuario, nome_usuario, usuario, ativo, status_aprovacao FROM tbl_usuarios WHERE LOWER(usuario) = $1",
-    [usuarioFormatado]
-  );
-  
-  if (res.rows.length === 0) {
-    throw new Error("E-mail não encontrado no sistema. Verifique o endereço digitado.");
-  }
-  
-  const user = res.rows[0];
-  
-  if (user.ativo === false) {
-    throw new Error("Este usuário está inativado no sistema. Entre em contato com o administrador.");
-  }
-
-  if (!nova_senha || nova_senha.length < 8) {
-    throw new Error("A nova senha deve possuir pelo menos 8 caracteres.");
-  }
-
-  if (!/[A-Z]/.test(nova_senha)) {
-    throw new Error("A nova senha deve conter pelo menos uma letra maiúscula.");
-  }
-
-  await pool.query(
-    "UPDATE tbl_usuarios SET senha_pendente = $1 WHERE id_usuario = $2",
-    [nova_senha, user.id_usuario]
-  );
-
-  await registrar_log(
-    user.id_usuario,
-    user.nome_usuario,
-    'SOLICITACAO_SENHA',
-    'Solicitou redefinição de senha na tela de login.',
-    ip,
-    nome_computador
-  ).catch(() => {});
-
-  return {
-    id_usuario: user.id_usuario,
-    nome_usuario: user.nome_usuario,
-    usuario: user.usuario
-  };
-}
-
-async function aprovar_senha_pendente(id_usuario, ip = null, nome_computador = null) {
-  const res = await pool.query("SELECT senha_pendente, nome_usuario FROM tbl_usuarios WHERE id_usuario = $1", [id_usuario]);
+async function aprovar_senha_pendente(id_usuario) {
+  const res = await pool.query("SELECT senha_pendente FROM tbl_usuarios WHERE id_usuario = $1", [id_usuario]);
   if (res.rows.length === 0 || !res.rows[0].senha_pendente) {
     throw new Error("Nenhuma solicitação de troca de senha pendente para este usuário.");
   }
   const nova_senha = res.rows[0].senha_pendente;
-  const nome_usuario = res.rows[0].nome_usuario || 'Usuário';
   await pool.query("UPDATE tbl_usuarios SET senha = $1, senha_pendente = NULL WHERE id_usuario = $2", [nova_senha, id_usuario]);
-  await registrar_log(id_usuario, nome_usuario, 'SENHA_APROVADA', 'Nova senha aprovada pelo administrador.', ip, nome_computador).catch(() => {});
   return true;
 }
 
-async function rejeitar_senha_pendente(id_usuario, ip = null, nome_computador = null) {
-  const res = await pool.query("SELECT nome_usuario FROM tbl_usuarios WHERE id_usuario = $1", [id_usuario]);
-  const nome_usuario = res.rows.length > 0 ? res.rows[0].nome_usuario : 'Usuário';
+async function rejeitar_senha_pendente(id_usuario) {
   await pool.query("UPDATE tbl_usuarios SET senha_pendente = NULL WHERE id_usuario = $1", [id_usuario]);
-  await registrar_log(id_usuario, nome_usuario, 'SENHA_REJEITADA', 'Solicitação de nova senha rejeitada pelo administrador.', ip, nome_computador).catch(() => {});
   return true;
 }
 
@@ -1679,7 +1606,6 @@ module.exports = {
     documentos_excluir,
 
   init_db,
-  buscar_usuario_por_email,
   listar_unidades,
   cadastrar_unidade,
   atualizar_unidade,
@@ -1695,7 +1621,6 @@ module.exports = {
   inativar_usuario,
   ativar_usuario,
   solicitar_troca_senha,
-  solicitar_recuperacao_senha,
   aprovar_senha_pendente,
   rejeitar_senha_pendente,
   listar_categorias,
