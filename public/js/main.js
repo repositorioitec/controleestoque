@@ -29,19 +29,34 @@ const LocalDB = {
             ]));
         }
         let users = JSON.parse(localStorage.getItem('gh_usuarios') || '[]');
+        const defaultUsers = [
+            { id_usuario: 1, usuario: "admin@itec.com", senha: "admin123", nome_usuario: "Administrador do Sistema", nivel_acesso: "Administrador", id_unidade: 1, status_aprovacao: "Aprovado", nome_unidade: "Unidade Matriz" },
+            { id_usuario: 10, usuario: "clodoaldo.silva@itecensino.com.br", senha: "admin", nome_usuario: "Clodoaldo Jose da Silva", nivel_acesso: "Administrador", id_unidade: 1, status_aprovacao: "Aprovado", nome_unidade: "Unidade Matriz" },
+            { id_usuario: 26, usuario: "clodoaldo.mail@gmail.com", senha: "admin", nome_usuario: "Clodoaldo (Teste)", nivel_acesso: "Administrador", id_unidade: 1, status_aprovacao: "Aprovado", nome_unidade: "Unidade Matriz" },
+            { id_usuario: 37, usuario: "clodoaldo.itec@gmail.com", senha: "admin", nome_usuario: "ADM", nivel_acesso: "Administrador", id_unidade: 1, status_aprovacao: "Aprovado", nome_unidade: "Unidade Matriz" },
+            { id_usuario: 99, usuario: "clodoaldo.mail@hotmail.com", senha: "admin", nome_usuario: "Clodoaldo Jose da Silva", nivel_acesso: "Administrador", id_unidade: 1, status_aprovacao: "Aprovado", nome_unidade: "Unidade Matriz" }
+        ];
+
+        let updated = false;
         if (!users.length) {
-            users = [{ id_usuario: 1, usuario: "admin@itec.com", senha: "admin123", nome_usuario: "Administrador do Sistema", nivel_acesso: "Administrador", id_unidade: 1, status_aprovacao: "Aprovado", nome_unidade: "Unidade Matriz" }];
-            localStorage.setItem('gh_usuarios', JSON.stringify(users));
+            users = defaultUsers;
+            updated = true;
         } else {
-            let updated = false;
+            defaultUsers.forEach(defU => {
+                const existe = users.find(u => (u.usuario || '').trim().toLowerCase() === defU.usuario.toLowerCase());
+                if (!existe) {
+                    users.push(defU);
+                    updated = true;
+                }
+            });
             users.forEach(u => {
                 if (u.usuario === 'admin') {
                     u.usuario = 'admin@itec.com';
                     updated = true;
                 }
             });
-            if (updated) localStorage.setItem('gh_usuarios', JSON.stringify(users));
         }
+        if (updated) localStorage.setItem('gh_usuarios', JSON.stringify(users));
         if (!localStorage.getItem('gh_categorias')) {
             localStorage.setItem('gh_categorias', JSON.stringify([
                 { id_categoria: 1, nome_categoria: "Eletrônicos" },
