@@ -6,39 +6,53 @@ dotenv.config();
 function getDbUrl() {
   const url = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
   if (!url) {
-    throw new Error(
-      "Variável de ambiente DATABASE_URL não encontrada!\n" +
-      "Configure DATABASE_URL no painel do Render (ou no arquivo .env para uso local).\n" +
-      "Exemplo: postgresql://postgres:SENHA@db.projeto.supabase.co:5432/postgres"
-    );
+    return null;
   }
   return url.trim();
 }
 
-const pool = new Pool({
-  connectionString: getDbUrl(),
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  ssl: { rejectUnauthorized: false },
-  options: '-c search_path=public'
-});
+const dbConnectionString = getDbUrl();
 
-// Garante que todas as conexões do pool utilizem o schema 'public'
-pool.on('connect', (client) => {
-  client.query('SET search_path TO public;').catch(() => {});
-});
+let pool;
+if (!dbConnectionString) {
+  console.warn("⚠️ [Atenção / Render] Variável de ambiente DATABASE_URL não encontrada!");
+  console.warn("   Para conectar ao Supabase em produção, cadastre DATABASE_URL nas variáveis de ambiente do Render.");
+} else {
+  pool = new Pool({
+    connectionString: dbConnectionString,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    ssl: { rejectUnauthorized: false },
+    options: '-c search_path=public'
+  });
 
-// Tratamento de erro para conexões inativas/ociosas no pool
-// Evita que o Node.js encerre com 'Unhandled error event' quando o Supabase fecha conexões por inatividade
-pool.on('error', (err, client) => {
-  console.warn('⚠️ [PostgreSQL Pool] Aviso: Conexão inativa encerrada ou reconectando:', err.message);
-});
+  // Garante que todas as conexões do pool utilizem o schema 'public'
+  pool.on('connect', (client) => {
+    client.query('SET search_path TO public;').catch(() => {});
+  });
+
+  // Tratamento de erro para conexões inativas/ociosas no pool
+  pool.on('error', (err, client) => {
+    console.warn('⚠️ [PostgreSQL Pool] Aviso: Conexão inativa encerrada ou reconectando:', err.message);
+  });
+}
 
 async function init_db() {
-  const client = await pool.connect();
+  if (!pool) {
+    console.warn("⚠️ [init_db] Banco de dados ignorado na inicialização pois DATABASE_URL não está configurada.");
+    return false;
+  }
+  let client;
   try {
+    client = await pool.connect();
     await client.query('SET search_path TO public;');
+  } catch (connErr) {
+    console.error("❌ [init_db] Não foi possível conectar ao banco de dados no início:", connErr.message);
+    return false;
+  }
+
+  try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS tbl_unidades_operacionais (
           id_unidade SERIAL PRIMARY KEY,
@@ -750,14 +764,18 @@ async function obter_ultimo_custo_produto(id_produto) {
   return 0.0;
 }
 
-async function listar_produtos(busca = "", categoria_id = null, id_unidade = null, incluir_inativos = false, id_usuario = null, nivel_acesso = null) {
+async function listar_produtos(busca = "", categoria_id = null, id_unidade = null, incluir_inativos = false, id_usuario = null, nivel_acesso = null, status = null) {
   let where_conditions = [];
   let params = [];
   let p = 1;
 
-  if (!incluir_inativos) {
+  const statusFiltro = status ? String(status).toLowerCase().trim() : (incluir_inativos ? 'ambos' : 'ativo');
+  if (statusFiltro === 'inativo') {
+    where_conditions.push("p.inativo = TRUE");
+  } else if (statusFiltro === 'ativo') {
     where_conditions.push("p.inativo = FALSE");
   }
+  // Se for 'ambos', não adiciona condição para p.inativo (exibe todos)
 
   if (busca && busca.trim()) {
     where_conditions.push(`(LOWER(p.nome_produto) LIKE LOWER($${p}) OR LOWER(p.codigo_barras) LIKE LOWER($${p}))`);
@@ -787,7 +805,7 @@ async function listar_produtos(busca = "", categoria_id = null, id_unidade = nul
 
   const sql = `
     SELECT p.id_produto, p.codigo_barras, p.nome_produto, p.id_categoria, p.id_fornecedor,
-           p.id_unidade, p.estoque_minimo, p.preco_custo, p.preco_venda, p.inativo,
+           p.id_unidade, p.estoque_minimo, p.preco_custo, p.preco_venda, p.inativo, p.imagem,
            p.id_usuario, us.nome_usuario AS nome_usuario_cadastro,
            c.nome_categoria, f.nome_fornecedor, u.nome_unidade
     FROM tbl_produtos p
@@ -817,6 +835,7 @@ async function listar_produtos(busca = "", categoria_id = null, id_unidade = nul
       id_produto: r.id_produto,
       codigo_barras: r.codigo_barras || "",
       nome_produto: r.nome_produto,
+      imagem: r.imagem || null,
       id_categoria: r.id_categoria,
       nome_categoria: r.nome_categoria || "Sem Categoria",
       id_fornecedor: r.id_fornecedor,
@@ -1620,7 +1639,19 @@ async function cursos_excluir(id_curso) {
     return true;
 }
 
+async function testar_conexao() {
+  if (!pool) return false;
+  try {
+    const res = await pool.query('SELECT 1 AS ok');
+    return !!(res && res.rows && res.rows.length > 0);
+  } catch (e) {
+    console.warn('⚠️ [testar_conexao] Falha ao testar conexão:', e.message);
+    return false;
+  }
+}
+
 module.exports = {
+    testar_conexao,
     get_last_db_update,
     cursos_listar,
     cursos_salvar,

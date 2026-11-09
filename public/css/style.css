@@ -1232,16 +1232,32 @@ select option {
 .panel-header-triple {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: nowrap;
+    width: 100%;
 }
 
 .panel-header-triple .search-box {
     flex: 1;
+    min-width: 130px;
     width: auto;
 }
 
 .panel-header-triple .filter-group {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+
+.panel-header-triple .filter-group select {
+    width: auto;
+}
+
+.panel-header-triple .btn {
+    white-space: nowrap;
     flex-shrink: 0;
 }
 

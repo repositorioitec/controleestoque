@@ -504,9 +504,15 @@ const LocalDB = {
             const catId = params.get('categoria_id');
             const unidId = params.get('id_unidade');
             const incluirInativos = params.get('incluir_inativos') === 'true' || params.get('incluir_inativos') === '1';
+            const statusParam = (params.get('status') || '').toLowerCase();
+            const statusFiltro = statusParam || (incluirInativos ? 'ambos' : 'ativo');
 
             let prods = this.get('produtos');
-            if (!incluirInativos) prods = prods.filter(p => !p.inativo);
+            if (statusFiltro === 'inativo') {
+                prods = prods.filter(p => !!p.inativo);
+            } else if (statusFiltro === 'ativo') {
+                prods = prods.filter(p => !p.inativo);
+            }
             if (busca) prods = prods.filter(p => p.nome_produto.toLowerCase().includes(busca) || (p.codigo_barras && p.codigo_barras.includes(busca)));
             if (catId) prods = prods.filter(p => p.id_categoria == catId);
             if (unidId) prods = prods.filter(p => !p.id_unidade || p.id_unidade == unidId);
@@ -2110,15 +2116,12 @@ async function carregarProdutos() {
     const busca = (document.getElementById('filter-produto-busca')?.value || '');
     const nomeEl = document.getElementById('filter-produto-nome');
     const nomeFiltro = nomeEl ? nomeEl.value.trim().toLowerCase() : '';
-    const catId = document.getElementById('filter-produto-categoria').value;
-    const incluirInativos = document.getElementById('filter-produto-inativos')?.checked || false;
+    const catId = document.getElementById('filter-produto-categoria')?.value || '';
+    const statusVal = document.getElementById('filter-produto-status')?.value || 'ativo';
 
-    let url = `/api/produtos?busca=${encodeURIComponent(busca)}&categoria_id=${encodeURIComponent(catId)}`;
+    let url = `/api/produtos?busca=${encodeURIComponent(busca)}&categoria_id=${encodeURIComponent(catId)}&status=${encodeURIComponent(statusVal)}`;
     if (selectedUnitId) {
         url += `&id_unidade=${selectedUnitId}`;
-    }
-    if (incluirInativos) {
-        url += `&incluir_inativos=true`;
     }
 
     const result = await safeFetch(url);
@@ -2148,7 +2151,9 @@ function renderizarTabelaProdutos(produtos) {
         const statusTexto = p.inativo ? 'Inativo' : p.status_estoque;
         const opacidade = p.inativo ? 'opacity: 0.5;' : '';
 
-        const imgHtml = p.imagem ? `<img src="${p.imagem}" onclick="abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 4px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+        const imgHtml = p.imagem 
+            ? `<img src="${p.imagem}" onclick="abrirImagemAmpliadaProduto(${p.id_produto})" title="Clique para ampliar a imagem no meio da tela" style="width: 42px; height: 42px; border-radius: 6px; object-fit: cover; border: 1.5px solid var(--accent-blue, #0f67b1); cursor: zoom-in; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" onmouseover="this.style.transform='scale(1.15)'; this.style.borderColor='var(--accent-cyan, #38bdf8)'" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='var(--accent-blue, #0f67b1)'">` 
+            : `<div style="width: 42px; height: 42px; border-radius: 6px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color); color: var(--text-muted);" title="Sem imagem cadastrada"><i class="fa-solid fa-box"></i></div>`;
 
         return `
             <tr style="${opacidade}">
@@ -2175,6 +2180,174 @@ function renderizarTabelaProdutos(produtos) {
             </tr>
         `;
     }).join('');
+}
+
+function imprimirRelatorioProdutos() {
+    const buscaCodigo = document.getElementById('filter-produto-busca')?.value.trim() || '';
+    const buscaNome = document.getElementById('filter-produto-nome')?.value.trim() || '';
+    const selectCategoria = document.getElementById('filter-produto-categoria');
+    const nomeCategoria = selectCategoria && selectCategoria.selectedIndex > 0 ? selectCategoria.options[selectCategoria.selectedIndex].text : 'Todas as Categorias';
+    const selectStatus = document.getElementById('filter-produto-status');
+    const statusLabel = selectStatus && selectStatus.selectedIndex >= 0 ? selectStatus.options[selectStatus.selectedIndex].text : 'Ativo';
+    const nomeUnidade = getGlobalSelectedUnitName() || 'Todas as Unidades';
+
+    const produtos = produtosCache || [];
+    const now = new Date().toLocaleString('pt-BR');
+
+    let filtrosTexto = [];
+    if (nomeUnidade && nomeUnidade !== 'Todas as Unidades') filtrosTexto.push(`Unidade: <strong>${nomeUnidade}</strong>`);
+    if (nomeCategoria && nomeCategoria !== 'Todas as Categorias') filtrosTexto.push(`Categoria: <strong>${nomeCategoria}</strong>`);
+    filtrosTexto.push(`Status: <strong>${statusLabel}</strong>`);
+    if (buscaCodigo) filtrosTexto.push(`Cód. Barras: <strong>${buscaCodigo}</strong>`);
+    if (buscaNome) filtrosTexto.push(`Nome: <strong>${buscaNome}</strong>`);
+
+    const filtrosHtml = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Sem filtros específicos';
+
+    // Totais e KPIs
+    const totalItens = produtos.length;
+    let totalEstoqueQtd = 0;
+    let totalCustoEstoque = 0;
+
+    produtos.forEach(p => {
+        const est = parseInt(p.estoque_atual) || 0;
+        const custo = parseFloat(p.preco_custo) || 0;
+        totalEstoqueQtd += est;
+        if (est > 0) {
+            totalCustoEstoque += est * custo;
+        }
+    });
+
+    const linhasHtml = produtos.length > 0 ? produtos.map(p => {
+        let badgeClass = 'badge-success';
+        if (p.status_estoque === 'Baixo') badgeClass = 'badge-warning';
+        if (p.status_estoque === 'Zerado') badgeClass = 'badge-danger';
+        if (p.inativo) badgeClass = 'badge-danger';
+        const statusTexto = p.inativo ? 'Inativo' : (p.status_estoque || 'Ativo');
+
+        return `
+            <tr style="${p.inativo ? 'opacity: 0.65;' : ''}">
+                <td style="text-align: center; font-weight: 600;">#${p.id_produto}</td>
+                <td><code>${p.codigo_barras || '-'}</code></td>
+                <td><strong>${p.nome_produto}</strong></td>
+                <td>${p.nome_categoria || 'Sem Categoria'}</td>
+                <td>${p.nome_unidade || 'Global'}</td>
+                <td style="text-align: right; color: #b45309; font-weight: 600;">${formatarMoeda(p.preco_custo)}</td>
+                <td style="text-align: right; color: #15803d; font-weight: 600;">${formatarMoeda(p.preco_venda)}</td>
+                <td style="text-align: center; font-weight: 700; font-size: 13px;">${p.estoque_atual}</td>
+                <td style="text-align: center;"><span class="badge ${badgeClass}">${statusTexto}</span></td>
+                <td>${p.nome_usuario_cadastro || 'Sistema'}</td>
+            </tr>
+        `;
+    }).join('') : '<tr><td colspan="10" style="text-align: center; padding: 20px; color: #64748b;">Nenhum produto encontrado com os filtros selecionados.</td></tr>';
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Produtos - ITEC</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #1e293b; background: #ffffff; margin: 0; }
+        .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; border-bottom: 2px solid #0284c7; padding-bottom: 12px; }
+        .header h1 { font-size: 20px; margin: 0 0 4px 0; color: #0f172a; }
+        .header .meta { text-align: right; font-size: 11px; color: #64748b; line-height: 1.4; }
+        .filter-box { font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; color: #334155; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+        .kpi-card { padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; }
+        .kpi-card small { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+        .kpi-card h4 { margin: 0; font-size: 18px; color: #0f172a; font-weight: 700; }
+        .kpi-card.blue { border-color: #93c5fd; background: #eff6ff; }
+        .kpi-card.blue h4 { color: #1d4ed8; }
+        .kpi-card.green { border-color: #86efac; background: #f0fdf4; }
+        .kpi-card.green h4 { color: #15803d; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+        th { background: #0f172a; color: #ffffff; padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 600; }
+        td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; color: #334155; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        code { font-family: monospace; font-size: 11px; color: #0369a1; }
+        .badge { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; display: inline-block; }
+        .badge-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .badge-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .btn-imprimir-toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; gap: 8px; }
+        .btn-print { padding: 8px 14px; background: #0284c7; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-print:hover { background: #0369a1; }
+        @page { margin: 10mm; size: A4 landscape; }
+        @media print {
+            body { padding: 0; }
+            .no-print { display: none !important; }
+            .kpi-card { break-inside: avoid; }
+            tr { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="btn-imprimir-toolbar no-print">
+        <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+    </div>
+
+    <div class="header">
+        <div>
+            <h1>📋 Relatório de Cadastro e Gestão de Produtos</h1>
+            <small style="color: #64748b;">Sistema de Controle de Estoques - ITEC</small>
+        </div>
+        <div class="meta">
+            <strong>Gerado em:</strong> ${now}<br>
+            <strong>Usuário:</strong> ${currentUser ? currentUser.nome_usuario : 'Sistema'}
+        </div>
+    </div>
+
+    <div class="filter-box">
+        🔍 <strong>Filtros Aplicados:</strong> ${filtrosHtml}
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <small>Total de Produtos Listados</small>
+            <h4>${totalItens}</h4>
+        </div>
+        <div class="kpi-card blue">
+            <small>Saldo Total em Estoque</small>
+            <h4>${totalEstoqueQtd} itens</h4>
+        </div>
+        <div class="kpi-card green">
+            <small>Valor Total em Estoque (Custo)</small>
+            <h4>${formatarMoeda(totalCustoEstoque)}</h4>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40px; text-align: center;">ID</th>
+                <th>Cód. Barras</th>
+                <th>Produto</th>
+                <th>Categoria</th>
+                <th>Unidade</th>
+                <th style="text-align: right;">Custo</th>
+                <th style="text-align: right;">Venda</th>
+                <th style="text-align: center;">Saldo Atual</th>
+                <th style="text-align: center;">Status</th>
+                <th>Cadastrado por</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${linhasHtml}
+        </tbody>
+    </table>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+        win.document.write(html);
+        win.document.close();
+        setTimeout(() => {
+            win.focus();
+            win.print();
+        }, 250);
+    } else {
+        window.print();
+    }
 }
 
 function editarPrecoCelula(td, id_produto, campo) {
@@ -2271,14 +2444,37 @@ function previewImagemProduto(event) {
     reader.readAsDataURL(file);
 }
 
-function abrirImagemAmpliada(src) {
+function abrirImagemAmpliada(src, titulo = '') {
     if (!src) return;
     const imgEl = document.getElementById('img-ampliada-src');
+    const titleEl = document.getElementById('img-ampliada-title');
     if (imgEl) {
         imgEl.src = src;
-        document.getElementById('modal-imagem-ampliada').classList.remove('hidden');
+        if (titleEl) {
+            titleEl.innerHTML = `<i class="fa-solid fa-image text-primary"></i> ${titulo ? 'Produto: ' + titulo : 'Imagem do Produto'}`;
+        }
+        const modal = document.getElementById('modal-imagem-ampliada');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
     }
 }
+
+function abrirImagemAmpliadaProduto(id_produto) {
+    const prod = (produtosCache || []).find(p => p.id_produto == id_produto);
+    if (!prod || !prod.imagem) return;
+    abrirImagemAmpliada(prod.imagem, prod.nome_produto);
+}
+
+// Fechar modal de imagem com a tecla ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modalImg = document.getElementById('modal-imagem-ampliada');
+        if (modalImg && !modalImg.classList.contains('hidden')) {
+            modalImg.classList.add('hidden');
+        }
+    }
+});
 
 async function abrirModalProduto(id_produto = null) {
     document.getElementById('form-produto').reset();
@@ -3240,7 +3436,9 @@ function renderizarProdutosLote() {
         if (filtroTexto && !p.nome_produto.toLowerCase().includes(filtroTexto) && !(p.codigo_barras || '').toLowerCase().includes(filtroTexto)) continue;
         
         cont++;
-        const imgHtmlLote = p.imagem ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliada('${p.imagem}')" title="Clique para ampliar" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color); cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color);"><i class="fa-solid fa-box text-muted"></i></div>`;
+        const imgHtmlLote = p.imagem 
+            ? `<img src="${p.imagem}" onclick="event.stopPropagation(); abrirImagemAmpliadaProduto(${p.id_produto})" title="Clique para ampliar a imagem no meio da tela" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1.5px solid var(--accent-blue, #0f67b1); cursor: zoom-in; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">` 
+            : `<div style="width: 40px; height: 40px; border-radius: 6px; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px dashed var(--border-color); color: var(--text-muted);" title="Sem imagem cadastrada"><i class="fa-solid fa-box"></i></div>`;
         
         const valorUnitPadrao = movTipo === 'ENTRADA' ? (p.preco_custo || 0) : (p.preco_venda || p.preco_custo || 0);
 
