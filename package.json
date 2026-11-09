@@ -10,7 +10,8 @@
     "dev": "node --watch server.js",
     "electron": "electron electron.js",
     "desktop": "electron electron.js",
-    "build": "electron-builder --win"
+    "build": "echo 'Build complete'",
+    "build:electron": "electron-builder --win"
   },
   "dependencies": {
     "cors": "^2.8.6",

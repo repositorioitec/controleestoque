@@ -23,10 +23,12 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Inicializar o banco de dados
-database.init_db().catch(err => {
-  console.error("Falha ao inicializar o banco na partida do app:", err.message);
-  process.exit(1);
+// Inicializar o banco de dados de forma assíncrona sem travar a inicialização do servidor web
+database.init_db().then(() => {
+  console.log("✅ Banco de dados conectado e tabelas verificadas.");
+}).catch(err => {
+  console.warn("⚠️ Aviso: Falha ao inicializar o banco de dados na partida:", err.message);
+  console.warn("   Verifique se a variável DATABASE_URL está preenchida corretamente no painel do Render.");
 });
 
 // Rotas do Frontend
@@ -40,6 +42,29 @@ app.get('/login', (req, res) => {
 
 app.get('/login.html', (req, res) => {
   res.redirect('/');
+});
+
+// Endpoint de saúde / verificação do Render
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    hasDbUrl: !!(process.env.DATABASE_URL || process.env.SUPABASE_DB_URL)
+  });
+});
+
+// Endpoint leve de verificação de status do banco de dados
+app.get('/api/db-status', async (req, res) => {
+  try {
+    const conectado = await database.testar_conexao();
+    if (conectado) {
+      return res.json({ success: true, status: 'connected', provider: 'Supabase PostgreSQL' });
+    }
+    return res.status(503).json({ success: false, status: 'disconnected', message: 'Sem resposta do banco de dados' });
+  } catch (e) {
+    return res.status(503).json({ success: false, status: 'disconnected', message: e.message });
+  }
 });
 
 // --- API DE AUTENTICAÇÃO E USUÁRIOS ---
@@ -386,12 +411,13 @@ app.get('/api/produtos', async (req, res) => {
   const categoria_id = req.query.categoria_id ? parseInt(req.query.categoria_id) : null;
   const id_unidade = req.query.id_unidade ? parseInt(req.query.id_unidade) : null;
   const incluir_inativos = req.query.incluir_inativos === 'true' || req.query.incluir_inativos === '1';
+  const status = req.query.status ? req.query.status.toLowerCase() : (incluir_inativos ? 'ambos' : 'ativo');
 
   const id_usuario = req.headers['x-user-id'] ? parseInt(req.headers['x-user-id']) : null;
   const nivel_acesso = req.headers['x-user-nivel'] || null;
 
   try {
-    const produtos = await database.listar_produtos(busca, categoria_id, id_unidade, incluir_inativos, id_usuario, nivel_acesso);
+    const produtos = await database.listar_produtos(busca, categoria_id, id_unidade, incluir_inativos, id_usuario, nivel_acesso, status);
     return res.json({ success: true, produtos });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -917,11 +943,11 @@ app.post('/api/auditoria', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log("=========================================================");
   console.log("  INICIANDO CONTROLE DE ESTOQUES - ITEC (NODE.JS)");
   console.log("=========================================================");
-  console.log(`  Servidor web rodando em: http://127.0.0.1:${PORT}`);
+  console.log(`  Servidor web rodando na porta: ${PORT}`);
   console.log("  Pressione Ctrl+C para encerrar o servidor.");
   console.log("=========================================================");
 });
